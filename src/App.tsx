@@ -769,6 +769,7 @@ export default function App() {
       <StrategyGuideModal
         isOpen={isStrategyPdfOpen}
         onClose={() => setIsStrategyPdfOpen(false)}
+        config={config}
       />
 
       {/* Confirmation Modal for Clear All Base */}

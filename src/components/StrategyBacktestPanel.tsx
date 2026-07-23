@@ -17,9 +17,12 @@ import {
   ChevronUp,
   BarChart3,
   Dices,
-  RefreshCw
+  RefreshCw,
+  Download,
+  FileText
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig } from '../types';
+import { generateStrategyPDF } from '../utils/pdfStrategyGenerator';
 
 interface StrategyBacktestPanelProps {
   spins: SpinRecord[];
@@ -62,7 +65,7 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
   const [expandedHowTo, setExpandedHowTo] = useState<boolean>(true);
 
   const initialBankroll = config.initialBankroll || 100;
-  const unitBet = config.unitBase || 1;
+  const unitBet = config.defaultSpinCost || 10;
 
   // Run Backtests on current spins
   const backtestResults = useMemo<BacktestResult[]>(() => {
@@ -609,6 +612,14 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+            <button
+              onClick={() => generateStrategyPDF(config)}
+              className="px-5 py-4 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/40 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 shrink-0 hover:scale-[1.02]"
+            >
+              <Download className="w-4 h-4 text-amber-400" />
+              <span>Baixar PDF (Imprimir Guia)</span>
+            </button>
+
             <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-center shrink-0 min-w-[140px]">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Lucro Simulado</span>
               <span className={`text-xl font-black ${championStrategy?.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>

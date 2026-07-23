@@ -1,22 +1,29 @@
 import { jsPDF } from 'jspdf';
+import { BankrollConfig } from '../types';
 
-export function generateStrategyPDF(): void {
+export function generateStrategyPDF(config?: BankrollConfig): void {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
 
+  const currency = config?.currency || 'R$';
+  const unit = config?.defaultSpinCost || 10;
+  const initialBank = config?.initialBankroll || 100;
+  const stopLoss = config?.stopLossLimit || 50;
+  const targetProfit = config?.dailyGoal || 20;
+
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin = 14;
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
   const checkPageBreak = (neededHeight: number) => {
-    if (y + neededHeight > pageHeight - margin - 10) {
+    if (y + neededHeight > pageHeight - margin - 12) {
       doc.addPage();
-      y = margin + 10;
+      y = margin + 12;
       addPageHeaderFooter();
     }
   };
@@ -30,7 +37,7 @@ export function generateStrategyPDF(): void {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(100, 116, 139);
-      doc.text('ROLETA MASTER AI — MANUAL ESTRATÉGICO OFICIAL', margin, 10);
+      doc.text('ROLETA MASTER AI — MANUAL COMPLETO DE ESTRATÉGIAS E APOSTAS', margin, 10);
 
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.3);
@@ -41,172 +48,240 @@ export function generateStrategyPDF(): void {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(148, 163, 184);
-      doc.text('Documento gerado para gestão profissional de banca. Proibido distribuição comercial.', margin, pageHeight - 7);
-      doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin - 15, pageHeight - 7);
+      doc.text('Documento gerado para impressão e consulta prática em mesa de apostas.', margin, pageHeight - 7);
+      doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin - 18, pageHeight - 7);
     }
   };
 
   // --- CAPA / HEADER PRINCIPAL ---
-  // Background Header Box
   doc.setFillColor(15, 23, 42); // slate-900
-  doc.rect(margin, y, contentWidth, 32, 'F');
+  doc.rect(margin, y, contentWidth, 34, 'F');
 
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(245, 158, 11); // Amber accent
-  doc.text('ROLETA MASTER AI', margin + 8, y + 12);
+  doc.setTextColor(245, 158, 11); // Amber
+  doc.text('ROLETA MASTER AI — GUIA OFICIAL DE APOSTAS', margin + 8, y + 11);
 
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
-  doc.text('Manual Operacional Detalhado de Estratégia de Dúzias e Colunas', margin + 8, y + 20);
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184);
-  doc.text('Guia definitivo de Gestão de Banca, Amostragem de 100 Giros e Cobertura Estatística', margin + 8, y + 26);
-
-  y += 38;
-
-  // --- SEÇÃO 1: CONCEITO CHAVE DA AMOSTRAGEM ---
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text('1. O Princípio dos 100 Giros de Coleta (Amostra Inicial)', margin, y);
-  y += 6;
-
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(51, 65, 85);
-
-  const sec1Text = [
-    'A roleta europeia possui 37 números (0 a 36). Em curto prazo (menos de 30 giros), ocorrem anomalias causadas por vibrações do prato e tendências temporárias da mesa.',
-    'Para anular essas distorções e apostar com vantagem estatística, o primeiro passo indispensável é coletar de 80 a 100 giros reais do cassino antes de realizar a primeira aposta.',
-    '• Como fazer: Copie os últimos 100 números históricos da mesa do seu site de apostas, utilize o botão "Lançar Lote (100+)" no Roleta Master e cole tudo de uma vez.',
-    '• Objetivo: O software calculará instantaneamente a temperatura exata de cada Dúzia (1ª, 2ª, 3ª) e Coluna (1ª, 2ª, 3ª), revelando quais setores estão dominando a mesa no momento.',
-  ];
-
-  sec1Text.forEach((p) => {
-    const lines = doc.splitTextToSize(p, contentWidth);
-    checkPageBreak(lines.length * 5 + 2);
-    doc.text(lines, margin, y);
-    y += lines.length * 4.8 + 2;
-  });
-
-  y += 4;
-
-  // --- SEÇÃO 2: A ESTRATÉGIA DE COBERTURA DUPLA ---
-  checkPageBreak(30);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text('2. Estratégia Principal: Cobertura Dupla de 24 Números (64,86% de Chance)', margin, y);
-  y += 6;
-
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(51, 65, 85);
-
-  const sec2Text = [
-    'Em vez de apostar em números individuais (risco altíssimo de 2,7%), cobrimos 24 dos 37 números do tabuleiro cobrindo exatamente 2 Dúzias ou 2 Colunas de alta frequência.',
-    '• Probabilidade de Acerto por Giro: 24 / 37 = 64,86%.',
-    '• Retorno Financeiro (Payout): As Dúzias e Colunas pagam 2:1 (3x a aposta no setor).',
-    '• Exemplo Prático: Se você apostar R$ 5,00 na 1ª Dúzia e R$ 5,00 na 2ª Dúzia (Total investido: R$ 10,00):',
-    '   - Se bater na 1ª Dúzia: Você recebe R$ 15,00 (Lucro Líquido: +R$ 5,00).',
-    '   - Se bater na 2ª Dúzia: Você recebe R$ 15,00 (Lucro Líquido: +R$ 5,00).',
-    '   - Se bater na 3ª Dúzia ou Zero: Perda do giro (-R$ 10,00).',
-  ];
-
-  sec2Text.forEach((p) => {
-    const lines = doc.splitTextToSize(p, contentWidth);
-    checkPageBreak(lines.length * 5 + 2);
-    doc.text(lines, margin, y);
-    y += lines.length * 4.8 + 2;
-  });
-
-  y += 4;
-
-  // --- CAIXA DE Destaque: PROTEÇÃO NO ZERO ---
-  checkPageBreak(25);
-  doc.setFillColor(241, 245, 249);
-  doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(margin, y, contentWidth, 22, 3, 3, 'FD');
-
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text('Dica Pro: Proteção de Zero (Ficha de Cobertura)', margin + 4, y + 6);
+  doc.text(`Manual Passo a Passo das 6 Melhores Estratégias (Entrada Padrão: ${currency} ${unit.toFixed(2)})`, margin + 8, y + 19);
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  const zeroText = 'Ao fazer entradas de R$ 10,00 (R$ 5 em cada dúzia), coloque R$ 0,50 ou R$ 1,00 diretamente no número ZERO. Como o Zero paga 35:1 (36x o valor), se o Zero sair, você recebe R$ 36,00, cobrindo totalmente a perda das dúzias e gerando um lucro limpo de R$ 26,00!';
-  const zeroLines = doc.splitTextToSize(zeroText, contentWidth - 8);
-  doc.text(zeroLines, margin + 4, y + 12);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Banca Base: ${currency} ${initialBank.toFixed(2)} | Meta Diária: ${currency} ${targetProfit.toFixed(2)} | Stop Loss: ${currency} ${stopLoss.toFixed(2)}`, margin + 8, y + 27);
 
-  y += 28;
+  y += 40;
 
-  // --- SEÇÃO 3: GESTÃO RIGOROSA DE BANCA & STOP LOSS ---
-  checkPageBreak(30);
-  doc.setFontSize(12);
+  // --- APRESENTAÇÃO ---
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text('3. Gestão de Banca e Limites Emocionais (Stop Loss / Stop Gain)', margin, y);
+  doc.text('1. RESUMO EXECUTIVO & REGRAS DE OURO DA MESA', margin, y);
   y += 6;
 
-  doc.setFontSize(9.5);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(51, 65, 85);
 
-  const sec3Text = [
-    'O maior inimigo do jogador não é a roleta, é a ganância e a falta de disciplina.',
-    '• Unidade de Entrada (Stake): Cada aposta total deve ser de no máximo 2% a 5% da sua banca total.',
-    '  - Exemplo para Banca de R$ 100,00: Unidade máxima de R$ 5,00 a R$ 10,00 por entrada.',
-    '• Meta de Lucro Diária (Stop Gain): Defina uma meta realista de 15% a 20% do capital (ex: R$ 20,00 para banca de R$ 100,00). Assim que atingir a meta, FECHE O NAVEGADOR E DORMIR. Não continue jogando.',
-    '• Limite de Perda Diário (Stop Loss): Defina o valor máximo tolerável de perda no dia (ex: R$ 50,00 para banca de R$ 100,00). Se perder 2 ou 3 rodadas seguidas e bater no limite, PARE IMEDIATAMENTE.',
+  const introText = [
+    `Este manual foi formulado para ser impresso e mantido ao lado da sua tela de apostas. Ele detalha exatamente onde colocar cada ficha considerando a entrada recomendada de ${currency} ${unit.toFixed(2)} por giro.`,
+    '• Regra 1 (Amostragem Mínima): Antes de apostar dinheiro real, insira ou cole 50 a 100 giros da mesa para recalibrar a probabilidade das Dúzias e Colunas.',
+    `• Regra 2 (Gestão de Riscos): Nunca exceda ${currency} ${unit.toFixed(2)} por giro. Atingindo a meta de ${currency} ${targetProfit.toFixed(2)} ou o limite de perda de ${currency} ${stopLoss.toFixed(2)}, feche a sessão imediatamente.`,
   ];
 
-  sec3Text.forEach((p) => {
+  introText.forEach((p) => {
     const lines = doc.splitTextToSize(p, contentWidth);
-    checkPageBreak(lines.length * 5 + 2);
+    checkPageBreak(lines.length * 4.5 + 2);
     doc.text(lines, margin, y);
-    y += lines.length * 4.8 + 2;
+    y += lines.length * 4.3 + 2;
   });
 
   y += 4;
 
-  // --- SEÇÃO 4: APLICAÇÃO PASSO A PASSO NA PRÁTICA ---
-  checkPageBreak(30);
-  doc.setFontSize(12);
+  // --- DETALHAMENTO DAS 6 ESTRATÉGIAS ---
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text('4. Roteiro Prático de Operação no Sistema Roleta Master', margin, y);
-  y += 6;
+  doc.text('2. GUIA PASSO A PASSO DAS 6 ESTRATÉGIAS PROFISSIONAIS', margin, y);
+  y += 8;
 
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(51, 65, 85);
-
-  const sec4Text = [
-    'Passo 1: Abra a mesa de roleta no seu site de apostas favorito e acesse o histórico de últimos números.',
-    'Passo 2: No Roleta Master, clique no botão vermelho "Limpar Mesa" para garantir que a base esteja zerada.',
-    'Passo 3: Clique no botão "Lançar Lote (100+)", cole os números copiados do cassino e confirme.',
-    'Passo 4: Observe o painel "Estratégia & Assistente Bot AI" e o "Termômetro de Dúzias/Colunas".',
-    'Passo 5: Quando o Bot acender o sinal VERDE com recomendação nas 2 Dúzias Quentes, faça a entrada no cassino exatamente no valor da sua Stake configurada.',
-    'Passo 6: Insira o número sorteado no Roleta Master após a rodada. O sistema atualizará automaticamente seu Saldo, Lucro e Gráfico de Desempenho.',
-    'Passo 7: Ao atingir a Meta Diária de Lucro ou Stop Loss, encerre a operação e feche a sessão com disciplina.',
+  const strategiesList = [
+    {
+      num: '2.1',
+      title: 'ESTRATÉGIA ROMANOSKY (Cobertura Próxima a 86,4%)',
+      category: 'Alta Cobertura | Risco Baixo',
+      desc: 'Cobre 32 dos 37 números da roleta apostando simultaneamente em 2 Dúzias e 2 Quadrados (Corners). É uma das estratégias de menor volatilidade no mundo.',
+      steps: [
+        `Com orçamento de ${currency} ${unit.toFixed(2)} por giro:`,
+        `1. Coloque ${currency} ${(unit * 0.375).toFixed(2)} (3 fichas) na 1ª Dúzia (números 1 ao 12).`,
+        `2. Coloque ${currency} ${(unit * 0.375).toFixed(2)} (3 fichas) na 2ª Dúzia (números 13 ao 24).`,
+        `3. Coloque ${currency} ${(unit * 0.125).toFixed(2)} (1 ficha) no Quadrado/Corner (25-26-28-29).`,
+        `4. Coloque ${currency} ${(unit * 0.125).toFixed(2)} (1 ficha) no Quadrado/Corner (32-33-35-36).`,
+        `• Payout: Se a bola cair em qualquer um dos 32 números cobertos, você recebe ${currency} ${(unit * 1.125).toFixed(2)} (Lucro limpo de +${currency} ${(unit * 0.125).toFixed(2)} no giro!).`
+      ]
+    },
+    {
+      num: '2.2',
+      title: 'CICLO DE FECHAMENTO (Aposta em Números Ausentes)',
+      category: 'Frequência & Ciclo | Risco Baixo-Médio',
+      desc: 'Aposta nos números que estão há mais de 25 rodadas sem sair (os mais "frios"). Como a roleta tende ao equilíbrio matemático a cada 37 giros, os ausentes saem em bloco.',
+      steps: [
+        '1. Verifique no robô a lista de números ausentes há 25+ giros.',
+        `2. Divida sua entrada total de ${currency} ${unit.toFixed(2)} igualmente entre esses números ausentes (ex: para 10 números, coloque ${currency} ${(unit / 10).toFixed(2)} direto em cada número).`,
+        `3. Como cada número paga 36:1 (36x), quando um ausente é sorteado, ele recompensa o ciclo inteiro com lucro líquido de até +${currency} ${(unit * 2.6).toFixed(2)}!`,
+        '4. Atualize a lista após cada acerto.'
+      ]
+    },
+    {
+      num: '2.3',
+      title: '2 DÚZIAS DOMINANTES (Cobertura de 64,8%)',
+      category: 'Cobertura Alta | Risco Baixo',
+      desc: 'Aposta simultânea nas 2 Dúzias que estão apresentando maior temperatura e frequência nas últimas 20 rodadas.',
+      steps: [
+        '1. Consulte o Termômetro de Dúzias do aplicativo e selecione as 2 Dúzias mais quentes (ex: 1ª e 2ª Dúzia).',
+        `2. Aposte ${currency} ${(unit / 2).toFixed(2)} na 1ª Dúzia e ${currency} ${(unit / 2).toFixed(2)} na 2ª Dúzia (Total: ${currency} ${unit.toFixed(2)}).`,
+        `3. Se sair qualquer número de 1 a 24, você recebe ${currency} ${(unit * 1.5).toFixed(2)} (Lucro limpo: +${currency} ${(unit / 2).toFixed(2)} por giro!).`,
+        '4. Ajuste as Dúzias se houver mudança de tendência no robô.'
+      ]
+    },
+    {
+      num: '2.4',
+      title: 'MÉTODO D\'ALEMBERT (Chances Simples: Vermelho / Preto / Par)',
+      category: 'Chances Simples | Risco Médio',
+      desc: 'Progressão matemática piramidal. Aumenta +1 unidade após cada erro e reduz -1 unidade após cada acerto. Suaviza perdas sem dobrar a banca.',
+      steps: [
+        `1. Entrada Inicial: Aposte ${currency} ${unit.toFixed(2)} no Vermelho (ou Preto / Par / Ímpar).`,
+        `2. Se você PERDER: Aumente a próxima aposta em +${currency} ${unit.toFixed(2)} (ex: de ${currency} ${unit.toFixed(2)} para ${currency} ${(unit * 2).toFixed(2)}).`,
+        `3. Se você GANHAR: Diminua a próxima aposta em -${currency} ${unit.toFixed(2)} (voltando até o limite mínimo de ${currency} ${unit.toFixed(2)}).`,
+        '4. Proporciona equilíbrio sem a agressividade do Martingale tradicional.'
+      ]
+    },
+    {
+      num: '2.5',
+      title: 'ESTRATÉGIA JAMES BOND 007 (Cobertura de 67,5%)',
+      category: 'Cobertura Alta | Risco Médio',
+      desc: 'Famosa estratégia criada pelo escritor Ian Fleming. Divide a aposta fixando cobertura nos números Altos (19-36), Seisena (13-18) e Seguro no Zero.',
+      steps: [
+        `Para um valor total de ${currency} ${unit.toFixed(2)} por giro:`,
+        `1. Coloque ${currency} ${(unit * 0.70).toFixed(2)} na aposta externa de Números Altos (19 ao 36).`,
+        `2. Coloque ${currency} ${(unit * 0.25).toFixed(2)} na Seisena dos números 13 ao 18.`,
+        `3. Coloque ${currency} ${(unit * 0.05).toFixed(2)} de seguro direto no número Zero (0).`,
+        `4. Se cair em qualquer número entre 13 e 36 ou no Zero (25 números no total), você obtém lucro imediato!`
+      ]
+    },
+    {
+      num: '2.6',
+      title: 'VIZINHOS DO ZERO (Voisins du Zéro — Setor Físico do Cilindro)',
+      category: 'Setor Físico (Roda) | Risco Médio',
+      desc: 'Estratégia focada na física da roda europeia. Cobre o maior setor de 17 números ao redor do Zero (22, 18, 29, 7, 28, 12, 35, 3, 26, 0, 32, 15, 19, 4, 21, 2, 25).',
+      steps: [
+        '1. Acesse o menu de Apostas Especiais / Pista (Racetrack) do seu cassino online.',
+        '2. Selecione a opção "Voisins du Zéro".',
+        `3. Com ${currency} ${unit.toFixed(2)} por giro, o sistema distribuirá ~9 fichas cobrindo Cavalos, Trios e Quadrados no setor do Zero.`,
+        '4. Ideal para momentos em que o setor superior da roda estiver quente no mapa de calor.'
+      ]
+    }
   ];
 
-  sec4Text.forEach((p) => {
-    const lines = doc.splitTextToSize(p, contentWidth);
-    checkPageBreak(lines.length * 5 + 2);
-    doc.text(lines, margin, y);
-    y += lines.length * 4.8 + 2;
+  strategiesList.forEach((st) => {
+    checkPageBreak(38);
+
+    // Title box
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(margin, y, contentWidth, 7, 1.5, 1.5, 'FD');
+
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${st.num} ${st.title}`, margin + 3, y + 5);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(180, 83, 9); // Amber
+    doc.text(st.category, pageWidth - margin - 50, y + 5);
+
+    y += 10;
+
+    // Desc
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    const descLines = doc.splitTextToSize(st.desc, contentWidth);
+    doc.text(descLines, margin, y);
+    y += descLines.length * 4 + 2;
+
+    // Steps
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('Passo a Passo de Aposta:', margin, y);
+    y += 4.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+
+    st.steps.forEach((step) => {
+      const stepLines = doc.splitTextToSize(step, contentWidth - 4);
+      checkPageBreak(stepLines.length * 4 + 1);
+      doc.text(stepLines, margin + 2, y);
+      y += stepLines.length * 3.8 + 1;
+    });
+
+    y += 4;
   });
 
-  // Add Headers & Footers across all created pages
+  // --- TABELA RESUMO / CHECKLIST DE CAMPO ---
+  checkPageBreak(40);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text('3. TABELA GUIA DE DISTRIBUIÇÃO DAS APOSTAS', margin, y);
+  y += 6;
+
+  // Table header
+  doc.setFillColor(15, 23, 42);
+  doc.rect(margin, y, contentWidth, 7, 'F');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('Estratégia', margin + 3, y + 5);
+  doc.text('Cobertura', margin + 65, y + 5);
+  doc.text(`Valor Entrada (${currency})`, margin + 100, y + 5);
+  doc.text('Objetivo / Retorno', margin + 140, y + 5);
+  y += 7;
+
+  const tableRows = [
+    { name: 'Romanosky', cov: '32 Núm (86.4%)', val: `${currency} ${unit.toFixed(2)}`, ret: `+${currency} ${(unit * 0.125).toFixed(2)} Lucro/Giro` },
+    { name: '2 Dúzias Dominantes', cov: '24 Núm (64.8%)', val: `${currency} ${unit.toFixed(2)}`, ret: `+${currency} ${(unit * 0.5).toFixed(2)} Lucro/Giro` },
+    { name: 'James Bond 007', cov: '25 Núm (67.5%)', val: `${currency} ${unit.toFixed(2)}`, ret: `+${currency} ${(unit * 0.4).toFixed(2)} Lucro/Giro` },
+    { name: 'Ciclo de Ausentes', cov: '10-15 Números', val: `${currency} ${unit.toFixed(2)}`, ret: `Até 36x Payout` },
+    { name: 'Método D\'Alembert', cov: '18 Núm (48.6%)', val: `Var. (+${currency} ${unit.toFixed(2)})`, ret: `Recuperação Suave` },
+    { name: 'Vizinhos do Zero', cov: '17 Núm (45.9%)', val: `${currency} ${unit.toFixed(2)}`, ret: `Setor do Zero` },
+  ];
+
+  tableRows.forEach((r, rIdx) => {
+    checkPageBreak(7);
+    if (rIdx % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, y, contentWidth, 6, 'F');
+    }
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+
+    doc.text(r.name, margin + 3, y + 4.5);
+    doc.text(r.cov, margin + 65, y + 4.5);
+    doc.text(r.val, margin + 100, y + 4.5);
+    doc.text(r.ret, margin + 140, y + 4.5);
+    y += 6;
+  });
+
+  // Footer & Headers across all pages
   addPageHeaderFooter();
 
-  // Trigger Download
-  doc.save('Estrategia_Oficial_Roleta_Master_AI.pdf');
+  // Save PDF
+  doc.save('Guia_Oficial_Apostas_Roleta_Master_AI.pdf');
 }

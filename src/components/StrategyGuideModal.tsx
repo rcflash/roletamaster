@@ -2,12 +2,15 @@ import React from 'react';
 import { FileText, Download, X, CheckCircle2, ShieldAlert, Sparkles, Target, DollarSign, Layers } from 'lucide-react';
 import { generateStrategyPDF } from '../utils/pdfStrategyGenerator';
 
+import { SpinRecord, BankrollConfig } from '../types';
+
 interface StrategyGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
+  config?: BankrollConfig;
 }
 
-export const StrategyGuideModal: React.FC<StrategyGuideModalProps> = ({ isOpen, onClose }) => {
+export const StrategyGuideModal: React.FC<StrategyGuideModalProps> = ({ isOpen, onClose, config }) => {
   if (!isOpen) return null;
 
   return (
@@ -33,7 +36,7 @@ export const StrategyGuideModal: React.FC<StrategyGuideModalProps> = ({ isOpen, 
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => generateStrategyPDF()}
+              onClick={() => generateStrategyPDF(config)}
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
@@ -61,7 +64,7 @@ export const StrategyGuideModal: React.FC<StrategyGuideModalProps> = ({ isOpen, 
               </p>
             </div>
             <button
-              onClick={() => generateStrategyPDF()}
+              onClick={() => generateStrategyPDF(config)}
               className="shrink-0 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-md"
             >
               <Download className="w-4 h-4" /> Salvar PDF
@@ -146,7 +149,7 @@ export const StrategyGuideModal: React.FC<StrategyGuideModalProps> = ({ isOpen, 
               Fechar
             </button>
             <button
-              onClick={() => generateStrategyPDF()}
+              onClick={() => generateStrategyPDF(config)}
               className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5"
             >
               <Download className="w-4 h-4" /> Baixar PDF
