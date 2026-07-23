@@ -1,0 +1,6 @@
+{
+  "name": "Roleta Master - Painel de Controle",
+  "description": "Painel completo de análise e gerenciamento para roleta online com controle de banca, histórico de giros, temperaturas de dúzias/colunas e estratégias recomendadas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
