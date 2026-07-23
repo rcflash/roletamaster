@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { History, Trash2, Plus, Filter, FileSpreadsheet, Search, ArrowUpDown } from 'lucide-react';
+import { History, Trash2, Plus, Filter, FileSpreadsheet, Search, ArrowUpDown, Copy, Check, Download, Share2, Sparkles } from 'lucide-react';
 import { SpinRecord, BankrollConfig } from '../types';
 
 interface HistoryTableProps {
@@ -23,6 +23,8 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({
   const [searchNum, setSearchNum] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   const [newNum, setNewNum] = useState<number>(0);
   const [newWin, setNewWin] = useState<number>(30);
@@ -125,6 +127,14 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({
               </option>
             </select>
           </div>
+
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all"
+            title="Copiar ou baixar todos os giros registrados para colar no chat do assistente"
+          >
+            <Copy className="w-4 h-4" /> Copiar / Exportar (Chat)
+          </button>
 
           <button
             onClick={() => setShowAddModal(true)}
@@ -349,6 +359,117 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Exportar / Copiar Lançamentos para o Chat */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">
+                    Exportar / Copiar 300 Lançamentos
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {spins.length} giros gravados. Copie para colar na nossa conversa do Chat!
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-slate-400 hover:text-slate-100 text-lg font-bold px-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Escolha um formato abaixo e clique em <strong className="text-emerald-400">Copiar</strong>. Depois, basta colar (<kbd className="px-1.5 py-0.5 bg-slate-950 border border-slate-800 rounded text-amber-400 font-mono text-[10px]">Ctrl+V</kbd>) aqui na nossa conversa para que eu analise quais seriam as melhores estratégias!
+            </p>
+
+            {/* Formato 1: Sequência de Números Separados por Vírgula */}
+            <div className="space-y-1.5 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-amber-400 uppercase tracking-wider">
+                  1. Sequência Direta (Recomendado para o Chat)
+                </span>
+                <button
+                  onClick={() => {
+                    const rawNumbers = [...spins].sort((a, b) => a.giro - b.giro).map(s => s.numero).join(', ');
+                    navigator.clipboard.writeText(`Lista de 300 giros da roleta:\n${rawNumbers}`);
+                    setCopiedText('raw');
+                    setTimeout(() => setCopiedText(null), 2500);
+                  }}
+                  className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1 shadow transition-all"
+                >
+                  {copiedText === 'raw' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedText === 'raw' ? 'Copiado!' : 'Copiar Sequência'}
+                </button>
+              </div>
+              <textarea
+                readOnly
+                rows={3}
+                value={[...spins].sort((a, b) => a.giro - b.giro).map(s => s.numero).join(', ')}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-[11px] font-mono text-slate-300 focus:outline-none resize-none"
+              />
+            </div>
+
+            {/* Formato 2: Tabela / Lista com Giro */}
+            <div className="space-y-1.5 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">
+                  2. Lista Detalhada com Número do Giro
+                </span>
+                <button
+                  onClick={() => {
+                    const detailedList = [...spins]
+                      .sort((a, b) => a.giro - b.giro)
+                      .map(s => `Giro #${s.giro}: ${s.numero} (${s.color.toUpperCase()})`)
+                      .join('\n');
+                    navigator.clipboard.writeText(`Histórico detalhado da mesa:\n${detailedList}`);
+                    setCopiedText('detailed');
+                    setTimeout(() => setCopiedText(null), 2500);
+                  }}
+                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all"
+                >
+                  {copiedText === 'detailed' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedText === 'detailed' ? 'Copiado!' : 'Copiar Detalhado'}
+                </button>
+              </div>
+            </div>
+
+            {/* Ações de Fechar / Download */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  const rawNumbers = [...spins].sort((a, b) => a.giro - b.giro).map(s => s.numero).join(', ');
+                  const blob = new Blob([`Histórico de Giros da Roleta (${spins.length} giros):\n\n${rawNumbers}`], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `historico_roleta_${spins.length}_giros.txt`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl flex items-center gap-1.5"
+              >
+                <Download className="w-4 h-4 text-amber-400" /> Baixar TXT
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow"
+              >
+                Concluído
+              </button>
+            </div>
           </div>
         </div>
       )}
