@@ -12,6 +12,7 @@ import {
   ArrowUpToLine,
   LayoutList,
   SlidersHorizontal,
+  Trophy,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -85,6 +86,7 @@ import { InteractiveRouletteBoard } from './components/InteractiveRouletteBoard'
 import { ActiveStrategyPanel } from './components/ActiveStrategyPanel';
 import { HistoryTable } from './components/HistoryTable';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
+import { StrategyBacktestPanel } from './components/StrategyBacktestPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { StrategyGuideModal } from './components/StrategyGuideModal';
 
@@ -108,7 +110,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics' | 'board'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics' | 'board' | 'strategies'>('dashboard');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -588,6 +590,17 @@ export default function App() {
             >
               Gráficos & Análise
             </button>
+            <button
+              onClick={() => setActiveTab('strategies')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'strategies'
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Estratégias & Backtest</span>
+            </button>
           </div>
 
           {activeTab === 'dashboard' && (
@@ -726,6 +739,20 @@ export default function App() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             <AnalyticsCharts spins={spins} config={config} />
+          </div>
+        )}
+
+        {/* Tab 4: Strategy Suggestions & Backtest */}
+        {activeTab === 'strategies' && (
+          <div className="space-y-6">
+            <StrategyBacktestPanel
+              spins={spins}
+              config={config}
+              onApplyStrategy={(strategyName) => {
+                setStrategy((prev) => ({ ...prev, activeStrategy: strategyName }));
+                setActiveTab('dashboard');
+              }}
+            />
           </div>
         )}
       </main>
