@@ -495,6 +495,7 @@ export default function App() {
             onUndoLastSpin={handleUndoLastSpin}
             onClearAllSpins={handleClearAllSpins}
             totalSpins={totalSpins}
+            lastNumber={lastSpin ? lastSpin.numero : null}
           />
         );
       case 'temperatures':
@@ -502,6 +503,7 @@ export default function App() {
           <TemperaturesPanel
             dozenItems={temperatures.dozenItems}
             columnItems={temperatures.columnItems}
+            colorItems={temperatures.colorItems}
           />
         );
       case 'strategy':
@@ -715,6 +717,7 @@ export default function App() {
               onUndoLastSpin={handleUndoLastSpin}
               onClearAllSpins={handleClearAllSpins}
               totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
             />
           </div>
         )}

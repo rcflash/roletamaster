@@ -8,6 +8,7 @@ interface QuickSpinInputProps {
   onUndoLastSpin: () => void;
   onClearAllSpins: () => void;
   totalSpins: number;
+  lastNumber?: number | null;
 }
 
 export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
@@ -16,6 +17,7 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   onUndoLastSpin,
   onClearAllSpins,
   totalSpins,
+  lastNumber = null,
 }) => {
   const [selectedNum, setSelectedNum] = useState<string>('');
   const [multiplier, setMultiplier] = useState<number>(1);
@@ -148,9 +150,25 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               <Zap className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
-                Lançamento Rápido de Números
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
+                  Lançamento Rápido de Números
+                </h3>
+                {lastNumber !== null && lastNumber !== undefined && (
+                  <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full shadow-sm animate-fadeIn">
+                    <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider">Último Saiu:</span>
+                    <span className={`px-2 py-0.5 rounded-md font-black text-xs text-white shadow ${
+                      RED_NUMBERS.includes(lastNumber)
+                        ? 'bg-rose-600 border border-rose-400'
+                        : lastNumber === 0
+                        ? 'bg-emerald-600 border border-emerald-400'
+                        : 'bg-slate-900 border border-slate-700'
+                    }`}>
+                      #{lastNumber}
+                    </span>
+                  </div>
+                )}
+              </div>
               <p className="text-[11px] text-slate-400">
                 Digite um número (0-36) e tecle <kbd className="px-1 py-0.5 bg-slate-800 rounded text-amber-400 font-mono text-[10px]">Enter</kbd> ou clique no teclado abaixo
               </p>
@@ -216,27 +234,49 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
         {/* Visual Roulette Number Pad Grid */}
         <div className="grid grid-cols-12 sm:grid-cols-13 gap-1.5">
           {/* Zero */}
-          <button
-            onClick={() => handleQuickClick(0)}
-            className="col-span-12 sm:col-span-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-sm shadow transition-all active:scale-95 flex items-center justify-center border border-emerald-400/40"
-          >
-            0
-          </button>
+          {(() => {
+            const isZeroLast = lastNumber === 0;
+            return (
+              <button
+                onClick={() => handleQuickClick(0)}
+                className={`col-span-12 sm:col-span-1 h-12 rounded-xl text-slate-950 font-black text-sm shadow transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
+                  isZeroLast
+                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-4 ring-amber-400/50 ring-offset-2 ring-offset-slate-950 shadow-xl shadow-amber-500/50 scale-105 z-10 font-black'
+                    : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400/40'
+                }`}
+              >
+                <span>0</span>
+                {isZeroLast && (
+                  <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50">
+                    ÚLTIMO
+                  </span>
+                )}
+              </button>
+            );
+          })()}
 
           {/* 1 to 36 */}
           {Array.from({ length: 36 }, (_, i) => i + 1).map((num) => {
             const isRed = RED_NUMBERS.includes(num);
+            const isLast = lastNumber === num;
             return (
               <button
                 key={num}
                 onClick={() => handleQuickClick(num)}
-                className={`h-11 rounded-xl font-black text-xs sm:text-sm text-slate-100 shadow transition-all active:scale-95 flex items-center justify-center border ${
-                  isRed
+                className={`h-12 rounded-xl font-black text-xs sm:text-sm shadow transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
+                  isLast
+                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-4 ring-amber-400/50 ring-offset-2 ring-offset-slate-950 shadow-xl shadow-amber-500/50 scale-105 z-10 font-black'
+                    : isRed
                     ? 'bg-rose-950/80 hover:bg-rose-800 border-rose-800/80 text-rose-200'
                     : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200'
                 }`}
               >
-                {num}
+                <span>{num}</span>
+                {isLast && (
+                  <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50">
+                    ÚLTIMO
+                  </span>
+                )}
               </button>
             );
           })}

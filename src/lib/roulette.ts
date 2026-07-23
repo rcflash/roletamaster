@@ -185,7 +185,58 @@ export function calculateTemperatures(spins: SpinRecord[]) {
     }
   ];
 
-  return { dozenItems, columnItems };
+  // Color & Zero Stats
+  const colorCounts: Record<NumberColor, number> = { red: 0, black: 0, green: 0 };
+  const colorWithoutHit: Record<NumberColor, number> = { red: 0, black: 0, green: 0 };
+  const colorFound: Record<NumberColor, boolean> = { red: false, black: false, green: false };
+
+  for (let i = spins.length - 1; i >= 0; i--) {
+    const c = spins[i].color;
+    if (colorCounts[c] !== undefined) {
+      colorCounts[c]++;
+    }
+    (Object.keys(colorFound) as NumberColor[]).forEach((ck) => {
+      if (!colorFound[ck]) {
+        if (c === ck) {
+          colorFound[ck] = true;
+        } else {
+          colorWithoutHit[ck]++;
+        }
+      }
+    });
+  }
+
+  const colorItems: TempItem[] = [
+    {
+      name: 'Vermelho',
+      code: 'red',
+      count: colorCounts['red'],
+      frequencyPct: Number(((colorCounts['red'] / totalSpins) * 100).toFixed(1)),
+      spinsWithoutHit: colorWithoutHit['red'],
+      status: colorWithoutHit['red'] >= 6 ? 'ALERT' : colorCounts['red'] / totalSpins >= 0.52 ? 'HOT' : 'NORMAL',
+      statusLabel: colorWithoutHit['red'] >= 6 ? '🔴 ALERTA' : colorCounts['red'] / totalSpins >= 0.52 ? '🔥 QUENTE' : '🟢 NORMAL'
+    },
+    {
+      name: 'Preto',
+      code: 'black',
+      count: colorCounts['black'],
+      frequencyPct: Number(((colorCounts['black'] / totalSpins) * 100).toFixed(1)),
+      spinsWithoutHit: colorWithoutHit['black'],
+      status: colorWithoutHit['black'] >= 6 ? 'ALERT' : colorCounts['black'] / totalSpins >= 0.52 ? 'HOT' : 'NORMAL',
+      statusLabel: colorWithoutHit['black'] >= 6 ? '🔴 ALERTA' : colorCounts['black'] / totalSpins >= 0.52 ? '🔥 QUENTE' : '🟢 NORMAL'
+    },
+    {
+      name: 'Zero (0)',
+      code: 'green',
+      count: colorCounts['green'],
+      frequencyPct: Number(((colorCounts['green'] / totalSpins) * 100).toFixed(1)),
+      spinsWithoutHit: colorWithoutHit['green'],
+      status: colorWithoutHit['green'] >= 15 ? 'ALERT' : colorCounts['green'] / totalSpins >= 0.08 ? 'HOT' : 'NORMAL',
+      statusLabel: colorWithoutHit['green'] >= 15 ? '🔴 ALERTA' : colorCounts['green'] / totalSpins >= 0.08 ? '🔥 QUENTE' : '🟢 NORMAL'
+    }
+  ];
+
+  return { dozenItems, columnItems, colorItems };
 }
 
 export function calculateNumberStats(spins: SpinRecord[]): NumberStats[] {
