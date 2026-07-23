@@ -219,8 +219,20 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               </button>
             </form>
 
+            {/* Bulk / Batch Import Button */}
+            <button
+              type="button"
+              onClick={() => setShowBulkModal(true)}
+              className="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+              title="Cole 300 números de uma só vez para análise em lote"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Importar Lote</span>
+            </button>
+
             {totalSpins > 0 && (
               <button
+                type="button"
                 onClick={onUndoLastSpin}
                 title="Desfazer último giro"
                 className="p-2.5 bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-rose-400 rounded-xl border border-slate-800 transition-colors"
