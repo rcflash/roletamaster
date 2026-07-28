@@ -345,9 +345,9 @@ export function evaluateSpinPayout(
   return { winAmount, lossAmount, netResult };
 }
 
-export function generateBotSuggestion(spins: SpinRecord[]): { level: string; suggestion: string } {
+export function generateBotSuggestion(spins: SpinRecord[]): { level: string; suggestion: string; strategyName: string } {
   if (spins.length === 0) {
-    return { level: 'N1', suggestion: 'R$ 10 no VERMELHO' };
+    return { level: 'N1', suggestion: 'R$ 10 no VERMELHO', strategyName: 'Cor Simples (Vermelho)' };
   }
 
   const lastSpin = spins[spins.length - 1];
@@ -369,19 +369,31 @@ export function generateBotSuggestion(spins: SpinRecord[]): { level: string; sug
 
   if (alertDozen && alertDozen.code !== 'zero') {
     const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 25;
-    return { level, suggestion: `R$ ${val} na ${alertDozen.name}` };
+    return { 
+      level, 
+      suggestion: `R$ ${val} na ${alertDozen.name}`,
+      strategyName: `Dúzia Atrasada (${alertDozen.name})`
+    };
   }
 
   if (alertCol) {
     const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 25;
-    return { level, suggestion: `R$ ${val} na ${alertCol.name}` };
+    return { 
+      level, 
+      suggestion: `R$ ${val} na ${alertCol.name}`,
+      strategyName: `Coluna Atrasada (${alertCol.name})`
+    };
   }
 
   // Hot numbers suggestion
   const numberStats = calculateNumberStats(spins);
   const hotNumbers = [...numberStats].sort((a, b) => b.count - a.count).slice(0, 4).map(n => n.num);
 
-  if (level === 'N1') return { level, suggestion: 'R$ 10 no VERMELHO' };
-  if (level === 'N2') return { level, suggestion: 'R$ 10 Col 1 / R$ 10 Col 3' };
-  return { level, suggestion: `R$ 15 Dúz 1 / R$ 15 Dúz 3 + Top (${hotNumbers.join(', ')})` };
+  if (level === 'N1') return { level, suggestion: 'R$ 10 no VERMELHO', strategyName: 'Cor Simples (Vermelho)' };
+  if (level === 'N2') return { level, suggestion: 'R$ 10 Col 1 / R$ 10 Col 3', strategyName: '2 Colunas (Col 1 + Col 3)' };
+  return { 
+    level, 
+    suggestion: `R$ 15 Dúz 1 / R$ 15 Dúz 3 + Top (${hotNumbers.join(', ')})`,
+    strategyName: '2 Dúzias + Números Quentes' 
+  };
 }

@@ -13,6 +13,7 @@ import {
   LayoutList,
   SlidersHorizontal,
   Trophy,
+  Wallet,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -87,6 +88,7 @@ import { ActiveStrategyPanel } from './components/ActiveStrategyPanel';
 import { HistoryTable } from './components/HistoryTable';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { StrategyBacktestPanel } from './components/StrategyBacktestPanel';
+import { BankrollControlPanel } from './components/BankrollControlPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { StrategyGuideModal } from './components/StrategyGuideModal';
 
@@ -110,7 +112,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analytics' | 'board' | 'strategies'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies'>('dashboard');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -571,6 +573,17 @@ export default function App() {
               Painel Principal
             </button>
             <button
+              onClick={() => setActiveTab('bankroll')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'bankroll'
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Gestão de Banca & ROI</span>
+            </button>
+            <button
               onClick={() => setActiveTab('board')}
               className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                 activeTab === 'board'
@@ -714,6 +727,15 @@ export default function App() {
               );
             })}
           </div>
+        )}
+
+        {/* Tab 1.5: Bankroll Control & ROI */}
+        {activeTab === 'bankroll' && (
+          <BankrollControlPanel
+            config={config}
+            spins={spins}
+            onUpdateConfig={(upd) => setConfig(upd)}
+          />
         )}
 
         {/* Tab 2: Interactive Table Board */}

@@ -24,6 +24,20 @@ export interface SpinRecord {
   timestamp: string;
 }
 
+export interface DailySessionRecord {
+  id: string;
+  date: string;
+  initialBankroll: number;
+  finalBankroll: number;
+  netProfit: number;
+  roiPct: number;
+  totalSpins: number;
+  winCount: number;
+  goalMet: boolean;
+  stopLossHit: boolean;
+  notes?: string;
+}
+
 export interface BankrollConfig {
   initialBankroll: number;
   dailyGoal: number;
