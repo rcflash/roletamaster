@@ -7,6 +7,78 @@ export const EUROPEAN_WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
 ];
 
+export function getWheelNeighbors(targetNum: number, neighborCount: 2 | 3 | 4 = 2): number[] {
+  const idx = EUROPEAN_WHEEL_ORDER.indexOf(targetNum);
+  if (idx === -1) return [targetNum];
+
+  const result: number[] = [];
+  const total = EUROPEAN_WHEEL_ORDER.length;
+
+  for (let i = -neighborCount; i <= neighborCount; i++) {
+    const pos = (idx + i + total * 10) % total;
+    result.push(EUROPEAN_WHEEL_ORDER[pos]);
+  }
+  return result;
+}
+
+export interface NeighborsAlertInfo {
+  hasAlert: boolean;
+  targetNum: number;
+  neighborCount: 2 | 3 | 4;
+  neighborsList: number[];
+  alertMessage: string;
+  recommendedBetText: string;
+  repeatCountInSector: number;
+}
+
+export function calculateNeighborsAlert(spins: SpinRecord[]): NeighborsAlertInfo | null {
+  if (spins.length < 2) return null;
+
+  const lastSpin = spins[spins.length - 1];
+  const lastNum = lastSpin.numero;
+
+  const neighbors2 = getWheelNeighbors(lastNum, 2);
+  const neighbors3 = getWheelNeighbors(lastNum, 3);
+
+  const recent6 = spins.slice(-6);
+  const hitsIn2Neighbors = recent6.filter((s) => neighbors2.includes(s.numero)).length;
+  const hitsIn3Neighbors = recent6.filter((s) => neighbors3.includes(s.numero)).length;
+
+  if (hitsIn2Neighbors >= 3) {
+    return {
+      hasAlert: true,
+      targetNum: lastNum,
+      neighborCount: 2,
+      neighborsList: neighbors2,
+      alertMessage: `🔥 SETOR AQUECIDO! O setor do nº ${lastNum} (2 vizinhos) recebeu ${hitsIn2Neighbors} acertos nos últimos 6 giros!`,
+      recommendedBetText: `R$ 2,50 em cada uma das 5 casas: [${neighbors2.join(', ')}] (Custo Total: R$ 12,50)`,
+      repeatCountInSector: hitsIn2Neighbors,
+    };
+  }
+
+  if (hitsIn3Neighbors >= 4) {
+    return {
+      hasAlert: true,
+      targetNum: lastNum,
+      neighborCount: 3,
+      neighborsList: neighbors3,
+      alertMessage: `⚡ CONCENTRAÇÃO DE VIZINHOS! 3 vizinhos do nº ${lastNum} concentram ${hitsIn3Neighbors} giros recentes.`,
+      recommendedBetText: `R$ 2,50 nas 7 casas do setor: [${neighbors3.join(', ')}] (Custo Total: R$ 17,50)`,
+      repeatCountInSector: hitsIn3Neighbors,
+    };
+  }
+
+  return {
+    hasAlert: false,
+    targetNum: lastNum,
+    neighborCount: 2,
+    neighborsList: neighbors2,
+    alertMessage: `Último número sorteado foi ${lastNum}. Seus 2 vizinhos diretos no cilindro são: [${neighbors2.join(', ')}].`,
+    recommendedBetText: `Entrada sugerida em 2 vizinhos: [${neighbors2.join(', ')}] (R$ 2,50 por ficha)`,
+    repeatCountInSector: hitsIn2Neighbors,
+  };
+}
+
 export function getNumberColor(num: number): NumberColor {
   if (num === 0) return 'green';
   return RED_NUMBERS.includes(num) ? 'red' : 'black';

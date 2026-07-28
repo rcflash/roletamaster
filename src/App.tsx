@@ -26,6 +26,7 @@ export type DashboardBlockId =
   | 'alerts'
   | 'quick_input'
   | 'temperatures'
+  | 'neighbors'
   | 'strategy'
   | 'hot_cold'
   | 'history';
@@ -35,6 +36,7 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'alerts',
   'quick_input',
   'temperatures',
+  'neighbors',
   'strategy',
   'hot_cold',
   'history',
@@ -43,6 +45,7 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
 const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'strategy',
   'temperatures',
+  'neighbors',
   'hot_cold',
   'history',
   'quick_input',
@@ -55,6 +58,7 @@ const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   alerts: 'Metas Diárias & Alerta de Stop Loss',
   quick_input: 'Lançamento Rápido & Coleta (100 Giros)',
   temperatures: 'Termômetro de Dúzias e Colunas',
+  neighbors: 'Alerta de Vizinhos do Cilindro',
   strategy: 'Estratégia & Assistente Bot AI',
   hot_cold: 'Top 5 Números Quentes & Frios',
   history: 'Tabela Completa do Histórico de Giros',
@@ -86,6 +90,7 @@ import { TemperaturesPanel } from './components/TemperaturesPanel';
 import { HotColdNumbersCard } from './components/HotColdNumbersCard';
 import { InteractiveRouletteBoard } from './components/InteractiveRouletteBoard';
 import { ActiveStrategyPanel } from './components/ActiveStrategyPanel';
+import { WheelNeighborsAlertCard } from './components/WheelNeighborsAlertCard';
 import { HistoryTable } from './components/HistoryTable';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { StrategyBacktestPanel } from './components/StrategyBacktestPanel';
@@ -517,6 +522,8 @@ export default function App() {
             colorItems={temperatures.colorItems}
           />
         );
+      case 'neighbors':
+        return <WheelNeighborsAlertCard spins={spins} />;
       case 'strategy':
         return (
           <ActiveStrategyPanel
