@@ -345,6 +345,74 @@ export function evaluateSpinPayout(
   return { winAmount, lossAmount, netResult };
 }
 
+export function evaluateBotTipOutcome(
+  num: number,
+  suggestion: string
+): { winAmount: number; lossAmount: number; netResult: number } {
+  const color = getNumberColor(num);
+  const dozen = getNumberDozen(num);
+  const column = getNumberColumn(num);
+
+  let winAmount = 0;
+  let lossAmount = 0;
+
+  if (suggestion.includes('VERMELHO')) {
+    lossAmount = 10;
+    if (color === 'red') winAmount = 20;
+  } else if (suggestion.includes('Dúz 1') && suggestion.includes('Dúz 3')) {
+    const match = suggestion.match(/\(([^)]+)\)/);
+    let straightBetsCount = 0;
+    let hitHotNumber = false;
+
+    if (match && match[1]) {
+      // Extract numbers from "6, 10, 1, 27"
+      const nums = match[1].replace(/R\$\s*[\d.,]+\s*em\s*cada/gi, '').split(',').map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
+      straightBetsCount = nums.length;
+      if (nums.includes(num)) {
+        hitHotNumber = true;
+      }
+    }
+
+    const straightCost = straightBetsCount * 2.5; // R$ 2.50 per hot number by default
+    lossAmount = 20 + straightCost; // R$ 10 Duz 1 + R$ 10 Duz 3 + straightCost
+
+    if (dozen === '1a' || dozen === '3a') {
+      winAmount += 30; // 3x 10 = 30
+    }
+    if (hitHotNumber) {
+      winAmount += 90; // 36x 2.50 = 90
+    }
+  } else if (suggestion.includes('Col 1') && suggestion.includes('Col 3')) {
+    lossAmount = 20;
+    if (column === 'col1' || column === 'col3') {
+      winAmount = 30;
+    }
+  } else if (suggestion.includes('Dúzia')) {
+    const valMatch = suggestion.match(/R\$\s*(\d+)/);
+    const val = valMatch ? parseInt(valMatch[1], 10) : 10;
+    lossAmount = val;
+    if (suggestion.includes('1ª') && dozen === '1a') winAmount = val * 3;
+    if (suggestion.includes('2ª') && dozen === '2a') winAmount = val * 3;
+    if (suggestion.includes('3ª') && dozen === '3a') winAmount = val * 3;
+  } else if (suggestion.includes('Coluna')) {
+    const valMatch = suggestion.match(/R\$\s*(\d+)/);
+    const val = valMatch ? parseInt(valMatch[1], 10) : 10;
+    lossAmount = val;
+    if (suggestion.includes('1ª') && column === 'col1') winAmount = val * 3;
+    if (suggestion.includes('2ª') && column === 'col2') winAmount = val * 3;
+    if (suggestion.includes('3ª') && column === 'col3') winAmount = val * 3;
+  } else {
+    lossAmount = 10;
+    if (color === 'red') winAmount = 20;
+  }
+
+  return {
+    winAmount,
+    lossAmount,
+    netResult: winAmount - lossAmount,
+  };
+}
+
 export function generateBotSuggestion(spins: SpinRecord[]): { level: string; suggestion: string; strategyName: string } {
   if (spins.length === 0) {
     return { level: 'N1', suggestion: 'R$ 10 no VERMELHO', strategyName: 'Cor Simples (Vermelho)' };
@@ -368,7 +436,7 @@ export function generateBotSuggestion(spins: SpinRecord[]): { level: string; sug
   }
 
   if (alertDozen && alertDozen.code !== 'zero') {
-    const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 25;
+    const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 20;
     return { 
       level, 
       suggestion: `R$ ${val} na ${alertDozen.name}`,
@@ -377,7 +445,7 @@ export function generateBotSuggestion(spins: SpinRecord[]): { level: string; sug
   }
 
   if (alertCol) {
-    const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 25;
+    const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 20;
     return { 
       level, 
       suggestion: `R$ ${val} na ${alertCol.name}`,
@@ -393,7 +461,7 @@ export function generateBotSuggestion(spins: SpinRecord[]): { level: string; sug
   if (level === 'N2') return { level, suggestion: 'R$ 10 Col 1 / R$ 10 Col 3', strategyName: '2 Colunas (Col 1 + Col 3)' };
   return { 
     level, 
-    suggestion: `R$ 15 Dúz 1 / R$ 15 Dúz 3 + Top (${hotNumbers.join(', ')})`,
+    suggestion: `R$ 10 Dúz 1 / R$ 10 Dúz 3 + Top Quentes (${hotNumbers.join(', ')} - R$ 2,50 cada)`,
     strategyName: '2 Dúzias + Números Quentes' 
   };
 }

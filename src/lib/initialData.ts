@@ -11,6 +11,7 @@ export const INITIAL_BANKROLL_CONFIG: BankrollConfig = {
 };
 
 export const INITIAL_STRATEGY_CONFIG: StrategyConfig = {
+  useBotRecommendation: true,
   activePreset: 'top5_hot',
   dozen1Bet: 5,
   dozen2Bet: 5,

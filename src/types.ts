@@ -48,6 +48,7 @@ export interface BankrollConfig {
 }
 
 export interface StrategyConfig {
+  useBotRecommendation?: boolean;
   activePreset: 'custom' | 'top5_hot' | 'cold_dozen' | 'cold_column' | 'red_black' | 'double_dozen';
   dozen1Bet: number;
   dozen2Bet: number;

@@ -73,6 +73,7 @@ import {
   calculateTemperatures,
   calculateNumberStats,
   evaluateSpinPayout,
+  evaluateBotTipOutcome,
   generateBotSuggestion,
 } from './lib/roulette';
 import { soundEffects } from './lib/sound';
@@ -190,13 +191,16 @@ export default function App() {
 
     const nextGiro = spins.length + 1;
     const isWarmupPhase = nextGiro <= 100;
+    const currentBotTip = generateBotSuggestion(spins);
 
     let winAmt = 0;
     let lossAmt = 0;
     let net = 0;
 
     if (!isWarmupPhase) {
-      const payout = evaluateSpinPayout(number, strategy);
+      const payout = strategy.useBotRecommendation !== false
+        ? evaluateBotTipOutcome(number, currentBotTip.suggestion)
+        : evaluateSpinPayout(number, strategy);
       winAmt = multiplier ? payout.winAmount * multiplier : payout.winAmount;
       lossAmt = payout.lossAmount;
       net = winAmt - lossAmt;
@@ -246,13 +250,16 @@ export default function App() {
       numbers.forEach((num, index) => {
         const nextGiro = runningSpins.length + 1;
         const isWarmupPhase = nextGiro <= 100;
+        const currentBotTip = generateBotSuggestion(runningSpins);
 
         let winAmt = 0;
         let lossAmt = 0;
         let net = 0;
 
         if (!isWarmupPhase) {
-          const payout = evaluateSpinPayout(num, strategy);
+          const payout = strategy.useBotRecommendation !== false
+            ? evaluateBotTipOutcome(num, currentBotTip.suggestion)
+            : evaluateSpinPayout(num, strategy);
           winAmt = multiplier ? payout.winAmount * multiplier : payout.winAmount;
           lossAmt = payout.lossAmount;
           net = winAmt - lossAmt;
