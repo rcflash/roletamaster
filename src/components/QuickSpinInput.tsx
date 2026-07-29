@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Undo2, Zap, Hash, ListFilter, Layers, CheckCircle2, Sparkles, Trash2 } from 'lucide-react';
+import { Plus, Undo2, Zap, Hash, ListFilter, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight } from 'lucide-react';
 import { RED_NUMBERS } from '../lib/roulette';
 
 interface QuickSpinInputProps {
@@ -25,7 +25,89 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   const [multiplier, setMultiplier] = useState<number>(1);
   const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
   const [bulkText, setBulkText] = useState<string>('');
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageSuccessCount, setImageSuccessCount] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Image OCR Upload with Gemini Vision
+  const processImageFile = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setImageError('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WebP).');
+      return;
+    }
+
+    setIsAnalyzingImage(true);
+    setImageError(null);
+    setImageSuccessCount(null);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+
+          const res = await fetch('/api/extract-spins-from-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageBase64: base64Data,
+              mimeType: file.type || 'image/png',
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Não foi possível ler os números da imagem.');
+          }
+
+          if (data.numbers && data.numbers.length > 0) {
+            const extractedStr = data.numbers.join(', ');
+            setBulkText((prev) => (prev ? `${prev}, ${extractedStr}` : extractedStr));
+            setImageSuccessCount(data.numbers.length);
+          } else {
+            setImageError('Nenhum número de roleta (0-36) foi identificado na imagem. Tente enviar uma foto mais nítida do painel.');
+          }
+        } catch (err: any) {
+          console.error(err);
+          setImageError(err.message || 'Erro ao processar imagem.');
+        } finally {
+          setIsAnalyzingImage(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setImageError('Erro ao carregar arquivo de imagem.');
+      setIsAnalyzingImage(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+  };
+
+  // Reverse sequence in bulk text (from current list order)
+  const handleReverseText = () => {
+    if (!bulkText.trim()) return;
+    const nums = bulkText
+      .replace(/[^0-9\s,-]/g, ' ')
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    if (nums.length > 0) {
+      setBulkText(nums.reverse().join(', '));
+    }
+  };
 
   // Single Spin Submit
   const handleSubmit = (e: React.FormEvent) => {
@@ -226,12 +308,16 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
             {/* Bulk / Batch Import Button */}
             <button
               type="button"
-              onClick={() => setShowBulkModal(true)}
+              onClick={() => {
+                setImageError(null);
+                setImageSuccessCount(null);
+                setShowBulkModal(true);
+              }}
               className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-[11px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm"
-              title="Cole 300 números de uma só vez para análise em lote"
+              title="Cole números ou envie um print da tela para extração por IA"
             >
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>Importar Lote</span>
+              <Camera className="w-3.5 h-3.5 text-amber-400" />
+              <span>Importar Lote / Print IA</span>
             </button>
 
             {totalSpins > 0 && (
@@ -326,17 +412,98 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
             </div>
 
             <form onSubmit={handleBulkSubmit} className="space-y-4">
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+
+              {/* 📸 AI Gemini Print Upload Zone */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <Camera className="w-4 h-4" />
+                    <span className="text-xs font-black uppercase tracking-wider">
+                      Extração por Print / Foto (IA Gemini)
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                    Automático
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Envie o print da tela da roleta (como na Evolution, Pragmatic, Playtech) e a IA extrairá todos os números em sequência.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzingImage}
+                  className="w-full py-2.5 px-3 bg-slate-900 hover:bg-slate-800 border-2 border-dashed border-amber-500/40 hover:border-amber-400 rounded-xl text-xs font-bold text-slate-200 transition-all flex items-center justify-center gap-2 group disabled:opacity-60 cursor-pointer"
+                >
+                  {isAnalyzingImage ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                      <span className="text-amber-300 font-extrabold">
+                        IA Gemini Analisando Print e Lendo Números...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                      <span>Clique para Enviar Imagem do Print (PNG / JPG)</span>
+                    </>
+                  )}
+                </button>
+
+                {imageSuccessCount !== null && (
+                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 font-bold space-y-1 animate-fadeIn">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Sucesso! {imageSuccessCount} números extraídos do print da roleta.</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 font-normal pl-6">
+                      A ordem foi ajustada automaticamente (do mais antigo ao mais recente) para que o número no topo-esquerda do print seja o <strong>ÚLTIMO SAIU (#1)</strong>.
+                    </p>
+                  </div>
+                )}
+
+                {imageError && (
+                  <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-400 font-bold flex items-center gap-2 animate-fadeIn">
+                    <span className="shrink-0">⚠️</span>
+                    <span>{imageError}</span>
+                  </div>
+                )}
+              </div>
+
               <div>
-                <label className="block text-xs font-extrabold text-slate-300 uppercase tracking-wider mb-2">
-                  Sequência de Números Sorteados:
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">
+                    Sequência de Números Sorteados (Do Antigo ao Recente):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleReverseText}
+                    className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-[10px] font-extrabold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                    title="Inverter a sequência dos números de trás para a frente"
+                  >
+                    <ArrowLeftRight className="w-3 h-3 text-amber-400" />
+                    <span>Inverter Ordem</span>
+                  </button>
+                </div>
                 <textarea
-                  rows={6}
+                  rows={5}
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
                   placeholder="Exemplo: 32, 15, 19, 4, 0, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-slate-100 font-mono text-sm leading-relaxed focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3.5 text-slate-100 font-mono text-sm leading-relaxed focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  💡 Os números são processados da esquerda para a direita. O <strong>último número da lista</strong> acima será registrado como o <strong>ÚLTIMO SAIU (#1)</strong>.
+                </p>
               </div>
 
               {/* Live Detection Summary */}
@@ -354,19 +521,32 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               </div>
 
               {parsedBulkNumbers.length > 0 && (
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-2xl max-h-24 overflow-y-auto">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Pré-visualização:</span>
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-2xl max-h-28 overflow-y-auto space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 uppercase font-bold">
+                    <span>Primeiro a Entrar (Giro Inicial) ➔</span>
+                    <span className="text-amber-400 font-black">🎯 ÚLTIMO SAIU (#1)</span>
+                  </div>
                   <div className="flex flex-wrap gap-1">
-                    {parsedBulkNumbers.map((num, i) => (
-                      <span
-                        key={`preview-${i}`}
-                        className={`text-xs font-bold px-2 py-0.5 rounded-lg text-white ${
-                          RED_NUMBERS.includes(num) ? 'bg-rose-700' : num === 0 ? 'bg-emerald-600' : 'bg-slate-800'
-                        }`}
-                      >
-                        {num}
-                      </span>
-                    ))}
+                    {parsedBulkNumbers.map((num, i) => {
+                      const isLastItem = i === parsedBulkNumbers.length - 1;
+                      return (
+                        <span
+                          key={`preview-${i}`}
+                          className={`text-xs font-bold px-2 py-0.5 rounded-lg text-white relative ${
+                            isLastItem
+                              ? 'bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-md ring-2 ring-amber-400/40'
+                              : RED_NUMBERS.includes(num)
+                              ? 'bg-rose-700'
+                              : num === 0
+                              ? 'bg-emerald-600'
+                              : 'bg-slate-800'
+                          }`}
+                        >
+                          {num}
+                          {isLastItem && <span className="ml-1 text-[9px]">★</span>}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
