@@ -22,46 +22,54 @@ import {
 } from './types';
 
 export type DashboardBlockId =
+  | 'monitoramento'
+  | 'quick_input'
+  | 'strategy_neighbors'
+  | 'temperatures'
+  | 'hot_cold'
+  | 'history'
   | 'kpis'
   | 'alerts'
-  | 'quick_input'
-  | 'temperatures'
-  | 'neighbors'
-  | 'strategy'
-  | 'hot_cold'
-  | 'history';
+  | 'contabilizacao'
+  | 'warmup';
 
 const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
-  'kpis',
-  'alerts',
+  'monitoramento',
   'quick_input',
+  'strategy_neighbors',
   'temperatures',
-  'neighbors',
-  'strategy',
   'hot_cold',
   'history',
+  'kpis',
+  'alerts',
+  'contabilizacao',
+  'warmup',
 ];
 
 const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
-  'strategy',
+  'monitoramento',
+  'quick_input',
+  'strategy_neighbors',
   'temperatures',
-  'neighbors',
   'hot_cold',
   'history',
-  'quick_input',
   'kpis',
   'alerts',
+  'contabilizacao',
+  'warmup',
 ];
 
 const BLOCK_TITLES: Record<DashboardBlockId, string> = {
-  kpis: 'Métricas Financeiras & Banca',
-  alerts: 'Metas Diárias & Alerta de Stop Loss',
-  quick_input: 'Lançamento Rápido & Coleta (100 Giros)',
-  temperatures: 'Termômetro de Dúzias e Colunas',
-  neighbors: 'Alerta de Vizinhos do Cilindro',
-  strategy: 'Estratégia & Assistente Bot AI',
+  monitoramento: 'Monitoramento Giro a Giro Ativo',
+  quick_input: 'Lançamento Rápido de Números',
+  strategy_neighbors: 'Bot Inteligente de Recomendação & Alerta de Vizinhos',
+  temperatures: 'Termômetro de Dúzias, Colunas, Cores & Zero',
   hot_cold: 'Top 5 Números Quentes & Frios',
-  history: 'Tabela Completa do Histórico de Giros',
+  history: 'Tabela do Histórico da Planilha (Coluna B)',
+  kpis: 'Métricas Financeiras & Banca Inicial',
+  alerts: 'Metas Diárias & Alerta de Stop Loss',
+  contabilizacao: 'Modo de Contabilização do Saldo',
+  warmup: 'Coleta de Dados da Mesa (AQUECIMENTO DE 100 GIROS)',
 };
 import {
   INITIAL_BANKROLL_CONFIG,
@@ -97,6 +105,9 @@ import { StrategyBacktestPanel } from './components/StrategyBacktestPanel';
 import { BankrollControlPanel } from './components/BankrollControlPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { StrategyGuideModal } from './components/StrategyGuideModal';
+import { TableWarmupCard } from './components/TableWarmupCard';
+import { MonitoramentoGiroCard } from './components/MonitoramentoGiroCard';
+import { ModoContabilizacaoCard } from './components/ModoContabilizacaoCard';
 
 export default function App() {
   // LocalStorage Persistence Keys
@@ -124,12 +135,20 @@ export default function App() {
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
 
   const [blockOrder, setBlockOrder] = useState<DashboardBlockId[]>(() => {
-    const saved = localStorage.getItem('roleta_master_block_order');
-    return saved ? JSON.parse(saved) : DEFAULT_BLOCK_ORDER;
+    const saved = localStorage.getItem('roleta_master_block_order_v8');
+    if (saved) {
+      try {
+        const parsed: DashboardBlockId[] = JSON.parse(saved);
+        if (parsed.length === DEFAULT_BLOCK_ORDER.length) return parsed;
+      } catch (e) {
+        return DEFAULT_BLOCK_ORDER;
+      }
+    }
+    return DEFAULT_BLOCK_ORDER;
   });
 
   useEffect(() => {
-    localStorage.setItem('roleta_master_block_order', JSON.stringify(blockOrder));
+    localStorage.setItem('roleta_master_block_order_v8', JSON.stringify(blockOrder));
   }, [blockOrder]);
 
   const handleMoveBlock = (id: DashboardBlockId, direction: 'up' | 'down') => {
@@ -484,6 +503,8 @@ export default function App() {
 
   const renderBlockContent = (id: DashboardBlockId) => {
     switch (id) {
+      case 'monitoramento':
+        return <MonitoramentoGiroCard spins={spins} />;
       case 'kpis':
         return (
           <BankrollCards
@@ -503,6 +524,15 @@ export default function App() {
         );
       case 'alerts':
         return <AlertsAndGoalCard config={config} netProfit={netProfit} />;
+      case 'contabilizacao':
+        return (
+          <ModoContabilizacaoCard
+            strategy={strategy}
+            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+            config={config}
+            spins={spins}
+          />
+        );
       case 'quick_input':
         return (
           <QuickSpinInput
@@ -512,7 +542,21 @@ export default function App() {
             onClearAllSpins={handleClearAllSpins}
             totalSpins={totalSpins}
             lastNumber={lastSpin ? lastSpin.numero : null}
+            showWarmupBanner={false}
           />
+        );
+      case 'strategy_neighbors':
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+            <ActiveStrategyPanel
+              strategy={strategy}
+              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+              config={config}
+              spins={spins}
+              onOpenStrategyPdf={() => setIsStrategyPdfOpen(true)}
+            />
+            <WheelNeighborsAlertCard spins={spins} />
+          </div>
         );
       case 'temperatures':
         return (
@@ -520,18 +564,6 @@ export default function App() {
             dozenItems={temperatures.dozenItems}
             columnItems={temperatures.columnItems}
             colorItems={temperatures.colorItems}
-          />
-        );
-      case 'neighbors':
-        return <WheelNeighborsAlertCard spins={spins} />;
-      case 'strategy':
-        return (
-          <ActiveStrategyPanel
-            strategy={strategy}
-            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
-            config={config}
-            spins={spins}
-            onOpenStrategyPdf={() => setIsStrategyPdfOpen(true)}
           />
         );
       case 'hot_cold':
@@ -545,6 +577,14 @@ export default function App() {
             onEditSpin={() => {}}
             onAddCustomSpin={handleAddCustomSpin}
             onClearAllSpins={handleClearAllSpins}
+          />
+        );
+      case 'warmup':
+        return (
+          <TableWarmupCard
+            onBatchAddSpins={handleBatchAddSpins}
+            onClearAllSpins={handleClearAllSpins}
+            totalSpins={totalSpins}
           />
         );
       default:
@@ -572,25 +612,36 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-3 space-y-3">
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2 gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
                 activeTab === 'dashboard'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
               Painel Principal
             </button>
             <button
+              onClick={() => setActiveTab('strategies')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'strategies'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Estratégias & Backtest</span>
+            </button>
+            <button
               onClick={() => setActiveTab('bankroll')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                 activeTab === 'bankroll'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
@@ -599,9 +650,9 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('board')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
                 activeTab === 'board'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
@@ -609,24 +660,13 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
                 activeTab === 'analytics'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
               Gráficos & Análise
-            </button>
-            <button
-              onClick={() => setActiveTab('strategies')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'strategies'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span>Estratégias & Backtest</span>
             </button>
           </div>
 
@@ -634,7 +674,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowLayoutControls(!showLayoutControls)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 border ${
                   showLayoutControls
                     ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
                     : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
@@ -650,7 +690,7 @@ export default function App() {
 
         {/* Tab 1: Dashboard View */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {/* Layout Presets Toolbar */}
             {showLayoutControls && (
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-lg animate-fadeIn">

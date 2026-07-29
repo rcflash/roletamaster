@@ -9,6 +9,7 @@ interface QuickSpinInputProps {
   onClearAllSpins: () => void;
   totalSpins: number;
   lastNumber?: number | null;
+  showWarmupBanner?: boolean;
 }
 
 export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
@@ -18,6 +19,7 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   onClearAllSpins,
   totalSpins,
   lastNumber = null,
+  showWarmupBanner = false,
 }) => {
   const [selectedNum, setSelectedNum] = useState<string>('');
   const [multiplier, setMultiplier] = useState<number>(1);
@@ -69,95 +71,97 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   const warmupProgress = Math.min(100, Math.round((totalSpins / warmupTarget) * 100));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {/* 🚀 100 Spin Warmup / Calibration Progress Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest">
-                COLETA DE DADOS DA MESA (AQUECIMENTO DE 100 GIROS)
-              </h3>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                totalSpins >= 100
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-              }`}>
-                {totalSpins >= 100 ? 'AMOSTRA DADOS PRONTA' : `FASE DE COLETA (${totalSpins}/100)`}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-              {totalSpins >= 100
-                ? 'Amostra de 100 giros concluída! O Saldo da Banca está ativo e contabilizando lucros e perdas reais a partir do Giro 101.'
-                : `Os primeiros 100 giros são para amostragem/aquecimento (saldo de banca preservado). O Saldo começará a contar a partir do Giro 101. Faltam ${100 - totalSpins} rodadas.`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-          <div className="w-full sm:w-36 bg-slate-950 p-2.5 rounded-2xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-500 uppercase font-extrabold block">Progresso Amostra</span>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-sm font-black text-emerald-400 font-mono">{warmupProgress}%</span>
-              <span className="text-[10px] text-slate-400 font-mono">{totalSpins}/100</span>
-            </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1.5">
-              <div
-                className="h-full bg-emerald-500 transition-all duration-300"
-                style={{ width: `${warmupProgress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => setShowBulkModal(true)}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5"
-            >
-              <Layers className="w-4 h-4" /> Lançar Lote (100+)
-            </button>
-            {totalSpins > 0 ? (
-              <button
-                onClick={onClearAllSpins}
-                title="Limpar toda a base de dados para iniciar uma nova mesa do zero"
-                className="px-3.5 py-2.5 bg-rose-950/80 hover:bg-rose-900/90 text-rose-300 hover:text-white rounded-xl border border-rose-800/80 transition-all flex items-center gap-1.5 text-xs font-black shadow-md"
-              >
-                <Trash2 className="w-4 h-4 text-rose-400" />
-                <span>Limpar Mesa</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowBulkModal(true)}
-                title="Mesa limpa e pronta para colar seus 100 giros"
-                className="px-3 py-2.5 bg-slate-950 text-emerald-400 rounded-xl border border-emerald-500/30 text-xs font-bold"
-              >
-                Mesa Pronta (0 Giros)
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 🎯 Quick Input Bento Panel */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Zap className="w-4 h-4" />
+      {showWarmupBanner && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
+                <h3 className="text-[11px] font-black text-slate-200 uppercase tracking-widest">
+                  COLETA DE DADOS DA MESA (AQUECIMENTO DE 100 GIROS)
+                </h3>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                  totalSpins >= 100
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                  {totalSpins >= 100 ? 'AMOSTRA DADOS PRONTA' : `FASE DE COLETA (${totalSpins}/100)`}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                {totalSpins >= 100
+                  ? 'Amostra de 100 giros concluída! O Saldo da Banca está ativo e contabilizando lucros e perdas reais a partir do Giro 101.'
+                  : `Os primeiros 100 giros são para amostragem/aquecimento (saldo de banca preservado). O Saldo começará a contar a partir do Giro 101. Faltam ${100 - totalSpins} rodadas.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 shrink-0">
+            <div className="w-full sm:w-32 bg-slate-950 p-2 rounded-xl border border-slate-800 text-center">
+              <span className="text-[9px] text-slate-500 uppercase font-extrabold block">Progresso Amostra</span>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-xs font-black text-emerald-400 font-mono">{warmupProgress}%</span>
+                <span className="text-[9px] text-slate-400 font-mono">{totalSpins}/100</span>
+              </div>
+              <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-1">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300"
+                  style={{ width: `${warmupProgress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="flex-1 sm:flex-none px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-1"
+              >
+                <Layers className="w-3.5 h-3.5" /> Lançar Lote (100+)
+              </button>
+              {totalSpins > 0 ? (
+                <button
+                  onClick={onClearAllSpins}
+                  title="Limpar toda a base de dados para iniciar uma nova mesa do zero"
+                  className="px-3 py-2 bg-rose-950/80 hover:bg-rose-900/90 text-rose-300 hover:text-white rounded-xl border border-rose-800/80 transition-all flex items-center gap-1 text-[11px] font-black shadow-sm"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Limpar Mesa</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowBulkModal(true)}
+                  title="Mesa limpa e pronta para colar seus 100 giros"
+                  className="px-2.5 py-2 bg-slate-950 text-emerald-400 rounded-xl border border-emerald-500/30 text-[11px] font-bold"
+                >
+                  Mesa Pronta (0 Giros)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 Quick Input Bento Panel */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-lg">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 border-b border-slate-800 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Zap className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black text-slate-100 uppercase tracking-wide">
                   Lançamento Rápido de Números
                 </h3>
                 {lastNumber !== null && lastNumber !== undefined && (
-                  <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full shadow-sm animate-fadeIn">
-                    <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider">Último Saiu:</span>
-                    <span className={`px-2 py-0.5 rounded-md font-black text-xs text-white shadow ${
+                  <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm animate-fadeIn">
+                    <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider">ÚLTIMO SAIU:</span>
+                    <span className={`px-1.5 py-0.2 rounded font-black text-[11px] text-white shadow ${
                       RED_NUMBERS.includes(lastNumber)
                         ? 'bg-rose-600 border border-rose-400'
                         : lastNumber === 0
@@ -169,21 +173,21 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400">
-                Digite um número (0-36) e tecle <kbd className="px-1 py-0.5 bg-slate-800 rounded text-amber-400 font-mono text-[10px]">Enter</kbd> ou clique no teclado abaixo
+              <p className="text-[10px] text-slate-400">
+                Digite um número (0-36) e tecle <kbd className="px-1 py-0.2 bg-slate-800 rounded text-amber-400 font-mono text-[9px]">Enter</kbd> ou clique no teclado abaixo
               </p>
             </div>
           </div>
 
           {/* Multiplier Pills */}
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-            <span className="text-[10px] uppercase font-bold text-slate-500 px-2 hidden sm:inline">Mult:</span>
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <span className="text-[9px] uppercase font-bold text-slate-500 px-1.5 hidden sm:inline">Mult:</span>
             {[1, 2, 5, 10, 20, 50, 100].map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMultiplier(m)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all ${
                   multiplier === m
                     ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -195,10 +199,10 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
           </div>
 
           {/* Fast Keyboard Form & Undo */}
-          <div className="flex items-center gap-2">
-            <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
               <div className="relative">
-                <Hash className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Hash className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   ref={inputRef}
                   type="number"
@@ -207,15 +211,15 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                   value={selectedNum}
                   onChange={(e) => setSelectedNum(e.target.value)}
                   placeholder="0-36"
-                  className="w-24 pl-8 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-base font-black text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-mono"
+                  className="w-20 pl-7 pr-2 py-1 bg-slate-950 border border-slate-700 rounded-lg text-sm font-black text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-mono"
                 />
               </div>
               <button
                 type="submit"
                 disabled={selectedNum === ''}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-1"
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-black text-[11px] uppercase tracking-wider rounded-lg transition-all shadow-sm flex items-center gap-1"
               >
-                <Plus className="w-4 h-4" /> Lançar
+                <Plus className="w-3.5 h-3.5" /> Lançar
               </button>
             </form>
 
@@ -223,10 +227,10 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
             <button
               type="button"
               onClick={() => setShowBulkModal(true)}
-              className="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+              className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-[11px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm"
               title="Cole 300 números de uma só vez para análise em lote"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <Sparkles className="w-3 h-3 text-amber-400" />
               <span>Importar Lote</span>
             </button>
 
@@ -235,31 +239,31 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 type="button"
                 onClick={onUndoLastSpin}
                 title="Desfazer último giro"
-                className="p-2.5 bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-rose-400 rounded-xl border border-slate-800 transition-colors"
+                className="p-1.5 bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-rose-400 rounded-lg border border-slate-800 transition-colors"
               >
-                <Undo2 className="w-4 h-4" />
+                <Undo2 className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
         {/* Visual Roulette Number Pad Grid */}
-        <div className="grid grid-cols-12 sm:grid-cols-13 gap-1.5">
+        <div className="grid grid-cols-12 sm:grid-cols-13 gap-1">
           {/* Zero */}
           {(() => {
             const isZeroLast = lastNumber === 0;
             return (
               <button
                 onClick={() => handleQuickClick(0)}
-                className={`col-span-12 sm:col-span-1 h-12 rounded-xl text-slate-950 font-black text-sm shadow transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
+                className={`col-span-12 sm:col-span-1 h-8 sm:h-9 rounded-lg text-slate-950 font-black text-xs sm:text-sm shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
                   isZeroLast
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-4 ring-amber-400/50 ring-offset-2 ring-offset-slate-950 shadow-xl shadow-amber-500/50 scale-105 z-10 font-black'
+                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
                     : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400/40'
                 }`}
               >
                 <span>0</span>
                 {isZeroLast && (
-                  <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50">
+                  <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
                     ÚLTIMO
                   </span>
                 )}
@@ -275,9 +279,9 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               <button
                 key={num}
                 onClick={() => handleQuickClick(num)}
-                className={`h-12 rounded-xl font-black text-xs sm:text-sm shadow transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
+                className={`h-8 sm:h-9 rounded-lg font-black text-xs shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
                   isLast
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-4 ring-amber-400/50 ring-offset-2 ring-offset-slate-950 shadow-xl shadow-amber-500/50 scale-105 z-10 font-black'
+                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
                     : isRed
                     ? 'bg-rose-950/80 hover:bg-rose-800 border-rose-800/80 text-rose-200'
                     : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200'
@@ -285,7 +289,7 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               >
                 <span>{num}</span>
                 {isLast && (
-                  <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50">
+                  <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
                     ÚLTIMO
                   </span>
                 )}
