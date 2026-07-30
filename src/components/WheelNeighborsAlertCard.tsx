@@ -15,7 +15,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   onUpdateStrategy,
 }) => {
   const neighborRadius = strategy?.neighborRadius || 2;
-  const alertData = calculateNeighborsAlert(spins);
+  const alertData = calculateNeighborsAlert(spins, neighborRadius);
 
   const lastSpin = spins.length > 0 ? spins[spins.length - 1] : null;
   const targetNum = lastSpin ? lastSpin.numero : 0;

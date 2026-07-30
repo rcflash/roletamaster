@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Undo2, Zap, Hash, ListFilter, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight } from 'lucide-react';
+import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight } from 'lucide-react';
 import { RED_NUMBERS } from '../lib/roulette';
 
 interface QuickSpinInputProps {
@@ -21,14 +21,12 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   lastNumber = null,
   showWarmupBanner = false,
 }) => {
-  const [selectedNum, setSelectedNum] = useState<string>('');
   const [multiplier, setMultiplier] = useState<number>(1);
   const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
   const [bulkText, setBulkText] = useState<string>('');
   const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageSuccessCount, setImageSuccessCount] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle Image OCR Upload with Gemini Vision
@@ -110,25 +108,8 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   };
 
   // Single Spin Submit
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedNum !== '') {
-      const parsed = parseInt(selectedNum, 10);
-      if (!isNaN(parsed) && parsed >= 0 && parsed <= 36) {
-        onAddSpin(parsed, multiplier > 1 ? multiplier : undefined);
-        setSelectedNum('');
-        if (inputRef.current) {
-          inputRef.current.focus();
-        }
-      }
-    }
-  };
-
   const handleQuickClick = (num: number) => {
     onAddSpin(num, multiplier > 1 ? multiplier : undefined);
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
   };
 
   // Bulk / Batch Submit (Parsing comma, space, line break separated numbers)
@@ -230,7 +211,7 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
 
       {/* 🎯 Quick Input Bento Panel */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-lg">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 border-b border-slate-800 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2.5 border-b border-slate-800 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <Zap className="w-3.5 h-3.5" />
@@ -256,54 +237,30 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 )}
               </div>
               <p className="text-[10px] text-slate-400">
-                Digite um número (0-36) e tecle <kbd className="px-1 py-0.2 bg-slate-800 rounded text-amber-400 font-mono text-[9px]">Enter</kbd> ou clique no teclado abaixo
+                Clique nos números do teclado abaixo para lançar na mesa
               </p>
             </div>
           </div>
 
-          {/* Multiplier Pills */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-            <span className="text-[9px] uppercase font-bold text-slate-500 px-1.5 hidden sm:inline">Mult:</span>
-            {[1, 2, 5, 10, 20, 50, 100].map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMultiplier(m)}
-                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all ${
-                  multiplier === m
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-              >
-                {m}x
-              </button>
-            ))}
-          </div>
-
-          {/* Fast Keyboard Form & Undo */}
-          <div className="flex items-center gap-1.5">
-            <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
-              <div className="relative">
-                <Hash className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  ref={inputRef}
-                  type="number"
-                  min="0"
-                  max="36"
-                  value={selectedNum}
-                  onChange={(e) => setSelectedNum(e.target.value)}
-                  placeholder="0-36"
-                  className="w-20 pl-7 pr-2 py-1 bg-slate-950 border border-slate-700 rounded-lg text-sm font-black text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-mono"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={selectedNum === ''}
-                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-black text-[11px] uppercase tracking-wider rounded-lg transition-all shadow-sm flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" /> Lançar
-              </button>
-            </form>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Multiplier Pills */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <span className="text-[9px] uppercase font-bold text-slate-500 px-1.5 hidden sm:inline">Mult:</span>
+              {[1, 2, 5, 10, 20, 50, 100].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMultiplier(m)}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all ${
+                    multiplier === m
+                      ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  {m}x
+                </button>
+              ))}
+            </div>
 
             {/* Bulk / Batch Import Button */}
             <button
@@ -313,23 +270,24 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 setImageSuccessCount(null);
                 setShowBulkModal(true);
               }}
-              className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-[11px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm"
+              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-[11px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
               title="Cole números ou envie um print da tela para extração por IA"
             >
               <Camera className="w-3.5 h-3.5 text-amber-400" />
               <span>Importar Lote / Print IA</span>
             </button>
 
-            {totalSpins > 0 && (
-              <button
-                type="button"
-                onClick={onUndoLastSpin}
-                title="Desfazer último giro"
-                className="p-1.5 bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-rose-400 rounded-lg border border-slate-800 transition-colors"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </button>
-            )}
+            {/* Undo Button */}
+            <button
+              type="button"
+              onClick={onUndoLastSpin}
+              disabled={totalSpins === 0}
+              title="Desfazer último número lançado"
+              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:hover:bg-rose-500/10 text-rose-400 border border-rose-500/30 font-black text-[11px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Undo2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Desfazer</span>
+            </button>
           </div>
         </div>
 

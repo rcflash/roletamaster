@@ -46,7 +46,7 @@ export function calculateNeighborsAlert(
   const recent6 = spins.slice(-6);
   const hitsInSector = recent6.filter((s) => neighbors.includes(s.numero)).length;
 
-  const threshold = neighborRadius === 2 ? 3 : neighborRadius === 3 ? 3 : 4;
+  const threshold = 3;
   const hasAlert = hitsInSector >= threshold;
 
   if (hasAlert) {

@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
-import { Sparkles, Layers, Trash2 } from 'lucide-react';
+import { Sparkles, Layers, Trash2, CheckSquare, Square } from 'lucide-react';
+import { BankrollConfig } from '../types';
 
 interface TableWarmupCardProps {
   onBatchAddSpins: (numbers: number[], multiplier?: number) => void;
   onClearAllSpins: () => void;
   totalSpins: number;
+  config?: BankrollConfig;
+  onUpdateConfig?: (updated: Partial<BankrollConfig>) => void;
 }
 
 export const TableWarmupCard: React.FC<TableWarmupCardProps> = ({
   onBatchAddSpins,
   onClearAllSpins,
   totalSpins,
+  config,
+  onUpdateConfig,
 }) => {
   const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
   const [bulkText, setBulkText] = useState<string>('');
 
   const warmupTarget = 100;
   const warmupProgress = Math.min(100, Math.round((totalSpins / warmupTarget) * 100));
+  const enableWarmup = config?.enableWarmupPhase ?? false;
 
   const parsedBulkNumbers = bulkText
     .replace(/[^0-9\s,-]/g, ' ')
@@ -47,18 +53,41 @@ export const TableWarmupCard: React.FC<TableWarmupCardProps> = ({
               COLETA DE DADOS DA MESA (AQUECIMENTO DE 100 GIROS)
             </h3>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              totalSpins >= 100
+              !enableWarmup
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : totalSpins >= 100
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
             }`}>
-              {totalSpins >= 100 ? 'AMOSTRA DADOS PRONTA' : `FASE DE COLETA (${totalSpins}/100)`}
+              {!enableWarmup
+                ? 'CONTABILIZAÇÃO DIRETA ATIVA (DESDE O 1º GIRO)'
+                : totalSpins >= 100
+                ? 'AMOSTRA DADOS PRONTA'
+                : `MODO AQUECIMENTO ATIVO (${totalSpins}/100)`}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            {totalSpins >= 100
+            {!enableWarmup
+              ? 'Todas as apostas sugeridas pelos Alertas de Vizinhos estão contabilizando no saldo da banca imediatamente a cada novo giro.'
+              : totalSpins >= 100
               ? 'Amostra de 100 giros concluída! O Saldo da Banca está ativo e contabilizando lucros e perdas reais a partir do Giro 101.'
-              : `Os primeiros 100 giros são para amostragem/aquecimento (saldo de banca preservado). O Saldo começará a contar a partir do Giro 101. Faltam ${100 - totalSpins} rodadas.`}
+              : `Modo de aquecimento ativado: os primeiros 100 giros não alteram o saldo. O saldo começará a contar no giro 101.`}
           </p>
+
+          {/* Warmup Toggle Button */}
+          {onUpdateConfig && (
+            <button
+              onClick={() => onUpdateConfig({ enableWarmupPhase: !enableWarmup })}
+              className="mt-2.5 flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              {enableWarmup ? <CheckSquare className="w-4 h-4 text-amber-400" /> : <Square className="w-4 h-4 text-slate-500" />}
+              <span>
+                {enableWarmup
+                  ? 'Desativar modo aquecimento (contabilizar saldo a partir do 1º giro)'
+                  : 'Ativar modo aquecimento (preservar saldo nos primeiros 100 giros)'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

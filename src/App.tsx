@@ -24,7 +24,8 @@ import {
 export type DashboardBlockId =
   | 'monitoramento'
   | 'quick_input'
-  | 'strategy_neighbors'
+  | 'wheel_alert'
+  | 'smart_bot'
   | 'temperatures'
   | 'hot_cold'
   | 'history'
@@ -36,7 +37,8 @@ export type DashboardBlockId =
 const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'monitoramento',
   'quick_input',
-  'strategy_neighbors',
+  'wheel_alert',
+  'smart_bot',
   'temperatures',
   'hot_cold',
   'history',
@@ -49,7 +51,8 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
 const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'monitoramento',
   'quick_input',
-  'strategy_neighbors',
+  'wheel_alert',
+  'smart_bot',
   'temperatures',
   'hot_cold',
   'history',
@@ -62,7 +65,8 @@ const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
 const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   monitoramento: 'Monitoramento Giro a Giro Ativo',
   quick_input: 'Lançamento Rápido de Números',
-  strategy_neighbors: 'Bot Inteligente de Recomendação & Alerta de Vizinhos',
+  wheel_alert: 'Alerta de Vizinhos do Cilindro',
+  smart_bot: 'Bot Inteligente de Recomendação',
   temperatures: 'Termômetro de Dúzias, Colunas, Cores & Zero',
   hot_cold: 'Top 5 Números Quentes & Frios',
   history: 'Tabela do Histórico da Planilha (Coluna B)',
@@ -136,11 +140,13 @@ export default function App() {
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
 
   const [blockOrder, setBlockOrder] = useState<DashboardBlockId[]>(() => {
-    const saved = localStorage.getItem('roleta_master_block_order_v8');
+    const saved = localStorage.getItem('roleta_master_block_order_v9');
     if (saved) {
       try {
         const parsed: DashboardBlockId[] = JSON.parse(saved);
-        if (parsed.length === DEFAULT_BLOCK_ORDER.length) return parsed;
+        if (parsed.length === DEFAULT_BLOCK_ORDER.length && parsed.includes('wheel_alert') && parsed.includes('smart_bot')) {
+          return parsed;
+        }
       } catch (e) {
         return DEFAULT_BLOCK_ORDER;
       }
@@ -149,7 +155,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('roleta_master_block_order_v8', JSON.stringify(blockOrder));
+    localStorage.setItem('roleta_master_block_order_v9', JSON.stringify(blockOrder));
   }, [blockOrder]);
 
   const handleMoveBlock = (id: DashboardBlockId, direction: 'up' | 'down') => {
@@ -186,7 +192,7 @@ export default function App() {
 
     const updated = spins.map((s, idx) => {
       const giro = idx + 1;
-      const isWarmupPhase = giro <= 100;
+      const isWarmupPhase = (config.enableWarmupPhase ?? false) && giro <= 100;
       const prevNum = idx > 0 ? spins[idx - 1].numero : null;
 
       let winAmt = 0;
@@ -229,7 +235,7 @@ export default function App() {
     if (changed) {
       setSpins(updated);
     }
-  }, [strategy.neighborRadius, config.initialBankroll]);
+  }, [strategy.neighborRadius, strategy.neighborChipValue, config.initialBankroll, config.enableWarmupPhase]);
 
   useEffect(() => {
     localStorage.setItem('roleta_master_spins', JSON.stringify(spins));
@@ -239,8 +245,10 @@ export default function App() {
   const totalSpins = spins.length;
   const lastSpin = spins.length > 0 ? spins[spins.length - 1] : null;
 
-  // Active/real betting spins are those after the 100-spin warmup phase (giro > 100)
-  const realBettingSpins = spins.filter((s) => s.giro > 100);
+  // Active/real betting spins are those with active bets (or after 100-spin warmup if enabled)
+  const realBettingSpins = (config.enableWarmupPhase ?? false)
+    ? spins.filter((s) => s.giro > 100)
+    : spins.filter((s) => s.giro > 1 && (s.winAmount > 0 || s.lossAmount > 0));
   const totalBettingSpins = realBettingSpins.length;
 
   const currentBalance =
@@ -271,7 +279,7 @@ export default function App() {
     }
 
     const nextGiro = spins.length + 1;
-    const isWarmupPhase = nextGiro <= 100;
+    const isWarmupPhase = (config.enableWarmupPhase ?? false) && nextGiro <= 100;
     const prevNum = spins.length > 0 ? spins[spins.length - 1].numero : null;
     const radius = strategy.neighborRadius || 2;
     const chipVal = strategy.neighborChipValue || 2.50;
@@ -332,7 +340,7 @@ export default function App() {
 
       numbers.forEach((num, index) => {
         const nextGiro = runningSpins.length + 1;
-        const isWarmupPhase = nextGiro <= 100;
+        const isWarmupPhase = (config.enableWarmupPhase ?? false) && nextGiro <= 100;
         const prevNum = runningSpins.length > 0 ? runningSpins[runningSpins.length - 1].numero : null;
 
         let winAmt = 0;
@@ -394,7 +402,7 @@ export default function App() {
     }
 
     const nextGiro = spins.length + 1;
-    const isWarmupPhase = nextGiro <= 100;
+    const isWarmupPhase = (config.enableWarmupPhase ?? false) && nextGiro <= 100;
     const radius = strategy.neighborRadius || 2;
 
     const winAmt = isWarmupPhase ? 0 : winAmount;
@@ -605,22 +613,23 @@ export default function App() {
             showWarmupBanner={false}
           />
         );
-      case 'strategy_neighbors':
+      case 'wheel_alert':
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
-            <ActiveStrategyPanel
-              strategy={strategy}
-              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
-              config={config}
-              spins={spins}
-              onOpenStrategyPdf={() => setIsStrategyPdfOpen(true)}
-            />
-            <WheelNeighborsAlertCard
-              spins={spins}
-              strategy={strategy}
-              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
-            />
-          </div>
+          <WheelNeighborsAlertCard
+            spins={spins}
+            strategy={strategy}
+            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+          />
+        );
+      case 'smart_bot':
+        return (
+          <ActiveStrategyPanel
+            strategy={strategy}
+            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+            config={config}
+            spins={spins}
+            onOpenStrategyPdf={() => setIsStrategyPdfOpen(true)}
+          />
         );
       case 'temperatures':
         return (
@@ -649,6 +658,8 @@ export default function App() {
             onBatchAddSpins={handleBatchAddSpins}
             onClearAllSpins={handleClearAllSpins}
             totalSpins={totalSpins}
+            config={config}
+            onUpdateConfig={(upd) => setConfig((prev) => ({ ...prev, ...upd }))}
           />
         );
       default:

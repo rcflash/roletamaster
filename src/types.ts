@@ -45,6 +45,7 @@ export interface BankrollConfig {
   defaultSpinCost: number;
   currency: string;
   soundEnabled: boolean;
+  enableWarmupPhase?: boolean;
 }
 
 export interface StrategyConfig {
