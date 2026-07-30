@@ -1,22 +1,34 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Compass, Flame, AlertCircle, Sparkles, Crosshair } from 'lucide-react';
-import { SpinRecord } from '../types';
+import { SpinRecord, StrategyConfig } from '../types';
 import { getWheelNeighbors, calculateNeighborsAlert } from '../lib/roulette';
 
 interface WheelNeighborsAlertCardProps {
   spins: SpinRecord[];
+  strategy?: StrategyConfig;
+  onUpdateStrategy?: (updated: Partial<StrategyConfig>) => void;
 }
 
-export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = ({ spins }) => {
-  const [neighborRadius, setNeighborRadius] = useState<2 | 3 | 4>(2);
+export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = ({
+  spins,
+  strategy,
+  onUpdateStrategy,
+}) => {
+  const neighborRadius = strategy?.neighborRadius || 2;
   const alertData = calculateNeighborsAlert(spins);
 
   const lastSpin = spins.length > 0 ? spins[spins.length - 1] : null;
   const targetNum = lastSpin ? lastSpin.numero : 0;
   const currentNeighbors = getWheelNeighbors(targetNum, neighborRadius);
 
-  const chipValue = 2.5;
+  const chipValue = strategy?.neighborChipValue || 2.5;
   const totalBet = currentNeighbors.length * chipValue;
+
+  const handleSelectRadius = (count: 2 | 3 | 4) => {
+    if (onUpdateStrategy) {
+      onUpdateStrategy({ neighborRadius: count });
+    }
+  };
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between h-full">
@@ -34,7 +46,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
             {([2, 3, 4] as const).map((count) => (
               <button
                 key={count}
-                onClick={() => setNeighborRadius(count)}
+                onClick={() => handleSelectRadius(count)}
                 className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
                   neighborRadius === count
                     ? 'bg-amber-500 text-slate-950 shadow-sm'

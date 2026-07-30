@@ -84,6 +84,7 @@ import {
   getNumberHalf,
   calculateTemperatures,
   calculateNumberStats,
+  evaluateNeighborsPayout,
   evaluateSpinPayout,
   evaluateBotTipOutcome,
   generateBotSuggestion,
@@ -174,6 +175,61 @@ export default function App() {
     localStorage.setItem('roleta_master_strategy', JSON.stringify(strategy));
   }, [strategy]);
 
+  // Recalculate spins when neighbor radius changes
+  useEffect(() => {
+    if (spins.length === 0) return;
+    const radius = strategy.neighborRadius || 2;
+    const chipVal = strategy.neighborChipValue || 2.50;
+
+    let current = config.initialBankroll;
+    let changed = false;
+
+    const updated = spins.map((s, idx) => {
+      const giro = idx + 1;
+      const isWarmupPhase = giro <= 100;
+      const prevNum = idx > 0 ? spins[idx - 1].numero : null;
+
+      let winAmt = 0;
+      let lossAmt = 0;
+      let net = 0;
+
+      if (!isWarmupPhase && prevNum !== null) {
+        const payout = evaluateNeighborsPayout(s.numero, prevNum, radius, chipVal, s.multiplier);
+        winAmt = payout.winAmount;
+        lossAmt = payout.lossAmount;
+        net = payout.netResult;
+      }
+
+      current += net;
+      const botInfo = generateBotSuggestion(spins.slice(0, idx), radius);
+
+      if (
+        s.winAmount !== winAmt ||
+        s.lossAmount !== lossAmt ||
+        s.netResult !== net ||
+        s.accumulatedBalance !== current
+      ) {
+        changed = true;
+      }
+
+      return {
+        ...s,
+        giro,
+        winAmount: winAmt,
+        lossAmount: lossAmt,
+        netResult: net,
+        accumulatedBalance: current,
+        botLevel: botInfo.level,
+        nextBetSuggestion: botInfo.suggestion,
+        cycleStatus: isWarmupPhase ? 'NEUTRAL' : (net >= 0 ? 'WIN' : 'LOSS'),
+      };
+    });
+
+    if (changed) {
+      setSpins(updated);
+    }
+  }, [strategy.neighborRadius, config.initialBankroll]);
+
   useEffect(() => {
     localStorage.setItem('roleta_master_spins', JSON.stringify(spins));
   }, [spins]);
@@ -215,23 +271,23 @@ export default function App() {
 
     const nextGiro = spins.length + 1;
     const isWarmupPhase = nextGiro <= 100;
-    const currentBotTip = generateBotSuggestion(spins);
+    const prevNum = spins.length > 0 ? spins[spins.length - 1].numero : null;
+    const radius = strategy.neighborRadius || 2;
+    const chipVal = strategy.neighborChipValue || 2.50;
 
     let winAmt = 0;
     let lossAmt = 0;
     let net = 0;
 
-    if (!isWarmupPhase) {
-      const payout = strategy.useBotRecommendation !== false
-        ? evaluateBotTipOutcome(number, currentBotTip.suggestion)
-        : evaluateSpinPayout(number, strategy);
-      winAmt = multiplier ? payout.winAmount * multiplier : payout.winAmount;
+    if (!isWarmupPhase && prevNum !== null) {
+      const payout = evaluateNeighborsPayout(number, prevNum, radius, chipVal, multiplier);
+      winAmt = payout.winAmount;
       lossAmt = payout.lossAmount;
-      net = winAmt - lossAmt;
+      net = payout.netResult;
     }
 
     const newBal = currentBalance + net;
-    const botInfo = generateBotSuggestion(spins);
+    const botInfo = generateBotSuggestion(spins, radius);
 
     const newSpin: SpinRecord = {
       id: `spin-${Date.now()}`,
@@ -270,27 +326,27 @@ export default function App() {
     setSpins((prev) => {
       let runningBalance = prev.length > 0 ? prev[prev.length - 1].accumulatedBalance : config.initialBankroll;
       const runningSpins = [...prev];
+      const radius = strategy.neighborRadius || 2;
+      const chipVal = strategy.neighborChipValue || 2.50;
 
       numbers.forEach((num, index) => {
         const nextGiro = runningSpins.length + 1;
         const isWarmupPhase = nextGiro <= 100;
-        const currentBotTip = generateBotSuggestion(runningSpins);
+        const prevNum = runningSpins.length > 0 ? runningSpins[runningSpins.length - 1].numero : null;
 
         let winAmt = 0;
         let lossAmt = 0;
         let net = 0;
 
-        if (!isWarmupPhase) {
-          const payout = strategy.useBotRecommendation !== false
-            ? evaluateBotTipOutcome(num, currentBotTip.suggestion)
-            : evaluateSpinPayout(num, strategy);
-          winAmt = multiplier ? payout.winAmount * multiplier : payout.winAmount;
+        if (!isWarmupPhase && prevNum !== null) {
+          const payout = evaluateNeighborsPayout(num, prevNum, radius, chipVal, multiplier);
+          winAmt = payout.winAmount;
           lossAmt = payout.lossAmount;
-          net = winAmt - lossAmt;
+          net = payout.netResult;
         }
 
         runningBalance += net;
-        const botInfo = generateBotSuggestion(runningSpins);
+        const botInfo = generateBotSuggestion(runningSpins, radius);
 
         const newSpin: SpinRecord = {
           id: `spin-${Date.now()}-${index}`,
@@ -338,12 +394,13 @@ export default function App() {
 
     const nextGiro = spins.length + 1;
     const isWarmupPhase = nextGiro <= 100;
+    const radius = strategy.neighborRadius || 2;
 
     const winAmt = isWarmupPhase ? 0 : winAmount;
     const lossAmt = isWarmupPhase ? 0 : lossAmount;
     const net = winAmt - lossAmt;
     const newBal = currentBalance + net;
-    const botInfo = generateBotSuggestion(spins);
+    const botInfo = generateBotSuggestion(spins, radius);
 
     const newSpin: SpinRecord = {
       id: `spin-${Date.now()}`,
@@ -378,29 +435,28 @@ export default function App() {
   const handleDeleteSpin = (id: string) => {
     if (config.soundEnabled) soundEffects.playChipClick();
     const updated = spins.filter((s) => s.id !== id);
-    // Recalculate accumulated balance across remaining
+    const radius = strategy.neighborRadius || 2;
+    const chipVal = strategy.neighborChipValue || 2.50;
+
     let current = config.initialBankroll;
     const recalculated = updated.map((s, idx) => {
       const giro = idx + 1;
       const isWarmupPhase = giro <= 100;
+      const prevNum = idx > 0 ? updated[idx - 1].numero : null;
 
       let winAmt = 0;
       let lossAmt = 0;
       let net = 0;
 
-      if (!isWarmupPhase) {
-        if (s.winAmount === 0 && s.lossAmount === 0) {
-          const payout = evaluateSpinPayout(s.numero, strategy);
-          winAmt = s.multiplier ? payout.winAmount * s.multiplier : payout.winAmount;
-          lossAmt = payout.lossAmount;
-        } else {
-          winAmt = s.winAmount;
-          lossAmt = s.lossAmount;
-        }
-        net = winAmt - lossAmt;
+      if (!isWarmupPhase && prevNum !== null) {
+        const payout = evaluateNeighborsPayout(s.numero, prevNum, radius, chipVal, s.multiplier);
+        winAmt = payout.winAmount;
+        lossAmt = payout.lossAmount;
+        net = payout.netResult;
       }
 
       current += net;
+      const botInfo = generateBotSuggestion(updated.slice(0, idx), radius);
 
       return {
         ...s,
@@ -409,6 +465,8 @@ export default function App() {
         lossAmount: lossAmt,
         netResult: net,
         accumulatedBalance: current,
+        botLevel: botInfo.level,
+        nextBetSuggestion: botInfo.suggestion,
         cycleStatus: isWarmupPhase ? 'NEUTRAL' : (net >= 0 ? 'WIN' : 'LOSS'),
       };
     });
@@ -555,7 +613,11 @@ export default function App() {
               spins={spins}
               onOpenStrategyPdf={() => setIsStrategyPdfOpen(true)}
             />
-            <WheelNeighborsAlertCard spins={spins} />
+            <WheelNeighborsAlertCard
+              spins={spins}
+              strategy={strategy}
+              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+            />
           </div>
         );
       case 'temperatures':

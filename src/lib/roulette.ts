@@ -348,154 +348,79 @@ export function calculateNumberStats(spins: SpinRecord[]): NumberStats[] {
   return Object.values(stats);
 }
 
-export function evaluateSpinPayout(
+export function evaluateNeighborsPayout(
   num: number,
-  strategy: StrategyConfig
+  prevNum: number | null | undefined,
+  neighborRadius: 2 | 3 | 4 = 2,
+  chipValue: number = 2.50,
+  multiplier?: number
 ): { winAmount: number; lossAmount: number; netResult: number } {
+  if (prevNum === null || prevNum === undefined) {
+    return { winAmount: 0, lossAmount: 0, netResult: 0 };
+  }
+
+  const mult = multiplier && multiplier > 0 ? multiplier : 1;
+  const unitChip = (chipValue || 2.50) * mult;
+  const neighbors = getWheelNeighbors(prevNum, neighborRadius);
+
+  const lossAmount = neighbors.length * unitChip;
   let winAmount = 0;
-  let lossAmount = 0;
 
-  const color = getNumberColor(num);
-  const dozen = getNumberDozen(num);
-  const column = getNumberColumn(num);
-
-  // Dozens (Pays 2 to 1 -> 3x returned)
-  if (strategy.dozen1Bet > 0) {
-    lossAmount += strategy.dozen1Bet;
-    if (dozen === '1a') winAmount += strategy.dozen1Bet * 3;
-  }
-  if (strategy.dozen2Bet > 0) {
-    lossAmount += strategy.dozen2Bet;
-    if (dozen === '2a') winAmount += strategy.dozen2Bet * 3;
-  }
-  if (strategy.dozen3Bet > 0) {
-    lossAmount += strategy.dozen3Bet;
-    if (dozen === '3a') winAmount += strategy.dozen3Bet * 3;
-  }
-
-  // Columns (Pays 2 to 1 -> 3x returned)
-  if (strategy.column1Bet > 0) {
-    lossAmount += strategy.column1Bet;
-    if (column === 'col1') winAmount += strategy.column1Bet * 3;
-  }
-  if (strategy.column2Bet > 0) {
-    lossAmount += strategy.column2Bet;
-    if (column === 'col2') winAmount += strategy.column2Bet * 3;
-  }
-  if (strategy.column3Bet > 0) {
-    lossAmount += strategy.column3Bet;
-    if (column === 'col3') winAmount += strategy.column3Bet * 3;
-  }
-
-  // Colors (Pays 1 to 1 -> 2x returned)
-  if (strategy.colorRedBet > 0) {
-    lossAmount += strategy.colorRedBet;
-    if (color === 'red') winAmount += strategy.colorRedBet * 2;
-  }
-  if (strategy.colorBlackBet > 0) {
-    lossAmount += strategy.colorBlackBet;
-    if (color === 'black') winAmount += strategy.colorBlackBet * 2;
-  }
-
-  // Straight numbers (Pays 35 to 1 -> 36x returned)
-  if (strategy.straightNumberBets) {
-    Object.entries(strategy.straightNumberBets).forEach(([nStr, bet]) => {
-      const n = Number(nStr);
-      if (bet > 0) {
-        lossAmount += bet;
-        if (num === n) winAmount += bet * 36;
-      }
-    });
-  }
-
-  // Fallback default cost if no specific bets configured
-  if (lossAmount === 0) {
-    lossAmount = 15; // default spin wager
+  if (neighbors.includes(num)) {
+    // Aposta plena paga 35 para 1 (retorna 36x o valor da ficha)
+    winAmount = unitChip * 36;
   }
 
   const netResult = winAmount - lossAmount;
   return { winAmount, lossAmount, netResult };
 }
 
-export function evaluateBotTipOutcome(
+export function evaluateSpinPayout(
   num: number,
-  suggestion: string
+  strategy: StrategyConfig,
+  prevNum?: number | null,
+  multiplier?: number
 ): { winAmount: number; lossAmount: number; netResult: number } {
-  const color = getNumberColor(num);
-  const dozen = getNumberDozen(num);
-  const column = getNumberColumn(num);
+  const radius = strategy.neighborRadius || 2;
+  const chipVal = strategy.neighborChipValue || 2.50;
 
-  let winAmount = 0;
-  let lossAmount = 0;
-
-  if (suggestion.includes('VERMELHO')) {
-    lossAmount = 10;
-    if (color === 'red') winAmount = 20;
-  } else if (suggestion.includes('Dúz 1') && suggestion.includes('Dúz 3')) {
-    const match = suggestion.match(/\(([^)]+)\)/);
-    let straightBetsCount = 0;
-    let hitHotNumber = false;
-
-    if (match && match[1]) {
-      // Extract numbers from "6, 10, 1, 27"
-      const nums = match[1].replace(/R\$\s*[\d.,]+\s*em\s*cada/gi, '').split(',').map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
-      straightBetsCount = nums.length;
-      if (nums.includes(num)) {
-        hitHotNumber = true;
-      }
-    }
-
-    const straightCost = straightBetsCount * 2.5; // R$ 2.50 per hot number by default
-    lossAmount = 20 + straightCost; // R$ 10 Duz 1 + R$ 10 Duz 3 + straightCost
-
-    if (dozen === '1a' || dozen === '3a') {
-      winAmount += 30; // 3x 10 = 30
-    }
-    if (hitHotNumber) {
-      winAmount += 90; // 36x 2.50 = 90
-    }
-  } else if (suggestion.includes('Col 1') && suggestion.includes('Col 3')) {
-    lossAmount = 20;
-    if (column === 'col1' || column === 'col3') {
-      winAmount = 30;
-    }
-  } else if (suggestion.includes('Dúzia')) {
-    const valMatch = suggestion.match(/R\$\s*(\d+)/);
-    const val = valMatch ? parseInt(valMatch[1], 10) : 10;
-    lossAmount = val;
-    if (suggestion.includes('1ª') && dozen === '1a') winAmount = val * 3;
-    if (suggestion.includes('2ª') && dozen === '2a') winAmount = val * 3;
-    if (suggestion.includes('3ª') && dozen === '3a') winAmount = val * 3;
-  } else if (suggestion.includes('Coluna')) {
-    const valMatch = suggestion.match(/R\$\s*(\d+)/);
-    const val = valMatch ? parseInt(valMatch[1], 10) : 10;
-    lossAmount = val;
-    if (suggestion.includes('1ª') && column === 'col1') winAmount = val * 3;
-    if (suggestion.includes('2ª') && column === 'col2') winAmount = val * 3;
-    if (suggestion.includes('3ª') && column === 'col3') winAmount = val * 3;
-  } else {
-    lossAmount = 10;
-    if (color === 'red') winAmount = 20;
+  if (prevNum !== undefined && prevNum !== null) {
+    return evaluateNeighborsPayout(num, prevNum, radius, chipVal, multiplier);
   }
 
-  return {
-    winAmount,
-    lossAmount,
-    netResult: winAmount - lossAmount,
-  };
+  return { winAmount: 0, lossAmount: 0, netResult: 0 };
 }
 
-export function generateBotSuggestion(spins: SpinRecord[]): { level: string; suggestion: string; strategyName: string } {
+export function evaluateBotTipOutcome(
+  num: number,
+  suggestion: string,
+  prevNum?: number | null,
+  strategyRadius: 2 | 3 | 4 = 2,
+  multiplier?: number
+): { winAmount: number; lossAmount: number; netResult: number } {
+  if (prevNum !== undefined && prevNum !== null) {
+    return evaluateNeighborsPayout(num, prevNum, strategyRadius, 2.50, multiplier);
+  }
+  return { winAmount: 0, lossAmount: 0, netResult: 0 };
+}
+
+export function generateBotSuggestion(
+  spins: SpinRecord[],
+  strategyRadius: 2 | 3 | 4 = 2
+): { level: string; suggestion: string; strategyName: string } {
   if (spins.length === 0) {
-    return { level: 'N1', suggestion: 'R$ 10 no VERMELHO', strategyName: 'Cor Simples (Vermelho)' };
+    const defaultNeighbors = getWheelNeighbors(0, strategyRadius);
+    return {
+      level: 'N1',
+      suggestion: `Aposta nos ${strategyRadius} Vizinhos do 0 [${defaultNeighbors.join(', ')}] (R$ 2.50/casa)`,
+      strategyName: `Alerta de Vizinhos do Cilindro (${strategyRadius} VIZ)`,
+    };
   }
 
   const lastSpin = spins[spins.length - 1];
-  const temps = calculateTemperatures(spins);
-  
-  // Find coldest dozen or column
-  const alertDozen = temps.dozenItems.find(d => d.status === 'ALERT');
-  const alertCol = temps.columnItems.find(c => c.status === 'ALERT');
+  const targetNum = lastSpin.numero;
+  const neighbors = getWheelNeighbors(targetNum, strategyRadius);
+  const cost = neighbors.length * 2.50;
 
   // Cycle level simulation based on last win/loss
   let level = 'N1';
@@ -507,33 +432,9 @@ export function generateBotSuggestion(spins: SpinRecord[]): { level: string; sug
     level = 'N1';
   }
 
-  if (alertDozen && alertDozen.code !== 'zero') {
-    const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 20;
-    return { 
-      level, 
-      suggestion: `R$ ${val} na ${alertDozen.name}`,
-      strategyName: `Dúzia Atrasada (${alertDozen.name})`
-    };
-  }
-
-  if (alertCol) {
-    const val = level === 'N1' ? 10 : level === 'N2' ? 15 : 20;
-    return { 
-      level, 
-      suggestion: `R$ ${val} na ${alertCol.name}`,
-      strategyName: `Coluna Atrasada (${alertCol.name})`
-    };
-  }
-
-  // Hot numbers suggestion
-  const numberStats = calculateNumberStats(spins);
-  const hotNumbers = [...numberStats].sort((a, b) => b.count - a.count).slice(0, 4).map(n => n.num);
-
-  if (level === 'N1') return { level, suggestion: 'R$ 10 no VERMELHO', strategyName: 'Cor Simples (Vermelho)' };
-  if (level === 'N2') return { level, suggestion: 'R$ 10 Col 1 / R$ 10 Col 3', strategyName: '2 Colunas (Col 1 + Col 3)' };
-  return { 
-    level, 
-    suggestion: `R$ 10 Dúz 1 / R$ 10 Dúz 3 + Top Quentes (${hotNumbers.join(', ')} - R$ 2,50 cada)`,
-    strategyName: '2 Dúzias + Números Quentes' 
+  return {
+    level,
+    suggestion: `Aposta em ${strategyRadius} Vizinhos do nº ${targetNum} [${neighbors.join(', ')}] (Total R$ ${cost.toFixed(2)})`,
+    strategyName: `Alerta de Vizinhos do Cilindro (${neighbors.length} casas)`,
   };
 }

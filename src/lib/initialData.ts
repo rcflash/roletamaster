@@ -13,6 +13,8 @@ export const INITIAL_BANKROLL_CONFIG: BankrollConfig = {
 export const INITIAL_STRATEGY_CONFIG: StrategyConfig = {
   useBotRecommendation: true,
   activePreset: 'top5_hot',
+  neighborRadius: 2,
+  neighborChipValue: 2.5,
   dozen1Bet: 5,
   dozen2Bet: 5,
   dozen3Bet: 0,
