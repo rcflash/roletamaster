@@ -31,51 +31,44 @@ export interface NeighborsAlertInfo {
   repeatCountInSector: number;
 }
 
-export function calculateNeighborsAlert(spins: SpinRecord[]): NeighborsAlertInfo | null {
+export function calculateNeighborsAlert(
+  spins: SpinRecord[],
+  neighborRadius: 2 | 3 | 4 = 2
+): NeighborsAlertInfo | null {
   if (spins.length < 2) return null;
 
   const lastSpin = spins[spins.length - 1];
   const lastNum = lastSpin.numero;
 
-  const neighbors2 = getWheelNeighbors(lastNum, 2);
-  const neighbors3 = getWheelNeighbors(lastNum, 3);
+  const neighbors = getWheelNeighbors(lastNum, neighborRadius);
+  const totalSector = neighbors.length; // 5, 7, or 9
 
   const recent6 = spins.slice(-6);
-  const hitsIn2Neighbors = recent6.filter((s) => neighbors2.includes(s.numero)).length;
-  const hitsIn3Neighbors = recent6.filter((s) => neighbors3.includes(s.numero)).length;
+  const hitsInSector = recent6.filter((s) => neighbors.includes(s.numero)).length;
 
-  if (hitsIn2Neighbors >= 3) {
+  const threshold = neighborRadius === 2 ? 3 : neighborRadius === 3 ? 3 : 4;
+  const hasAlert = hitsInSector >= threshold;
+
+  if (hasAlert) {
     return {
       hasAlert: true,
       targetNum: lastNum,
-      neighborCount: 2,
-      neighborsList: neighbors2,
-      alertMessage: `🔥 SETOR AQUECIDO! O setor do nº ${lastNum} (2 vizinhos) recebeu ${hitsIn2Neighbors} acertos nos últimos 6 giros!`,
-      recommendedBetText: `R$ 2,50 em cada uma das 5 casas: [${neighbors2.join(', ')}] (Custo Total: R$ 12,50)`,
-      repeatCountInSector: hitsIn2Neighbors,
-    };
-  }
-
-  if (hitsIn3Neighbors >= 4) {
-    return {
-      hasAlert: true,
-      targetNum: lastNum,
-      neighborCount: 3,
-      neighborsList: neighbors3,
-      alertMessage: `⚡ CONCENTRAÇÃO DE VIZINHOS! 3 vizinhos do nº ${lastNum} concentram ${hitsIn3Neighbors} giros recentes.`,
-      recommendedBetText: `R$ 2,50 nas 7 casas do setor: [${neighbors3.join(', ')}] (Custo Total: R$ 17,50)`,
-      repeatCountInSector: hitsIn3Neighbors,
+      neighborCount: neighborRadius,
+      neighborsList: neighbors,
+      alertMessage: `🔥 SETOR AQUECIDO! O setor do nº ${lastNum} (${neighborRadius} vizinhos) recebeu ${hitsInSector} acertos nos últimos 6 giros!`,
+      recommendedBetText: `R$ 2,50 nas ${totalSector} casas: [${neighbors.join(', ')}] (Custo Total: R$ ${(totalSector * 2.5).toFixed(2)})`,
+      repeatCountInSector: hitsInSector,
     };
   }
 
   return {
     hasAlert: false,
     targetNum: lastNum,
-    neighborCount: 2,
-    neighborsList: neighbors2,
-    alertMessage: `Último número sorteado foi ${lastNum}. Seus 2 vizinhos diretos no cilindro são: [${neighbors2.join(', ')}].`,
-    recommendedBetText: `Entrada sugerida em 2 vizinhos: [${neighbors2.join(', ')}] (R$ 2,50 por ficha)`,
-    repeatCountInSector: hitsIn2Neighbors,
+    neighborCount: neighborRadius,
+    neighborsList: neighbors,
+    alertMessage: `Último número foi ${lastNum}. Sem alerta ativo no momento (${hitsInSector}/${threshold} acertos no setor nos últimos 6 giros).`,
+    recommendedBetText: `Aguardando alerta no setor do nº ${lastNum} [${neighbors.join(', ')}]`,
+    repeatCountInSector: hitsInSector,
   };
 }
 
@@ -350,13 +343,35 @@ export function calculateNumberStats(spins: SpinRecord[]): NumberStats[] {
 
 export function evaluateNeighborsPayout(
   num: number,
-  prevNum: number | null | undefined,
+  spinsUpToPrev: SpinRecord[] | number | null | undefined,
   neighborRadius: 2 | 3 | 4 = 2,
   chipValue: number = 2.50,
   multiplier?: number
-): { winAmount: number; lossAmount: number; netResult: number } {
+): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
+  // Support passing array of previous spins or direct prevNum
+  let spinsHistory: SpinRecord[] = [];
+  let prevNum: number | null = null;
+
+  if (Array.isArray(spinsUpToPrev)) {
+    spinsHistory = spinsUpToPrev;
+    if (spinsHistory.length > 0) {
+      prevNum = spinsHistory[spinsHistory.length - 1].numero;
+    }
+  } else if (typeof spinsUpToPrev === 'number') {
+    prevNum = spinsUpToPrev;
+  }
+
   if (prevNum === null || prevNum === undefined) {
-    return { winAmount: 0, lossAmount: 0, netResult: 0 };
+    return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
+  }
+
+  // Check if an alert was triggered on the previous spins!
+  const alertInfo = spinsHistory.length >= 2 ? calculateNeighborsAlert(spinsHistory, neighborRadius) : null;
+  const hasAlert = alertInfo ? alertInfo.hasAlert : true; // Default to true if insufficient history
+
+  // SÓ ENTRA NA OPERAÇÃO E DEBITA/CREDITA SE HOUVER ALERTA ATIVO!
+  if (!hasAlert) {
+    return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
   }
 
   const mult = multiplier && multiplier > 0 ? multiplier : 1;
@@ -372,57 +387,58 @@ export function evaluateNeighborsPayout(
   }
 
   const netResult = winAmount - lossAmount;
-  return { winAmount, lossAmount, netResult };
+  return { winAmount, lossAmount, netResult, betPlaced: true };
 }
 
 export function evaluateSpinPayout(
   num: number,
   strategy: StrategyConfig,
-  prevNum?: number | null,
+  spinsUpToPrev?: SpinRecord[] | number | null,
   multiplier?: number
-): { winAmount: number; lossAmount: number; netResult: number } {
+): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
   const radius = strategy.neighborRadius || 2;
   const chipVal = strategy.neighborChipValue || 2.50;
 
-  if (prevNum !== undefined && prevNum !== null) {
-    return evaluateNeighborsPayout(num, prevNum, radius, chipVal, multiplier);
+  if (spinsUpToPrev !== undefined && spinsUpToPrev !== null) {
+    return evaluateNeighborsPayout(num, spinsUpToPrev, radius, chipVal, multiplier);
   }
 
-  return { winAmount: 0, lossAmount: 0, netResult: 0 };
+  return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
 }
 
 export function evaluateBotTipOutcome(
   num: number,
   suggestion: string,
-  prevNum?: number | null,
+  spinsUpToPrev?: SpinRecord[] | number | null,
   strategyRadius: 2 | 3 | 4 = 2,
   multiplier?: number
-): { winAmount: number; lossAmount: number; netResult: number } {
-  if (prevNum !== undefined && prevNum !== null) {
-    return evaluateNeighborsPayout(num, prevNum, strategyRadius, 2.50, multiplier);
+): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
+  if (spinsUpToPrev !== undefined && spinsUpToPrev !== null) {
+    return evaluateNeighborsPayout(num, spinsUpToPrev, strategyRadius, 2.50, multiplier);
   }
-  return { winAmount: 0, lossAmount: 0, netResult: 0 };
+  return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
 }
 
 export function generateBotSuggestion(
   spins: SpinRecord[],
   strategyRadius: 2 | 3 | 4 = 2
-): { level: string; suggestion: string; strategyName: string } {
+): { level: string; suggestion: string; strategyName: string; hasAlert: boolean } {
   if (spins.length === 0) {
     const defaultNeighbors = getWheelNeighbors(0, strategyRadius);
     return {
       level: 'N1',
-      suggestion: `Aposta nos ${strategyRadius} Vizinhos do 0 [${defaultNeighbors.join(', ')}] (R$ 2.50/casa)`,
+      suggestion: `⏳ AGUARDANDO GIROS (Insira números para monitorar vizinhos do cilindro)`,
       strategyName: `Alerta de Vizinhos do Cilindro (${strategyRadius} VIZ)`,
+      hasAlert: false,
     };
   }
 
   const lastSpin = spins[spins.length - 1];
   const targetNum = lastSpin.numero;
-  const neighbors = getWheelNeighbors(targetNum, strategyRadius);
+  const alertInfo = calculateNeighborsAlert(spins, strategyRadius);
+  const neighbors = alertInfo?.neighborsList || getWheelNeighbors(targetNum, strategyRadius);
   const cost = neighbors.length * 2.50;
 
-  // Cycle level simulation based on last win/loss
   let level = 'N1';
   if (lastSpin.cycleStatus === 'LOSS') {
     if (lastSpin.botLevel === 'N1') level = 'N2';
@@ -432,9 +448,19 @@ export function generateBotSuggestion(
     level = 'N1';
   }
 
+  if (alertInfo?.hasAlert) {
+    return {
+      level,
+      suggestion: `🚨 ALERTA ATIVO! Entrada nos ${strategyRadius} Vizinhos do nº ${targetNum} [${neighbors.join(', ')}] (R$ ${cost.toFixed(2)})`,
+      strategyName: `Alerta de Vizinhos (${neighbors.length} casas)`,
+      hasAlert: true,
+    };
+  }
+
   return {
     level,
-    suggestion: `Aposta em ${strategyRadius} Vizinhos do nº ${targetNum} [${neighbors.join(', ')}] (Total R$ ${cost.toFixed(2)})`,
-    strategyName: `Alerta de Vizinhos do Cilindro (${neighbors.length} casas)`,
+    suggestion: `⏳ SEM ALERTA ATIVO (Fora de Operação) — Monitorando setor do nº ${targetNum} [${neighbors.join(', ')}]`,
+    strategyName: `Monitorando Vizinhos (${neighbors.length} casas)`,
+    hasAlert: false,
   };
 }

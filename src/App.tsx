@@ -194,7 +194,8 @@ export default function App() {
       let net = 0;
 
       if (!isWarmupPhase && prevNum !== null) {
-        const payout = evaluateNeighborsPayout(s.numero, prevNum, radius, chipVal, s.multiplier);
+        const spinsUpToIdx = spins.slice(0, idx);
+        const payout = evaluateNeighborsPayout(s.numero, spinsUpToIdx, radius, chipVal, s.multiplier);
         winAmt = payout.winAmount;
         lossAmt = payout.lossAmount;
         net = payout.netResult;
@@ -221,7 +222,7 @@ export default function App() {
         accumulatedBalance: current,
         botLevel: botInfo.level,
         nextBetSuggestion: botInfo.suggestion,
-        cycleStatus: isWarmupPhase ? 'NEUTRAL' : (net >= 0 ? 'WIN' : 'LOSS'),
+        cycleStatus: isWarmupPhase || net === 0 ? 'NEUTRAL' : (net > 0 ? 'WIN' : 'LOSS'),
       };
     });
 
@@ -280,7 +281,7 @@ export default function App() {
     let net = 0;
 
     if (!isWarmupPhase && prevNum !== null) {
-      const payout = evaluateNeighborsPayout(number, prevNum, radius, chipVal, multiplier);
+      const payout = evaluateNeighborsPayout(number, spins, radius, chipVal, multiplier);
       winAmt = payout.winAmount;
       lossAmt = payout.lossAmount;
       net = payout.netResult;
@@ -305,7 +306,7 @@ export default function App() {
       accumulatedBalance: newBal,
       botLevel: botInfo.level,
       nextBetSuggestion: botInfo.suggestion,
-      cycleStatus: isWarmupPhase ? 'NEUTRAL' : (net >= 0 ? 'WIN' : 'LOSS'),
+      cycleStatus: isWarmupPhase || net === 0 ? 'NEUTRAL' : (net > 0 ? 'WIN' : 'LOSS'),
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
     };
 
@@ -339,7 +340,7 @@ export default function App() {
         let net = 0;
 
         if (!isWarmupPhase && prevNum !== null) {
-          const payout = evaluateNeighborsPayout(num, prevNum, radius, chipVal, multiplier);
+          const payout = evaluateNeighborsPayout(num, runningSpins, radius, chipVal, multiplier);
           winAmt = payout.winAmount;
           lossAmt = payout.lossAmount;
           net = payout.netResult;
@@ -364,7 +365,7 @@ export default function App() {
           accumulatedBalance: runningBalance,
           botLevel: botInfo.level,
           nextBetSuggestion: botInfo.suggestion,
-          cycleStatus: isWarmupPhase ? 'NEUTRAL' : (net >= 0 ? 'WIN' : 'LOSS'),
+          cycleStatus: isWarmupPhase || net === 0 ? 'NEUTRAL' : (net > 0 ? 'WIN' : 'LOSS'),
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         };
 
@@ -449,7 +450,8 @@ export default function App() {
       let net = 0;
 
       if (!isWarmupPhase && prevNum !== null) {
-        const payout = evaluateNeighborsPayout(s.numero, prevNum, radius, chipVal, s.multiplier);
+        const spinsUpToIdx = updated.slice(0, idx);
+        const payout = evaluateNeighborsPayout(s.numero, spinsUpToIdx, radius, chipVal, s.multiplier);
         winAmt = payout.winAmount;
         lossAmt = payout.lossAmount;
         net = payout.netResult;
@@ -467,7 +469,7 @@ export default function App() {
         accumulatedBalance: current,
         botLevel: botInfo.level,
         nextBetSuggestion: botInfo.suggestion,
-        cycleStatus: isWarmupPhase ? 'NEUTRAL' : (net >= 0 ? 'WIN' : 'LOSS'),
+        cycleStatus: isWarmupPhase || net === 0 ? 'NEUTRAL' : (net > 0 ? 'WIN' : 'LOSS'),
       };
     });
     setSpins(recalculated);
