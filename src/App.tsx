@@ -22,6 +22,8 @@ import {
 } from './types';
 
 export type DashboardBlockId =
+  | 'coleta_dados'
+  | 'diagnostico_mesa'
   | 'monitoramento'
   | 'quick_input'
   | 'wheel_alert'
@@ -31,10 +33,11 @@ export type DashboardBlockId =
   | 'history'
   | 'kpis'
   | 'alerts'
-  | 'contabilizacao'
-  | 'warmup';
+  | 'contabilizacao';
 
 const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
+  'coleta_dados',
+  'diagnostico_mesa',
   'monitoramento',
   'quick_input',
   'wheel_alert',
@@ -45,10 +48,11 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'kpis',
   'alerts',
   'contabilizacao',
-  'warmup',
 ];
 
 const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
+  'coleta_dados',
+  'diagnostico_mesa',
   'monitoramento',
   'quick_input',
   'wheel_alert',
@@ -59,10 +63,11 @@ const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'kpis',
   'alerts',
   'contabilizacao',
-  'warmup',
 ];
 
 const BLOCK_TITLES: Record<DashboardBlockId, string> = {
+  coleta_dados: 'Coleta de Dados da Mesa (Aquecimento de 100 Giros)',
+  diagnostico_mesa: 'Diagnóstico de Padrão da Mesa',
   monitoramento: 'Monitoramento Giro a Giro Ativo',
   quick_input: 'Lançamento Rápido de Números',
   wheel_alert: 'Alerta de Vizinhos do Cilindro',
@@ -73,7 +78,6 @@ const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   kpis: 'Métricas Financeiras & Banca Inicial',
   alerts: 'Metas Diárias & Alerta de Stop Loss',
   contabilizacao: 'Modo de Contabilização do Saldo',
-  warmup: 'Coleta de Dados da Mesa (AQUECIMENTO DE 100 GIROS)',
 };
 import {
   INITIAL_BANKROLL_CONFIG,
@@ -92,6 +96,8 @@ import {
   evaluateSpinPayout,
   evaluateBotTipOutcome,
   generateBotSuggestion,
+  analyzeWarmupTable,
+  calculateNeighborsAlert,
 } from './lib/roulette';
 import { soundEffects } from './lib/sound';
 
@@ -111,6 +117,7 @@ import { BankrollControlPanel } from './components/BankrollControlPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { StrategyGuideModal } from './components/StrategyGuideModal';
 import { TableWarmupCard } from './components/TableWarmupCard';
+import { TableAnalysisCard } from './components/TableAnalysisCard';
 import { MonitoramentoGiroCard } from './components/MonitoramentoGiroCard';
 import { ModoContabilizacaoCard } from './components/ModoContabilizacaoCard';
 
@@ -140,11 +147,11 @@ export default function App() {
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
 
   const [blockOrder, setBlockOrder] = useState<DashboardBlockId[]>(() => {
-    const saved = localStorage.getItem('roleta_master_block_order_v9');
+    const saved = localStorage.getItem('roleta_master_block_order_v12');
     if (saved) {
       try {
         const parsed: DashboardBlockId[] = JSON.parse(saved);
-        if (parsed.length === DEFAULT_BLOCK_ORDER.length && parsed.includes('wheel_alert') && parsed.includes('smart_bot')) {
+        if (parsed.length === DEFAULT_BLOCK_ORDER.length && parsed.includes('coleta_dados') && parsed.includes('diagnostico_mesa')) {
           return parsed;
         }
       } catch (e) {
@@ -155,7 +162,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('roleta_master_block_order_v9', JSON.stringify(blockOrder));
+    localStorage.setItem('roleta_master_block_order_v12', JSON.stringify(blockOrder));
   }, [blockOrder]);
 
   const handleMoveBlock = (id: DashboardBlockId, direction: 'up' | 'down') => {
@@ -192,7 +199,7 @@ export default function App() {
 
     const updated = spins.map((s, idx) => {
       const giro = idx + 1;
-      const isWarmupPhase = (config.enableWarmupPhase ?? false) && giro <= 100;
+      const isWarmupPhase = giro <= 100;
       const prevNum = idx > 0 ? spins[idx - 1].numero : null;
 
       let winAmt = 0;
@@ -235,7 +242,7 @@ export default function App() {
     if (changed) {
       setSpins(updated);
     }
-  }, [strategy.neighborRadius, strategy.neighborChipValue, config.initialBankroll, config.enableWarmupPhase]);
+  }, [strategy.neighborRadius, strategy.neighborChipValue, config.initialBankroll]);
 
   useEffect(() => {
     localStorage.setItem('roleta_master_spins', JSON.stringify(spins));
@@ -245,10 +252,8 @@ export default function App() {
   const totalSpins = spins.length;
   const lastSpin = spins.length > 0 ? spins[spins.length - 1] : null;
 
-  // Active/real betting spins are those with active bets (or after 100-spin warmup if enabled)
-  const realBettingSpins = (config.enableWarmupPhase ?? false)
-    ? spins.filter((s) => s.giro > 100)
-    : spins.filter((s) => s.giro > 1 && (s.winAmount > 0 || s.lossAmount > 0));
+  // Active/real betting spins are those after the 100-spin warmup phase (giro > 100)
+  const realBettingSpins = spins.filter((s) => s.giro > 100);
   const totalBettingSpins = realBettingSpins.length;
 
   const currentBalance =
@@ -263,6 +268,48 @@ export default function App() {
 
   const winningSpins = realBettingSpins.filter((s) => s.netResult > 0).length;
   const winRatePct = totalBettingSpins > 0 ? (winningSpins / totalBettingSpins) * 100 : 0;
+
+  // Header Green & Red counts and Sequences (Real betting if active, or Warmup alert stats if in warmup)
+  const alertOutcomes: boolean[] = [];
+  if (realBettingSpins.length > 0) {
+    realBettingSpins.forEach((s) => {
+      if (s.netResult > 0) alertOutcomes.push(true);
+      else if (s.netResult < 0) alertOutcomes.push(false);
+    });
+  } else if (spins.length > 0) {
+    const radius = strategy.neighborRadius || 2;
+    for (let i = 2; i < spins.length; i++) {
+      const historyUpToCurrent = spins.slice(0, i);
+      const alertInfo = calculateNeighborsAlert(historyUpToCurrent, radius);
+      if (alertInfo.hasAlert) {
+        const isHit = alertInfo.neighborsList.includes(spins[i].numero);
+        alertOutcomes.push(isHit);
+      }
+    }
+  }
+
+  const greenCount = alertOutcomes.filter((o) => o).length;
+  const redCount = alertOutcomes.filter((o) => !o).length;
+
+  let currentStreak: { type: 'GREEN' | 'RED' | 'NONE'; count: number } = { type: 'NONE', count: 0 };
+  let maxGreenStreak = 0;
+  let maxRedStreak = 0;
+  let tempGreen = 0;
+  let tempRed = 0;
+
+  alertOutcomes.forEach((isGreen) => {
+    if (isGreen) {
+      tempGreen++;
+      tempRed = 0;
+      currentStreak = { type: 'GREEN', count: tempGreen };
+      if (tempGreen > maxGreenStreak) maxGreenStreak = tempGreen;
+    } else {
+      tempRed++;
+      tempGreen = 0;
+      currentStreak = { type: 'RED', count: tempRed };
+      if (tempRed > maxRedStreak) maxRedStreak = tempRed;
+    }
+  });
 
   const peakBalance = spins.reduce(
     (max, s) => Math.max(max, s.accumulatedBalance),
@@ -279,7 +326,7 @@ export default function App() {
     }
 
     const nextGiro = spins.length + 1;
-    const isWarmupPhase = (config.enableWarmupPhase ?? false) && nextGiro <= 100;
+    const isWarmupPhase = nextGiro <= 100;
     const prevNum = spins.length > 0 ? spins[spins.length - 1].numero : null;
     const radius = strategy.neighborRadius || 2;
     const chipVal = strategy.neighborChipValue || 2.50;
@@ -340,7 +387,7 @@ export default function App() {
 
       numbers.forEach((num, index) => {
         const nextGiro = runningSpins.length + 1;
-        const isWarmupPhase = (config.enableWarmupPhase ?? false) && nextGiro <= 100;
+        const isWarmupPhase = nextGiro <= 100;
         const prevNum = runningSpins.length > 0 ? runningSpins[runningSpins.length - 1].numero : null;
 
         let winAmt = 0;
@@ -402,7 +449,7 @@ export default function App() {
     }
 
     const nextGiro = spins.length + 1;
-    const isWarmupPhase = (config.enableWarmupPhase ?? false) && nextGiro <= 100;
+    const isWarmupPhase = nextGiro <= 100;
     const radius = strategy.neighborRadius || 2;
 
     const winAmt = isWarmupPhase ? 0 : winAmount;
@@ -571,6 +618,21 @@ export default function App() {
 
   const renderBlockContent = (id: DashboardBlockId) => {
     switch (id) {
+      case 'coleta_dados':
+        return (
+          <TableWarmupCard
+            onBatchAddSpins={handleBatchAddSpins}
+            onClearAllSpins={handleClearAllSpins}
+            totalSpins={totalSpins}
+          />
+        );
+      case 'diagnostico_mesa':
+        return (
+          <TableAnalysisCard
+            spins={spins}
+            strategy={strategy}
+          />
+        );
       case 'monitoramento':
         return <MonitoramentoGiroCard spins={spins} />;
       case 'kpis':
@@ -652,16 +714,6 @@ export default function App() {
             onClearAllSpins={handleClearAllSpins}
           />
         );
-      case 'warmup':
-        return (
-          <TableWarmupCard
-            onBatchAddSpins={handleBatchAddSpins}
-            onClearAllSpins={handleClearAllSpins}
-            totalSpins={totalSpins}
-            config={config}
-            onUpdateConfig={(upd) => setConfig((prev) => ({ ...prev, ...upd }))}
-          />
-        );
       default:
         return null;
     }
@@ -684,6 +736,11 @@ export default function App() {
         currentBalance={currentBalance}
         netProfit={netProfit}
         totalSpins={totalSpins}
+        greenCount={greenCount}
+        redCount={redCount}
+        currentStreak={currentStreak}
+        maxGreenStreak={maxGreenStreak}
+        maxRedStreak={maxRedStreak}
       />
 
       {/* Main Container */}

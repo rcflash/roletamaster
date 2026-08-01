@@ -1,28 +1,22 @@
 import React, { useState } from 'react';
-import { Sparkles, Layers, Trash2, CheckSquare, Square } from 'lucide-react';
-import { BankrollConfig } from '../types';
+import { Sparkles, Layers, Trash2 } from 'lucide-react';
 
 interface TableWarmupCardProps {
   onBatchAddSpins: (numbers: number[], multiplier?: number) => void;
   onClearAllSpins: () => void;
   totalSpins: number;
-  config?: BankrollConfig;
-  onUpdateConfig?: (updated: Partial<BankrollConfig>) => void;
 }
 
 export const TableWarmupCard: React.FC<TableWarmupCardProps> = ({
   onBatchAddSpins,
   onClearAllSpins,
   totalSpins,
-  config,
-  onUpdateConfig,
 }) => {
   const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
   const [bulkText, setBulkText] = useState<string>('');
 
   const warmupTarget = 100;
   const warmupProgress = Math.min(100, Math.round((totalSpins / warmupTarget) * 100));
-  const enableWarmup = config?.enableWarmupPhase ?? false;
 
   const parsedBulkNumbers = bulkText
     .replace(/[^0-9\s,-]/g, ' ')
@@ -42,88 +36,67 @@ export const TableWarmupCard: React.FC<TableWarmupCardProps> = ({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div className="flex items-start gap-3.5">
-        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-          <Sparkles className="w-5 h-5 text-emerald-400" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest">
-              COLETA DE DADOS DA MESA (AQUECIMENTO DE 100 GIROS)
-            </h3>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              !enableWarmup
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : totalSpins >= 100
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-            }`}>
-              {!enableWarmup
-                ? 'CONTABILIZAÇÃO DIRETA ATIVA (DESDE O 1º GIRO)'
-                : totalSpins >= 100
-                ? 'AMOSTRA DADOS PRONTA'
-                : `MODO AQUECIMENTO ATIVO (${totalSpins}/100)`}
-            </span>
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
           </div>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            {!enableWarmup
-              ? 'Todas as apostas sugeridas pelos Alertas de Vizinhos estão contabilizando no saldo da banca imediatamente a cada novo giro.'
-              : totalSpins >= 100
-              ? 'Amostra de 100 giros concluída! O Saldo da Banca está ativo e contabilizando lucros e perdas reais a partir do Giro 101.'
-              : `Modo de aquecimento ativado: os primeiros 100 giros não alteram o saldo. O saldo começará a contar no giro 101.`}
-          </p>
-
-          {/* Warmup Toggle Button */}
-          {onUpdateConfig && (
-            <button
-              onClick={() => onUpdateConfig({ enableWarmupPhase: !enableWarmup })}
-              className="mt-2.5 flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
-            >
-              {enableWarmup ? <CheckSquare className="w-4 h-4 text-amber-400" /> : <Square className="w-4 h-4 text-slate-500" />}
-              <span>
-                {enableWarmup
-                  ? 'Desativar modo aquecimento (contabilizar saldo a partir do 1º giro)'
-                  : 'Ativar modo aquecimento (preservar saldo nos primeiros 100 giros)'}
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest">
+                COLETA DE DADOS DA MESA (AQUECIMENTO DE 100 GIROS)
+              </h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                totalSpins >= 100
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+              }`}>
+                {totalSpins >= 100 ? 'AMOSTRA DADOS PRONTA' : `FASE DE AQUECIMENTO (${totalSpins}/100)`}
               </span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-        <div className="w-full sm:w-36 bg-slate-950 p-2.5 rounded-2xl border border-slate-800 text-center">
-          <span className="text-[10px] text-slate-500 uppercase font-extrabold block">Progresso Amostra</span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-sm font-black text-emerald-400 font-mono">{warmupProgress}%</span>
-            <span className="text-[10px] text-slate-400 font-mono">{totalSpins}/100</span>
-          </div>
-          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1.5">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-300"
-              style={{ width: `${warmupProgress}%` }}
-            />
+            </div>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+              {totalSpins >= 100
+                ? 'Amostra de 100 giros concluída! O Saldo da Banca está ativo e contabilizando lucros e perdas reais a partir do Giro 101.'
+                : `Os primeiros 100 giros são para amostragem e aquecimento da mesa (saldo de banca 100% preservado). A contabilização do saldo começará a partir do Giro 101.`}
+            </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => setShowBulkModal(true)}
-            className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5"
-          >
-            <Layers className="w-4 h-4" /> Lançar Lote (100+)
-          </button>
-          {totalSpins > 0 && (
+        <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+          <div className="w-full sm:w-36 bg-slate-950 p-2.5 rounded-2xl border border-slate-800 text-center">
+            <span className="text-[10px] text-slate-500 uppercase font-extrabold block">Progresso Amostra</span>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-sm font-black text-emerald-400 font-mono">{warmupProgress}%</span>
+              <span className="text-[10px] text-slate-400 font-mono">{totalSpins}/100</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1.5">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300"
+                style={{ width: `${warmupProgress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
-              onClick={onClearAllSpins}
-              title="Limpar toda a base de dados para iniciar uma nova mesa do zero"
-              className="px-3.5 py-2.5 bg-rose-950/80 hover:bg-rose-900/90 text-rose-300 hover:text-white rounded-xl border border-rose-800/80 transition-all flex items-center gap-1.5 text-xs font-black shadow-md"
+              onClick={() => setShowBulkModal(true)}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Trash2 className="w-4 h-4 text-rose-400" />
-              <span>Limpar Mesa</span>
+              <Layers className="w-4 h-4" /> Lançar Lote (100+)
             </button>
-          )}
+            {totalSpins > 0 && (
+              <button
+                onClick={onClearAllSpins}
+                title="Limpar toda a base de dados para iniciar uma nova mesa do zero"
+                className="px-3.5 py-2.5 bg-rose-950/80 hover:bg-rose-900/90 text-rose-300 hover:text-white rounded-xl border border-rose-800/80 transition-all flex items-center gap-1.5 text-xs font-black shadow-md cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>Limpar Mesa</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -147,7 +120,7 @@ export const TableWarmupCard: React.FC<TableWarmupCardProps> = ({
               </div>
               <button
                 onClick={() => setShowBulkModal(false)}
-                className="text-slate-400 hover:text-slate-200 text-lg font-bold p-1"
+                className="text-slate-400 hover:text-slate-200 text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -173,14 +146,14 @@ export const TableWarmupCard: React.FC<TableWarmupCardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowBulkModal(false)}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl"
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={parsedBulkNumbers.length === 0}
-                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20"
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer disabled:cursor-not-allowed"
                 >
                   Importar {parsedBulkNumbers.length} Giros
                 </button>

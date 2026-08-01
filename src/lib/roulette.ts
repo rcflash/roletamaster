@@ -135,6 +135,38 @@ export function getColorLabel(color: NumberColor): string {
   }
 }
 
+export function getTopAbsenceStreaks(
+  spins: SpinRecord[],
+  matchFn: (s: SpinRecord) => boolean,
+  topCount = 3
+): number[] {
+  if (spins.length === 0) return [0, 0, 0];
+
+  const gaps: number[] = [];
+  let currentGap = 0;
+
+  for (let i = 0; i < spins.length; i++) {
+    if (matchFn(spins[i])) {
+      gaps.push(currentGap);
+      currentGap = 0;
+    } else {
+      currentGap++;
+    }
+  }
+
+  // Include current ongoing gap as candidate
+  gaps.push(currentGap);
+
+  // Sort descending
+  gaps.sort((a, b) => b - a);
+
+  const result = gaps.slice(0, topCount);
+  while (result.length < topCount) {
+    result.push(0);
+  }
+  return result;
+}
+
 export function calculateTemperatures(spins: SpinRecord[]) {
   const totalSpins = spins.length || 1;
 
@@ -168,6 +200,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: dozenCounts['1a'],
       frequencyPct: Number(((dozenCounts['1a'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: dozenWithoutHit['1a'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.dozen === '1a'),
       status: dozenWithoutHit['1a'] >= 8 ? 'ALERT' : dozenCounts['1a'] / totalSpins >= 0.4 ? 'HOT' : 'NORMAL',
       statusLabel: dozenWithoutHit['1a'] >= 8 ? '🔴 ALERTA' : dozenCounts['1a'] / totalSpins >= 0.4 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -177,6 +210,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: dozenCounts['2a'],
       frequencyPct: Number(((dozenCounts['2a'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: dozenWithoutHit['2a'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.dozen === '2a'),
       status: dozenWithoutHit['2a'] >= 8 ? 'ALERT' : dozenCounts['2a'] / totalSpins >= 0.4 ? 'HOT' : 'NORMAL',
       statusLabel: dozenWithoutHit['2a'] >= 8 ? '🔴 ALERTA' : dozenCounts['2a'] / totalSpins >= 0.4 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -186,6 +220,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: dozenCounts['3a'],
       frequencyPct: Number(((dozenCounts['3a'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: dozenWithoutHit['3a'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.dozen === '3a'),
       status: dozenWithoutHit['3a'] >= 8 ? 'ALERT' : dozenCounts['3a'] / totalSpins >= 0.4 ? 'HOT' : 'NORMAL',
       statusLabel: dozenWithoutHit['3a'] >= 8 ? '🔴 ALERTA' : dozenCounts['3a'] / totalSpins >= 0.4 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -195,6 +230,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: dozenCounts['zero'],
       frequencyPct: Number(((dozenCounts['zero'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: dozenWithoutHit['zero'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.dozen === 'zero' || s.numero === 0),
       status: dozenWithoutHit['zero'] >= 15 ? 'ALERT' : dozenCounts['zero'] / totalSpins >= 0.1 ? 'HOT' : 'NORMAL',
       statusLabel: dozenWithoutHit['zero'] >= 15 ? '🔴 ALERTA' : dozenCounts['zero'] / totalSpins >= 0.1 ? '🔥 QUENTE' : '🟢 NORMAL'
     }
@@ -227,6 +263,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: colCounts['col1'],
       frequencyPct: Number(((colCounts['col1'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: colWithoutHit['col1'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.column === 'col1'),
       status: colCounts['col1'] / totalSpins <= 0.2 ? 'COLD' : colCounts['col1'] / totalSpins >= 0.45 ? 'HOT' : 'NORMAL',
       statusLabel: colCounts['col1'] / totalSpins <= 0.2 ? '❄️ FRIA' : colCounts['col1'] / totalSpins >= 0.45 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -236,6 +273,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: colCounts['col2'],
       frequencyPct: Number(((colCounts['col2'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: colWithoutHit['col2'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.column === 'col2'),
       status: colCounts['col2'] / totalSpins <= 0.2 ? 'COLD' : colCounts['col2'] / totalSpins >= 0.45 ? 'HOT' : 'NORMAL',
       statusLabel: colCounts['col2'] / totalSpins <= 0.2 ? '❄️ FRIA' : colCounts['col2'] / totalSpins >= 0.45 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -245,6 +283,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: colCounts['col3'],
       frequencyPct: Number(((colCounts['col3'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: colWithoutHit['col3'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.column === 'col3'),
       status: colCounts['col3'] / totalSpins <= 0.2 ? 'COLD' : colCounts['col3'] / totalSpins >= 0.45 ? 'HOT' : 'NORMAL',
       statusLabel: colCounts['col3'] / totalSpins <= 0.2 ? '❄️ FRIA' : colCounts['col3'] / totalSpins >= 0.45 ? '🔥 QUENTE' : '🟢 NORMAL'
     }
@@ -278,6 +317,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: colorCounts['red'],
       frequencyPct: Number(((colorCounts['red'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: colorWithoutHit['red'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.color === 'red'),
       status: colorWithoutHit['red'] >= 6 ? 'ALERT' : colorCounts['red'] / totalSpins >= 0.52 ? 'HOT' : 'NORMAL',
       statusLabel: colorWithoutHit['red'] >= 6 ? '🔴 ALERTA' : colorCounts['red'] / totalSpins >= 0.52 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -287,6 +327,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: colorCounts['black'],
       frequencyPct: Number(((colorCounts['black'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: colorWithoutHit['black'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.color === 'black'),
       status: colorWithoutHit['black'] >= 6 ? 'ALERT' : colorCounts['black'] / totalSpins >= 0.52 ? 'HOT' : 'NORMAL',
       statusLabel: colorWithoutHit['black'] >= 6 ? '🔴 ALERTA' : colorCounts['black'] / totalSpins >= 0.52 ? '🔥 QUENTE' : '🟢 NORMAL'
     },
@@ -296,6 +337,7 @@ export function calculateTemperatures(spins: SpinRecord[]) {
       count: colorCounts['green'],
       frequencyPct: Number(((colorCounts['green'] / totalSpins) * 100).toFixed(1)),
       spinsWithoutHit: colorWithoutHit['green'],
+      top3AbsenceStreaks: getTopAbsenceStreaks(spins, (s) => s.color === 'green' || s.numero === 0),
       status: colorWithoutHit['green'] >= 15 ? 'ALERT' : colorCounts['green'] / totalSpins >= 0.08 ? 'HOT' : 'NORMAL',
       statusLabel: colorWithoutHit['green'] >= 15 ? '🔴 ALERTA' : colorCounts['green'] / totalSpins >= 0.08 ? '🔥 QUENTE' : '🟢 NORMAL'
     }
@@ -464,3 +506,143 @@ export function generateBotSuggestion(
     hasAlert: false,
   };
 }
+
+export interface TableAnalysisResult {
+  totalGiros: number;
+  isComplete100: boolean;
+  alertCount: number;
+  wins: number;
+  losses: number;
+  hitRatePct: number;
+  dozenSwitchPct: number;
+  stabilityStatus: 'STRONG_PATTERN' | 'MODERATE_PATTERN' | 'HIGH_VARIANCE';
+  statusTitle: string;
+  statusDescription: string;
+  badgeClass: string;
+  recommendation: string;
+  topDozenText: string;
+  topSectorText: string;
+  maxConsecutiveLosses: number;
+  maxConsecutiveWins: number;
+  currentConsecutiveLosses: number;
+  currentConsecutiveWins: number;
+}
+
+export function analyzeWarmupTable(
+  spins: SpinRecord[],
+  neighborRadius: 2 | 3 | 4 = 2
+): TableAnalysisResult {
+  const sample = spins.length > 100 ? spins.slice(-100) : spins;
+  const totalGiros = sample.length;
+  const isComplete100 = totalGiros >= 100;
+
+  let alertCount = 0;
+  let wins = 0;
+  let losses = 0;
+  let dozenSwitches = 0;
+  let prevDozen: DozenType | null = null;
+
+  let currentConsecWins = 0;
+  let maxConsecWins = 0;
+  let currentConsecLosses = 0;
+  let maxConsecLosses = 0;
+
+  const dozenCounts = { '1a': 0, '2a': 0, '3a': 0, zero: 0 };
+
+  sample.forEach((spin, idx) => {
+    dozenCounts[spin.dozen]++;
+
+    if (prevDozen !== null && spin.dozen !== 'zero' && prevDozen !== 'zero') {
+      if (spin.dozen !== prevDozen) {
+        dozenSwitches++;
+      }
+    }
+    prevDozen = spin.dozen;
+
+    if (idx >= 2) {
+      const historyUpToCurrent = sample.slice(0, idx);
+      const alertInfo = calculateNeighborsAlert(historyUpToCurrent, neighborRadius);
+      if (alertInfo.hasAlert) {
+        alertCount++;
+        const isHit = alertInfo.neighborsList.includes(spin.numero);
+        if (isHit) {
+          wins++;
+          currentConsecWins++;
+          if (currentConsecWins > maxConsecWins) maxConsecWins = currentConsecWins;
+          currentConsecLosses = 0;
+        } else {
+          losses++;
+          currentConsecLosses++;
+          if (currentConsecLosses > maxConsecLosses) maxConsecLosses = currentConsecLosses;
+          currentConsecWins = 0;
+        }
+      }
+    }
+  });
+
+  const hitRatePct = alertCount > 0 ? Math.round((wins / alertCount) * 1000) / 10 : 0;
+  const dozenSwitchPct = totalGiros > 1 ? Math.round((dozenSwitches / (totalGiros - 1)) * 1000) / 10 : 0;
+
+  const dozMap: Record<string, string> = { '1a': '1ª Dúzia (1-12)', '2a': '2ª Dúzia (13-24)', '3a': '3ª Dúzia (25-36)' };
+  let maxDoz = '1a';
+  if (dozenCounts['2a'] > dozenCounts[maxDoz as keyof typeof dozenCounts]) maxDoz = '2a';
+  if (dozenCounts['3a'] > dozenCounts[maxDoz as keyof typeof dozenCounts]) maxDoz = '3a';
+  const topDozPct = totalGiros > 0 ? Math.round((dozenCounts[maxDoz as keyof typeof dozenCounts] / totalGiros) * 100) : 0;
+  const topDozenText = `${dozMap[maxDoz] || maxDoz} (${topDozPct}%)`;
+
+  const expRate = neighborRadius === 2 ? 13.5 : neighborRadius === 3 ? 18.9 : 24.3;
+
+  let stabilityStatus: 'STRONG_PATTERN' | 'MODERATE_PATTERN' | 'HIGH_VARIANCE' = 'MODERATE_PATTERN';
+  let statusTitle = '';
+  let statusDescription = '';
+  let badgeClass = '';
+  let recommendation = '';
+
+  if (alertCount === 0) {
+    stabilityStatus = 'MODERATE_PATTERN';
+    statusTitle = '🟡 MESA EM AQUECIMENTO (POUCOS ALERTAS)';
+    statusDescription = `A amostra possui ${totalGiros} giros, mas ainda não gerou alertas suficientes para consolidar a tendência de vizinhos.`;
+    badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+    recommendation = 'Insira mais giros até completar a amostra de 100 números para obter o diagnóstico completo.';
+  } else if (hitRatePct >= expRate + 10 && dozenSwitchPct <= 60) {
+    stabilityStatus = 'STRONG_PATTERN';
+    statusTitle = '🟢 MESA COM PADRÃO DEFINIDO (MESA TENDENCIOSA)';
+    statusDescription = `A mesa apresentou padrão constante nos ${totalGiros} giros de aquecimento! O Bot teve ${hitRatePct}% de assertividade (${wins} WINs vs ${losses} REDs em ${alertCount} alertas). A oscilação entre dúzias foi controlada (${dozenSwitchPct}%).`;
+    badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+    recommendation = 'Excelente momento para operar! A mesa está respeitando a repetição de setores.';
+  } else if (hitRatePct < expRate || dozenSwitchPct > 65 || maxConsecLosses >= 4) {
+    stabilityStatus = 'HIGH_VARIANCE';
+    statusTitle = '🔴 MESA INSTÁVEL (ALTA VARIAÇÃO DE PADRÃO)';
+    statusDescription = `A mesa variou muito o padrão nos ${totalGiros} giros de amostragem. Houve alta dispersão espacial e o Bot alcançou ${hitRatePct}% de acerto (${wins} WINs vs ${losses} REDs em ${alertCount} alertas, com pico de ${maxConsecLosses} REDs seguidos). A alternância de dúzias foi alta (${dozenSwitchPct}%).`;
+    badgeClass = 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+    recommendation = 'Atenção! A mesa está alternando setores sem fixação de tendência. Recomenda-se operar com gestão rigorosa N1 ou aguardar nova amostragem.';
+  } else {
+    stabilityStatus = 'MODERATE_PATTERN';
+    statusTitle = '🟡 MESA COM PADRÃO MODERADO / OSCILANTE';
+    statusDescription = `A mesa alternou ciclos quentes e neutros durante os ${totalGiros} giros. A taxa de acerto do Bot foi de ${hitRatePct}% (${wins} WINs vs ${losses} REDs). A alternância de dúzias foi de ${dozenSwitchPct}%.`;
+    badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+    recommendation = 'Mesa com padrão mediano. Opere com cautela mantendo apostas no nível N1.';
+  }
+
+  return {
+    totalGiros,
+    isComplete100,
+    alertCount,
+    wins,
+    losses,
+    hitRatePct,
+    dozenSwitchPct,
+    stabilityStatus,
+    statusTitle,
+    statusDescription,
+    badgeClass,
+    recommendation,
+    topDozenText,
+    topSectorText: `${neighborRadius * 2 + 1} Casas (${neighborRadius} Vizinhos)`,
+    maxConsecutiveLosses: maxConsecLosses,
+    maxConsecutiveWins: maxConsecWins,
+    currentConsecutiveLosses: currentConsecLosses,
+    currentConsecutiveWins: currentConsecWins,
+  };
+}
+

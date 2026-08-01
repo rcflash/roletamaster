@@ -72,6 +72,7 @@ export interface TempItem {
   spinsWithoutHit: number;
   status: 'NORMAL' | 'HOT' | 'ALERT' | 'COLD';
   statusLabel: string;
+  top3AbsenceStreaks: number[];
 }
 
 export interface NumberStats {
