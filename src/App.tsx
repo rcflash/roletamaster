@@ -215,7 +215,7 @@ export default function App() {
       }
 
       current += net;
-      const botInfo = generateBotSuggestion(spins.slice(0, idx), radius);
+      const botInfo = generateBotSuggestion(spins.slice(0, idx), strategy);
 
       if (
         s.winAmount !== winAmt ||
@@ -242,7 +242,7 @@ export default function App() {
     if (changed) {
       setSpins(updated);
     }
-  }, [strategy.neighborRadius, strategy.neighborChipValue, config.initialBankroll]);
+  }, [strategy.neighborRadius, strategy.neighborChipValue, strategy.activeStrategy, config.initialBankroll]);
 
   useEffect(() => {
     localStorage.setItem('roleta_master_spins', JSON.stringify(spins));
@@ -343,7 +343,7 @@ export default function App() {
     }
 
     const newBal = currentBalance + net;
-    const botInfo = generateBotSuggestion(spins, radius);
+    const botInfo = generateBotSuggestion(spins, strategy);
 
     const newSpin: SpinRecord = {
       id: `spin-${Date.now()}`,
@@ -402,7 +402,7 @@ export default function App() {
         }
 
         runningBalance += net;
-        const botInfo = generateBotSuggestion(runningSpins, radius);
+        const botInfo = generateBotSuggestion(runningSpins, strategy);
 
         const newSpin: SpinRecord = {
           id: `spin-${Date.now()}-${index}`,
@@ -456,7 +456,7 @@ export default function App() {
     const lossAmt = isWarmupPhase ? 0 : lossAmount;
     const net = winAmt - lossAmt;
     const newBal = currentBalance + net;
-    const botInfo = generateBotSuggestion(spins, radius);
+    const botInfo = generateBotSuggestion(spins, strategy);
 
     const newSpin: SpinRecord = {
       id: `spin-${Date.now()}`,
@@ -513,7 +513,7 @@ export default function App() {
       }
 
       current += net;
-      const botInfo = generateBotSuggestion(updated.slice(0, idx), radius);
+      const botInfo = generateBotSuggestion(updated.slice(0, idx), strategy);
 
       return {
         ...s,

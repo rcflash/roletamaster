@@ -217,10 +217,20 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               <Zap className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xs font-black text-slate-100 uppercase tracking-wide">
                   Lançamento Rápido de Números
                 </h3>
+
+                {/* Badge da Rodada Atual / Contagem de Pedras */}
+                <div className="flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 px-2.5 py-0.5 rounded-full shadow-sm">
+                  <span className="text-[9px] text-blue-400 font-black uppercase tracking-wider">RODADA ATUAL:</span>
+                  <span className="font-mono font-black text-[11px] text-blue-300">
+                    #{totalSpins} {totalSpins === 1 ? 'PEDRA' : 'PEDRAS'}
+                  </span>
+                </div>
+
+                {/* Badge do Último Número Saiu */}
                 {lastNumber !== null && lastNumber !== undefined && (
                   <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm animate-fadeIn">
                     <span className="text-[9px] text-amber-400 font-black uppercase tracking-wider">ÚLTIMO SAIU:</span>
@@ -236,8 +246,8 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                   </div>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400">
-                Clique nos números do teclado abaixo para lançar na mesa
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Clique nos números do teclado abaixo para lançar na mesa • <strong className="text-slate-300 font-bold">Rodada #{totalSpins}</strong> ({totalSpins} {totalSpins === 1 ? 'pedra lançada' : 'pedras lançadas'})
               </p>
             </div>
           </div>

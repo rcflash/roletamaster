@@ -22,6 +22,7 @@ import {
   FileText
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig } from '../types';
+import { calculateNeighborsAlert } from '../lib/roulette';
 import { generateStrategyPDF } from '../utils/pdfStrategyGenerator';
 
 interface StrategyBacktestPanelProps {
@@ -559,13 +560,99 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
       };
     };
 
+    // --- 7. STRATEGY: ALERTA DE VIZINHOS DO CILINDRO ---
+    // Enters on wheel neighbors (default 2 neighbors = 5 numbers sector) when dynamic momentum alert triggers.
+    const runNeighborsAlert = (): BacktestResult => {
+      let balance = initialBankroll;
+      let winCount = 0;
+      let lossCount = 0;
+      let currWins = 0, maxWins = 0;
+      let currLoss = 0, maxLoss = 0;
+      let peak = initialBankroll;
+      let maxDD = 0;
+      let totalWagered = 0;
+      const history = [{ spinIndex: 0, balance: initialBankroll }];
+
+      const neighborRadius = 2; // 2 vizinhos = 5 casas cobertas
+      const sectorSize = neighborRadius * 2 + 1; // 5
+      const chipVal = Math.max(0.5, unitBet / sectorSize);
+
+      sortedSpins.forEach((spin, idx) => {
+        if (idx < 2) {
+          history.push({ spinIndex: idx + 1, balance });
+          return;
+        }
+
+        const historyUpToCurrent = sortedSpins.slice(0, idx);
+        const alertInfo = calculateNeighborsAlert(historyUpToCurrent, neighborRadius);
+
+        if (alertInfo.hasAlert) {
+          const cost = sectorSize * chipVal;
+          totalWagered += cost;
+
+          const isHit = alertInfo.neighborsList.includes(spin.numero);
+          if (isHit) {
+            const payout = 36 * chipVal;
+            balance += (payout - cost);
+            winCount++;
+            currWins++;
+            currLoss = 0;
+            if (currWins > maxWins) maxWins = currWins;
+          } else {
+            balance -= cost;
+            lossCount++;
+            currLoss++;
+            currWins = 0;
+            if (currLoss > maxLoss) maxLoss = currLoss;
+          }
+        }
+
+        if (balance > peak) peak = balance;
+        const dd = peak - balance;
+        if (dd > maxDD) maxDD = dd;
+
+        history.push({ spinIndex: idx + 1, balance });
+      });
+
+      const netProfit = balance - initialBankroll;
+      const evaluatedSpins = winCount + lossCount;
+
+      return {
+        id: 'neighbors',
+        name: 'Alerta de Vizinhos do Cilindro',
+        category: 'Setor Físico (Roda)',
+        authorOrigin: 'Algoritmo de Momentum Térmico no Cilindro (5 Números)',
+        description: 'Dispara entradas dinâmicas nos 2 vizinhos mais quentes da pista quando detecta acúmulo de frequência e tendência ativa no setor do último número sorteado.',
+        coveragePct: 13.5,
+        riskLevel: 'Médio',
+        initialBalance: initialBankroll,
+        finalBalance: balance,
+        netProfit,
+        roiPct: totalWagered > 0 ? (netProfit / totalWagered) * 100 : 0,
+        winCount,
+        lossCount,
+        winRatePct: evaluatedSpins > 0 ? (winCount / evaluatedSpins) * 100 : 0,
+        maxConsecutiveWins: maxWins,
+        maxConsecutiveLosses: maxLoss,
+        maxDrawdown: maxDD,
+        historyChartData: history,
+        howToApply: [
+          'Acompanhe o indicador em tempo real no painel do Robô de Alertas.',
+          `Quando o robô disparar ALERTA DE VIZINHOS, aposte ${config.currency} ${chipVal.toFixed(2)} em cada um dos 5 números indicados no setor da pista.`,
+          'Caso a bola caia no setor aquecido, o pagamento direto de 36x gera lucro líquido expressivo por acerto!',
+          'Se não houver alerta ativo, permaneça em observação sem fazer entradas.'
+        ]
+      };
+    };
+
     const results = [
-      runColdCycle(),
       runRomanosky(),
       runTwoDozens(),
-      runDAlembert(),
+      runNeighborsAlert(),
+      runColdCycle(),
       runJamesBond(),
-      runVoisins()
+      runVoisins(),
+      runDAlembert()
     ];
 
     // Sort by netProfit descending to highlight the most lucrative
@@ -628,13 +715,24 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
             </div>
 
             {onApplyStrategy && championStrategy && (
-              <button
-                onClick={() => onApplyStrategy(championStrategy.name)}
-                className="px-5 py-4 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 shrink-0 hover:scale-[1.02]"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Usar Esta Estratégia no Robô</span>
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => onApplyStrategy('🤖 [AUTO] Seleção Automática (Maior Retorno Financeiro)')}
+                  className="px-4 py-4 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 shrink-0 hover:scale-[1.02]"
+                  title="Ativar Robô para escolher automaticamente a estratégia de maior retorno financeiro"
+                >
+                  <Zap className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  <span>Ativar Seleção Automática</span>
+                </button>
+
+                <button
+                  onClick={() => onApplyStrategy(championStrategy.name)}
+                  className="px-5 py-4 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 shrink-0 hover:scale-[1.02]"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Fixar {championStrategy.name.split(' ')[0]}</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

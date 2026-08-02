@@ -51,7 +51,8 @@ export interface BankrollConfig {
 export interface StrategyConfig {
   useBotRecommendation?: boolean;
   activePreset: 'custom' | 'top5_hot' | 'cold_dozen' | 'cold_column' | 'red_black' | 'double_dozen';
-  neighborRadius?: 2 | 3 | 4;
+  activeStrategy?: string;
+  neighborRadius?: 2 | 3 | 4 | 5 | 6 | 7;
   neighborChipValue?: number;
   dozen1Bet: number;
   dozen2Bet: number;

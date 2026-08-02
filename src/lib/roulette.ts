@@ -7,7 +7,7 @@ export const EUROPEAN_WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
 ];
 
-export function getWheelNeighbors(targetNum: number, neighborCount: 2 | 3 | 4 = 2): number[] {
+export function getWheelNeighbors(targetNum: number, neighborCount: number = 2): number[] {
   const idx = EUROPEAN_WHEEL_ORDER.indexOf(targetNum);
   if (idx === -1) return [targetNum];
 
@@ -24,7 +24,7 @@ export function getWheelNeighbors(targetNum: number, neighborCount: 2 | 3 | 4 = 
 export interface NeighborsAlertInfo {
   hasAlert: boolean;
   targetNum: number;
-  neighborCount: 2 | 3 | 4;
+  neighborCount: number;
   neighborsList: number[];
   alertMessage: string;
   recommendedBetText: string;
@@ -33,7 +33,7 @@ export interface NeighborsAlertInfo {
 
 export function calculateNeighborsAlert(
   spins: SpinRecord[],
-  neighborRadius: 2 | 3 | 4 = 2
+  neighborRadius: number = 2
 ): NeighborsAlertInfo | null {
   if (spins.length < 2) return null;
 
@@ -41,13 +41,23 @@ export function calculateNeighborsAlert(
   const lastNum = lastSpin.numero;
 
   const neighbors = getWheelNeighbors(lastNum, neighborRadius);
-  const totalSector = neighbors.length; // 5, 7, or 9
+  const totalSector = neighbors.length; // 5, 7, 9, 11, 13, 15
 
-  const recent6 = spins.slice(-6);
-  const hitsInSector = recent6.filter((s) => neighbors.includes(s.numero)).length;
+  // Smart Hot Sector Algorithm:
+  // Analyze last 10 spins density + recent 3 spins momentum
+  const recent10 = spins.slice(-10);
+  const hitsInSector10 = recent10.filter((s) => neighbors.includes(s.numero)).length;
 
-  const threshold = 3;
-  const hasAlert = hitsInSector >= threshold;
+  const recent3 = spins.slice(-3);
+  const hitsInSector3 = recent3.filter((s) => neighbors.includes(s.numero)).length;
+
+  // Thresholds based on neighborRadius
+  let minHits10 = 2;
+  if (neighborRadius >= 3) minHits10 = 3;
+  if (neighborRadius >= 5) minHits10 = 4;
+
+  // Trigger alert if sector density is high in last 10 AND active momentum in last 3 spins
+  const hasAlert = hitsInSector10 >= minHits10 && hitsInSector3 >= 1;
 
   if (hasAlert) {
     return {
@@ -55,9 +65,9 @@ export function calculateNeighborsAlert(
       targetNum: lastNum,
       neighborCount: neighborRadius,
       neighborsList: neighbors,
-      alertMessage: `🔥 SETOR AQUECIDO! O setor do nº ${lastNum} (${neighborRadius} vizinhos) recebeu ${hitsInSector} acertos nos últimos 6 giros!`,
+      alertMessage: `🔥 SETOR AQUECIDO COM MOMENTUM! O setor do nº ${lastNum} (${neighborRadius} vizinhos) registrou ${hitsInSector10} acertos nos últimos 10 giros e tendência ativa!`,
       recommendedBetText: `R$ 2,50 nas ${totalSector} casas: [${neighbors.join(', ')}] (Custo Total: R$ ${(totalSector * 2.5).toFixed(2)})`,
-      repeatCountInSector: hitsInSector,
+      repeatCountInSector: hitsInSector10,
     };
   }
 
@@ -66,9 +76,9 @@ export function calculateNeighborsAlert(
     targetNum: lastNum,
     neighborCount: neighborRadius,
     neighborsList: neighbors,
-    alertMessage: `Último número foi ${lastNum}. Sem alerta ativo no momento (${hitsInSector}/${threshold} acertos no setor nos últimos 6 giros).`,
-    recommendedBetText: `Aguardando alerta no setor do nº ${lastNum} [${neighbors.join(', ')}]`,
-    repeatCountInSector: hitsInSector,
+    alertMessage: `Último número foi ${lastNum}. Fora do ponto de entrada otimizado (${hitsInSector10}/${minHits10} acertos no setor nos últimos 10 giros).`,
+    recommendedBetText: `Aguardando confirmação de tendência no setor do nº ${lastNum} [${neighbors.join(', ')}]`,
+    repeatCountInSector: hitsInSector10,
   };
 }
 
@@ -386,7 +396,7 @@ export function calculateNumberStats(spins: SpinRecord[]): NumberStats[] {
 export function evaluateNeighborsPayout(
   num: number,
   spinsUpToPrev: SpinRecord[] | number | null | undefined,
-  neighborRadius: 2 | 3 | 4 = 2,
+  neighborRadius: number = 2,
   chipValue: number = 2.50,
   multiplier?: number
 ): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
@@ -452,7 +462,7 @@ export function evaluateBotTipOutcome(
   num: number,
   suggestion: string,
   spinsUpToPrev?: SpinRecord[] | number | null,
-  strategyRadius: 2 | 3 | 4 = 2,
+  strategyRadius: number = 2,
   multiplier?: number
 ): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
   if (spinsUpToPrev !== undefined && spinsUpToPrev !== null) {
@@ -461,48 +471,453 @@ export function evaluateBotTipOutcome(
   return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
 }
 
+export interface StrategyPerformanceRank {
+  id: string;
+  name: string;
+  winRatePct: number;
+  netProfit: number;
+  evaluatedSpins: number;
+  wins: number;
+  losses: number;
+  description: string;
+  neighborRadius?: number;
+}
+
+export function evaluateAllStrategies(
+  spins: SpinRecord[],
+  neighborRadius: number = 2
+): StrategyPerformanceRank[] {
+  const sorted = [...spins].sort((a, b) => a.giro - b.giro);
+  const sample = sorted.length > 60 ? sorted.slice(-60) : sorted;
+
+  const candidates: StrategyPerformanceRank[] = [];
+
+  // 1. Romanosky
+  const romanoskyNums = new Set([
+    ...Array.from({ length: 24 }, (_, i) => i + 1),
+    25, 26, 28, 29, 32, 33, 35, 36
+  ]);
+  let rWins = 0, rLosses = 0, rProfit = 0;
+  sample.forEach(s => {
+    if (romanoskyNums.has(s.numero)) {
+      rWins++;
+      rProfit += 1;
+    } else {
+      rLosses++;
+      rProfit -= 8;
+    }
+  });
+  const rEval = sample.length;
+  candidates.push({
+    id: 'romanosky',
+    name: 'Estratégia Romanosky (Cobertura 86.4%)',
+    winRatePct: rEval > 0 ? Math.round((rWins / rEval) * 1000) / 10 : 86.4,
+    netProfit: rProfit * 2.50,
+    evaluatedSpins: rEval,
+    wins: rWins,
+    losses: rLosses,
+    description: '32 números cobertos por rodada com alta consistência',
+  });
+
+  // 2. Two Dozens
+  let tdWins = 0, tdLosses = 0, tdProfit = 0, tdEval = 0;
+  sample.forEach((s, idx) => {
+    if (idx >= 5) {
+      const recent = sample.slice(Math.max(0, idx - 15), idx);
+      const dCounts = { D1: 0, D2: 0, D3: 0 };
+      recent.forEach(sp => {
+        if (sp.dozen === '1a') dCounts.D1++;
+        else if (sp.dozen === '2a') dCounts.D2++;
+        else if (sp.dozen === '3a') dCounts.D3++;
+      });
+      const sortedD = (Object.keys(dCounts) as Array<'D1' | 'D2' | 'D3'>).sort((a, b) => dCounts[b] - dCounts[a]);
+      const top2DozenSet = new Set<string>();
+      if (sortedD[0] === 'D1' || sortedD[1] === 'D1') [1,2,3,4,5,6,7,8,9,10,11,12].forEach(n => top2DozenSet.add(n.toString()));
+      if (sortedD[0] === 'D2' || sortedD[1] === 'D2') [13,14,15,16,17,18,19,20,21,22,23,24].forEach(n => top2DozenSet.add(n.toString()));
+      if (sortedD[0] === 'D3' || sortedD[1] === 'D3') [25,26,27,28,29,30,31,32,33,34,35,36].forEach(n => top2DozenSet.add(n.toString()));
+
+      tdEval++;
+      if (top2DozenSet.has(s.numero.toString())) {
+        tdWins++;
+        tdProfit += 1;
+      } else {
+        tdLosses++;
+        tdProfit -= 2;
+      }
+    }
+  });
+  candidates.push({
+    id: 'two_dozens',
+    name: 'Aposta em 2 Dúzias Dominantes',
+    winRatePct: tdEval > 0 ? Math.round((tdWins / tdEval) * 1000) / 10 : 64.8,
+    netProfit: tdProfit * 5.0,
+    evaluatedSpins: tdEval,
+    wins: tdWins,
+    losses: tdLosses,
+    description: 'Aposta nas 2 dúzias mais frequentes da mesa',
+  });
+
+  // 3. Vizinhos do Cilindro (Avaliando variações: 2, 3, 4 e 5 vizinhos)
+  const radiiToTest = [2, 3, 4, 5];
+  radiiToTest.forEach((r) => {
+    let vWins = 0, vLosses = 0, vProfit = 0, vEval = 0;
+    sample.forEach((s, idx) => {
+      if (idx >= 2) {
+        const historyUpToCurrent = sample.slice(0, idx);
+        const alertInfo = calculateNeighborsAlert(historyUpToCurrent, r);
+        if (alertInfo.hasAlert) {
+          vEval++;
+          const isHit = alertInfo.neighborsList.includes(s.numero);
+          const cost = alertInfo.neighborsList.length * 2.50;
+          if (isHit) {
+            vWins++;
+            vProfit += (36 * 2.50 - cost);
+          } else {
+            vLosses++;
+            vProfit -= cost;
+          }
+        }
+      }
+    });
+    const secSize = r * 2 + 1;
+    const vizExpected = Math.round(((secSize / 37) * 100) * 10) / 10;
+    candidates.push({
+      id: `neighbors_${r}`,
+      name: `Alerta de Vizinhos (${r} Vizinhos / ${secSize} Casas)`,
+      winRatePct: vEval > 0 ? Math.round((vWins / vEval) * 1000) / 10 : vizExpected,
+      netProfit: vProfit,
+      evaluatedSpins: vEval,
+      wins: vWins,
+      losses: vLosses,
+      description: `Entrada nos ${r} vizinhos do último número (${secSize} casas) em momento de tendência`,
+      neighborRadius: r,
+    });
+  });
+
+  // 4. Ciclo de Ausentes
+  let aWins = 0, aLosses = 0, aProfit = 0, aEval = 0;
+  sample.forEach((s, idx) => {
+    if (idx >= 15) {
+      const recentSlice = sample.slice(Math.max(0, idx - 25), idx);
+      const seen = new Set(recentSlice.map(item => item.numero));
+      const unseen: number[] = [];
+      for (let n = 0; n <= 36; n++) {
+        if (!seen.has(n)) unseen.push(n);
+      }
+      if (unseen.length > 0 && unseen.length <= 15) {
+        aEval++;
+        if (unseen.includes(s.numero)) {
+          aWins++;
+          aProfit += (36 * 2.50 - unseen.length * 2.50);
+        } else {
+          aLosses++;
+          aProfit -= (unseen.length * 2.50);
+        }
+      }
+    }
+  });
+  candidates.push({
+    id: 'ausentes',
+    name: 'Ciclo de Fechamento (Aposta em Ausentes)',
+    winRatePct: aEval > 0 ? Math.round((aWins / aEval) * 1000) / 10 : 45.0,
+    netProfit: aProfit,
+    evaluatedSpins: aEval,
+    wins: aWins,
+    losses: aLosses,
+    description: 'Aposta direta nas pedras frias das últimas 25 rodadas',
+  });
+
+  // 5. Voisins du Zero
+  const voisinsSet = new Set([22, 18, 29, 7, 28, 12, 35, 3, 26, 0, 32, 15, 19, 4, 21, 2, 25]);
+  let vzWins = 0, vzLosses = 0, vzProfit = 0;
+  sample.forEach(s => {
+    if (voisinsSet.has(s.numero)) {
+      vzWins++;
+      vzProfit += 10;
+    } else {
+      vzLosses++;
+      vzProfit -= 9;
+    }
+  });
+  const vzEval = sample.length;
+  candidates.push({
+    id: 'voisins',
+    name: 'Vizinhos do Zero (Voisins du Zéro)',
+    winRatePct: vzEval > 0 ? Math.round((vzWins / vzEval) * 1000) / 10 : 45.9,
+    netProfit: vzProfit * 2.50,
+    evaluatedSpins: vzEval,
+    wins: vzWins,
+    losses: vzLosses,
+    description: '17 números no setor central da roleta',
+  });
+
+  // 6. James Bond 007
+  const bondSet = new Set([
+    13, 14, 15, 16, 17, 18,
+    19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+    0
+  ]);
+  let jbWins = 0, jbLosses = 0, jbProfit = 0;
+  sample.forEach(s => {
+    if (bondSet.has(s.numero)) {
+      jbWins++;
+      jbProfit += 2;
+    } else {
+      jbLosses++;
+      jbProfit -= 20;
+    }
+  });
+  const jbEval = sample.length;
+  candidates.push({
+    id: 'james_bond',
+    name: 'Estratégia James Bond (007)',
+    winRatePct: jbEval > 0 ? Math.round((jbWins / jbEval) * 1000) / 10 : 67.5,
+    netProfit: jbProfit * 2.50,
+    evaluatedSpins: jbEval,
+    wins: jbWins,
+    losses: jbLosses,
+    description: '25 números cobertos (Altas + Seisena + Seguro no 0)',
+  });
+
+  // Sort candidates by netProfit DESC, then by winRatePct DESC (highest financial return)
+  candidates.sort((a, b) => {
+    if (b.netProfit !== a.netProfit) {
+      return b.netProfit - a.netProfit;
+    }
+    return b.winRatePct - a.winRatePct;
+  });
+
+  return candidates;
+}
+
 export function generateBotSuggestion(
   spins: SpinRecord[],
-  strategyRadius: 2 | 3 | 4 = 2
+  strategyConfig?: StrategyConfig | number
 ): { level: string; suggestion: string; strategyName: string; hasAlert: boolean } {
+  const strategyRadius = typeof strategyConfig === 'number'
+    ? strategyConfig
+    : strategyConfig?.neighborRadius || 2;
+
+  const activeStrategy = typeof strategyConfig === 'object' && strategyConfig?.activeStrategy
+    ? strategyConfig.activeStrategy
+    : '🤖 [AUTO] Seleção Automática (Maior Retorno Financeiro)';
+
+  // If AUTO selection mode is active, pick the strategy with highest financial return (netProfit) automatically!
+  if (
+    activeStrategy.toLowerCase().includes('auto') ||
+    activeStrategy.toLowerCase().includes('automática') ||
+    activeStrategy.toLowerCase().includes('automatica')
+  ) {
+    const ranked = evaluateAllStrategies(spins, strategyRadius);
+    const best = ranked.length > 0 ? ranked[0] : null;
+    const bestName = best ? best.name : 'Estratégia Romanosky (Cobertura 86.4%)';
+    const bestProfit = best ? best.netProfit : 0;
+    const bestWinRate = best ? best.winRatePct : 86.4;
+    const profitFormatted = `${bestProfit >= 0 ? '+' : ''}R$ ${bestProfit.toFixed(2)}`;
+
+    const validRadius: 2 | 3 | 4 | 5 | 6 | 7 = (strategyRadius >= 2 && strategyRadius <= 7)
+      ? (strategyRadius as 2 | 3 | 4 | 5 | 6 | 7)
+      : 2;
+
+    const chosenRadius = (best?.neighborRadius as 2 | 3 | 4 | 5 | 6 | 7) || validRadius;
+
+    const fullConfig: StrategyConfig = typeof strategyConfig === 'object' && strategyConfig !== null
+      ? {
+          activePreset: 'custom',
+          dozen1Bet: 0,
+          dozen2Bet: 0,
+          dozen3Bet: 0,
+          column1Bet: 0,
+          column2Bet: 0,
+          column3Bet: 0,
+          straightNumberBets: {},
+          colorRedBet: 0,
+          colorBlackBet: 0,
+          ...strategyConfig,
+          activeStrategy: bestName,
+          neighborRadius: chosenRadius,
+        }
+      : {
+          activePreset: 'custom',
+          dozen1Bet: 0,
+          dozen2Bet: 0,
+          dozen3Bet: 0,
+          column1Bet: 0,
+          column2Bet: 0,
+          column3Bet: 0,
+          straightNumberBets: {},
+          colorRedBet: 0,
+          colorBlackBet: 0,
+          activeStrategy: bestName,
+          neighborRadius: chosenRadius,
+        };
+
+    const subResult = generateBotSuggestion(spins, fullConfig);
+
+    return {
+      level: subResult.level,
+      suggestion: `🤖 [AUTO MAIOR RETORNO (${profitFormatted} | ${bestWinRate.toFixed(1)}% WIN)]: ${subResult.suggestion}`,
+      strategyName: `🤖 [AUTO] ${bestName} (${profitFormatted})`,
+      hasAlert: subResult.hasAlert,
+    };
+  }
+
+  const lastSpin = spins.length > 0 ? spins[spins.length - 1] : null;
+
+  // Level determination (N1 -> N2 -> N3 on loss cycle)
+  let level = 'N1';
+  if (lastSpin && lastSpin.cycleStatus === 'LOSS') {
+    if (lastSpin.botLevel === 'N1') level = 'N2';
+    else if (lastSpin.botLevel === 'N2') level = 'N3';
+    else level = 'N1';
+  }
+
+  // Handle ROMANOSKY
+  if (activeStrategy.toLowerCase().includes('romanosky')) {
+    const sName = 'Estratégia Romanosky (Cobertura 86.4%)';
+    if (spins.length === 0) {
+      return {
+        level: 'N1',
+        suggestion: '🎯 ROMANOSKY: Aguardando 1º giro. Entrada pronta nas 2 Dúzias + 2 Quadrados.',
+        strategyName: sName,
+        hasAlert: true,
+      };
+    }
+    return {
+      level,
+      suggestion: '🎯 ROMANOSKY ATIVA! Apostar: 1ª Dúzia (1-12) + 2ª Dúzia (13-24) + Quadrado (25-26-28-29) + Quadrado (32-33-35-36) [32 números / 86.4% Cobertura].',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle CICLO DE FECHAMENTO (AUSENTES)
+  if (activeStrategy.toLowerCase().includes('ausentes') || activeStrategy.toLowerCase().includes('ciclo')) {
+    const sName = 'Ciclo de Fechamento (Aposta em Ausentes)';
+    if (spins.length === 0) {
+      return {
+        level: 'N1',
+        suggestion: '❄️ CICLO DE AUSENTES: Insira números para mapear pedras frias das últimas 25 rodadas.',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+    const LOOKBACK = 25;
+    const recentSlice = spins.slice(Math.max(0, spins.length - LOOKBACK));
+    const seenNumbers = new Set(recentSlice.map(s => s.numero));
+    const unseenNumbers: number[] = [];
+    for (let n = 0; n <= 36; n++) {
+      if (!seenNumbers.has(n)) unseenNumbers.push(n);
+    }
+
+    if (unseenNumbers.length > 0) {
+      return {
+        level,
+        suggestion: `❄️ CICLO DE AUSENTES ATIVO! Apostar nos ${unseenNumbers.length} números ausentes: [${unseenNumbers.slice(0, 10).join(', ')}${unseenNumbers.length > 10 ? '...' : ''}]`,
+        strategyName: `${sName} (${unseenNumbers.length} números)`,
+        hasAlert: true,
+      };
+    } else {
+      return {
+        level,
+        suggestion: '❄️ CICLO DE AUSENTES: Todos os 37 números saíram no ciclo recente.',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+  }
+
+  // Handle 2 DÚZIAS DOMINANTES
+  if (activeStrategy.toLowerCase().includes('2 dúzias') || activeStrategy.toLowerCase().includes('duzias dominantes')) {
+    const sName = 'Aposta em 2 Dúzias Dominantes (64.8% Cobertura)';
+    if (spins.length < 5) {
+      return {
+        level: 'N1',
+        suggestion: '🔥 2 DÚZIAS DOMINANTES: Aguardando ao menos 5 giros para identificar as dúzias mais quentes.',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+    const recent = spins.slice(Math.max(0, spins.length - 20));
+    const dCounts = { D1: 0, D2: 0, D3: 0 };
+    recent.forEach(s => {
+      if (s.dozen === '1a') dCounts.D1++;
+      else if (s.dozen === '2a') dCounts.D2++;
+      else if (s.dozen === '3a') dCounts.D3++;
+    });
+    const sortedD = (Object.keys(dCounts) as Array<'D1' | 'D2' | 'D3'>).sort((a, b) => dCounts[b] - dCounts[a]);
+    const dozLabels = { D1: '1ª Dúzia (1-12)', D2: '2ª Dúzia (13-24)', D3: '3ª Dúzia (25-36)' };
+
+    return {
+      level,
+      suggestion: `🔥 2 DÚZIAS DOMINANTES ATIVAS! Apostar em: ${dozLabels[sortedD[0]]} + ${dozLabels[sortedD[1]]} (24 números / 64.8% Cobertura).`,
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle D'ALEMBERT
+  if (activeStrategy.toLowerCase().includes('dalembert') || activeStrategy.toLowerCase().includes("d'alembert")) {
+    const sName = "Método D'Alembert (Chances Simples)";
+    return {
+      level,
+      suggestion: `⚖️ D'ALEMBERT ATIVO! Apostar no Vermelho/Preto (Chances Simples) com progressão de 1 ficha (+1 em erro, -1 em acerto).`,
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle JAMES BOND 007
+  if (activeStrategy.toLowerCase().includes('james bond') || activeStrategy.toLowerCase().includes('007')) {
+    const sName = 'Estratégia James Bond (007)';
+    return {
+      level,
+      suggestion: '🕶️ JAMES BOND ATIVA! Apostar: Altas (19-36) + Seisena (13-18) + Seguro no Zero (0) [25 números / 67.5% Cobertura].',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle VOISINS DU ZERO
+  if (activeStrategy.toLowerCase().includes('voisins') || activeStrategy.toLowerCase().includes('vizinhos do zero')) {
+    const sName = 'Vizinhos do Zero (Voisins du Zéro)';
+    return {
+      level,
+      suggestion: '🎰 VIZINHOS DO ZERO ATIVO! Apostar no setor Voisins (17 números ao redor do 0): [22, 18, 29, 7, 28, 12, 35, 3, 26, 0, 32, 15, 19, 4, 21, 2, 25].',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // DEFAULT / VIZINHOS DO CILINDRO
   if (spins.length === 0) {
-    const defaultNeighbors = getWheelNeighbors(0, strategyRadius);
     return {
       level: 'N1',
-      suggestion: `⏳ AGUARDANDO GIROS (Insira números para monitorar vizinhos do cilindro)`,
+      suggestion: `⏳ AGUARDANDO GIROS (Insira números para monitorar vizinhos do cilindro - ${strategyRadius} VIZ)`,
       strategyName: `Alerta de Vizinhos do Cilindro (${strategyRadius} VIZ)`,
       hasAlert: false,
     };
   }
 
-  const lastSpin = spins[spins.length - 1];
-  const targetNum = lastSpin.numero;
+  const targetNum = lastSpin!.numero;
   const alertInfo = calculateNeighborsAlert(spins, strategyRadius);
   const neighbors = alertInfo?.neighborsList || getWheelNeighbors(targetNum, strategyRadius);
-  const cost = neighbors.length * 2.50;
-
-  let level = 'N1';
-  if (lastSpin.cycleStatus === 'LOSS') {
-    if (lastSpin.botLevel === 'N1') level = 'N2';
-    else if (lastSpin.botLevel === 'N2') level = 'N3';
-    else level = 'N1';
-  } else {
-    level = 'N1';
-  }
+  const chipVal = typeof strategyConfig === 'object' ? (strategyConfig.neighborChipValue || 2.50) : 2.50;
+  const cost = neighbors.length * chipVal;
 
   if (alertInfo?.hasAlert) {
     return {
       level,
       suggestion: `🚨 ALERTA ATIVO! Entrada nos ${strategyRadius} Vizinhos do nº ${targetNum} [${neighbors.join(', ')}] (R$ ${cost.toFixed(2)})`,
-      strategyName: `Alerta de Vizinhos (${neighbors.length} casas)`,
+      strategyName: `Alerta de Vizinhos (${neighbors.length} casas - ${strategyRadius} VIZ)`,
       hasAlert: true,
     };
   }
 
   return {
     level,
-    suggestion: `⏳ SEM ALERTA ATIVO (Fora de Operação) — Monitorando setor do nº ${targetNum} [${neighbors.join(', ')}]`,
-    strategyName: `Monitorando Vizinhos (${neighbors.length} casas)`,
+    suggestion: `⏳ SEM ALERTA ATIVO (Fora de Operação) — Monitorando setor do nº ${targetNum} [${neighbors.join(', ')}] (${strategyRadius} VIZ)`,
+    strategyName: `Alerta de Vizinhos (${strategyRadius} VIZ)`,
     hasAlert: false,
   };
 }
@@ -530,7 +945,7 @@ export interface TableAnalysisResult {
 
 export function analyzeWarmupTable(
   spins: SpinRecord[],
-  neighborRadius: 2 | 3 | 4 = 2
+  neighborRadius: number = 2
 ): TableAnalysisResult {
   const sample = spins.length > 100 ? spins.slice(-100) : spins;
   const totalGiros = sample.length;
@@ -590,7 +1005,8 @@ export function analyzeWarmupTable(
   const topDozPct = totalGiros > 0 ? Math.round((dozenCounts[maxDoz as keyof typeof dozenCounts] / totalGiros) * 100) : 0;
   const topDozenText = `${dozMap[maxDoz] || maxDoz} (${topDozPct}%)`;
 
-  const expRate = neighborRadius === 2 ? 13.5 : neighborRadius === 3 ? 18.9 : 24.3;
+  const totalSector = neighborRadius * 2 + 1;
+  const expRate = Math.round(((totalSector / 37) * 100) * 10) / 10;
 
   let stabilityStatus: 'STRONG_PATTERN' | 'MODERATE_PATTERN' | 'HIGH_VARIANCE' = 'MODERATE_PATTERN';
   let statusTitle = '';
@@ -598,30 +1014,33 @@ export function analyzeWarmupTable(
   let badgeClass = '';
   let recommendation = '';
 
+  // Realistic consecutive loss threshold based on sector size (for 100 spins)
+  const maxAllowedConsecLosses = neighborRadius <= 2 ? 8 : neighborRadius <= 4 ? 7 : 6;
+
   if (alertCount === 0) {
     stabilityStatus = 'MODERATE_PATTERN';
     statusTitle = '🟡 MESA EM AQUECIMENTO (POUCOS ALERTAS)';
     statusDescription = `A amostra possui ${totalGiros} giros, mas ainda não gerou alertas suficientes para consolidar a tendência de vizinhos.`;
     badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     recommendation = 'Insira mais giros até completar a amostra de 100 números para obter o diagnóstico completo.';
-  } else if (hitRatePct >= expRate + 10 && dozenSwitchPct <= 60) {
+  } else if (hitRatePct >= expRate + 3 && dozenSwitchPct <= 68 && maxConsecLosses <= maxAllowedConsecLosses) {
     stabilityStatus = 'STRONG_PATTERN';
     statusTitle = '🟢 MESA COM PADRÃO DEFINIDO (MESA TENDENCIOSA)';
-    statusDescription = `A mesa apresentou padrão constante nos ${totalGiros} giros de aquecimento! O Bot teve ${hitRatePct}% de assertividade (${wins} WINs vs ${losses} REDs em ${alertCount} alertas). A oscilação entre dúzias foi controlada (${dozenSwitchPct}%).`;
+    statusDescription = `A mesa apresentou excelente tendência de repetição de setores nos ${totalGiros} giros! O Bot alcançou ${hitRatePct}% de assertividade (${wins} WINs vs ${losses} REDs em ${alertCount} entradas otimizadas). A alternância de dúzias foi de ${dozenSwitchPct}%.`;
     badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-    recommendation = 'Excelente momento para operar! A mesa está respeitando a repetição de setores.';
-  } else if (hitRatePct < expRate || dozenSwitchPct > 65 || maxConsecLosses >= 4) {
+    recommendation = 'Excelente momento para operar! A mesa está respeitando a repetição de setores com alta taxa de acerto.';
+  } else if (hitRatePct < expRate || maxConsecLosses > maxAllowedConsecLosses + 2 || dozenSwitchPct > 75) {
     stabilityStatus = 'HIGH_VARIANCE';
     statusTitle = '🔴 MESA INSTÁVEL (ALTA VARIAÇÃO DE PADRÃO)';
-    statusDescription = `A mesa variou muito o padrão nos ${totalGiros} giros de amostragem. Houve alta dispersão espacial e o Bot alcançou ${hitRatePct}% de acerto (${wins} WINs vs ${losses} REDs em ${alertCount} alertas, com pico de ${maxConsecLosses} REDs seguidos). A alternância de dúzias foi alta (${dozenSwitchPct}%).`;
+    statusDescription = `A mesa variou muito o padrão nos ${totalGiros} giros de amostragem. Houve dispersão espacial e o Bot alcançou ${hitRatePct}% de acerto (${wins} WINs vs ${losses} REDs em ${alertCount} alertas, com pico de ${maxConsecLosses} REDs seguidos).`;
     badgeClass = 'bg-rose-500/20 text-rose-400 border-rose-500/30';
-    recommendation = 'Atenção! A mesa está alternando setores sem fixação de tendência. Recomenda-se operar com gestão rigorosa N1 ou aguardar nova amostragem.';
+    recommendation = 'Atenção! A mesa está alternando setores sem fixação de tendência. Recomenda-se operar no nível N1 ou alternar para o Bot Automático.';
   } else {
     stabilityStatus = 'MODERATE_PATTERN';
     statusTitle = '🟡 MESA COM PADRÃO MODERADO / OSCILANTE';
-    statusDescription = `A mesa alternou ciclos quentes e neutros durante os ${totalGiros} giros. A taxa de acerto do Bot foi de ${hitRatePct}% (${wins} WINs vs ${losses} REDs). A alternância de dúzias foi de ${dozenSwitchPct}%.`;
+    statusDescription = `A mesa alternou ciclos quentes e neutros durante os ${totalGiros} giros. A taxa de acerto do Bot nos Vizinhos foi de ${hitRatePct}% (${wins} WINs vs ${losses} REDs). A alternância de dúzias foi de ${dozenSwitchPct}%.`;
     badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-    recommendation = 'Mesa com padrão mediano. Opere com cautela mantendo apostas no nível N1.';
+    recommendation = 'Mesa com padrão mediano. Opere com cautela mantendo apostas no nível N1 ou utilize o Robô Automático.';
   }
 
   return {

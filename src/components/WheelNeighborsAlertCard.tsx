@@ -24,7 +24,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   const chipValue = strategy?.neighborChipValue || 2.5;
   const totalBet = currentNeighbors.length * chipValue;
 
-  const handleSelectRadius = (count: 2 | 3 | 4) => {
+  const handleSelectRadius = (count: 2 | 3 | 4 | 5 | 6 | 7) => {
     if (onUpdateStrategy) {
       onUpdateStrategy({ neighborRadius: count });
     }
@@ -41,13 +41,13 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
             </h3>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 flex-wrap">
             <span className="text-[10px] font-bold text-slate-400 px-1">Vizinhos:</span>
-            {([2, 3, 4] as const).map((count) => (
+            {([2, 3, 4, 5, 6, 7] as const).map((count) => (
               <button
                 key={count}
                 onClick={() => handleSelectRadius(count)}
-                className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                className={`px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
                   neighborRadius === count
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
