@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight } from 'lucide-react';
+import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight, Disc, Grid } from 'lucide-react';
 import { RED_NUMBERS } from '../lib/roulette';
+import { OvalRacetrackBoard } from './OvalRacetrackBoard';
 
 interface QuickSpinInputProps {
   onAddSpin: (number: number, multiplier?: number) => void;
@@ -22,12 +23,20 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   showWarmupBanner = false,
 }) => {
   const [multiplier, setMultiplier] = useState<number>(1);
+  const [inputMode, setInputMode] = useState<'grid' | 'racetrack'>(() => {
+    return (localStorage.getItem('roleta_input_mode') as 'grid' | 'racetrack') || 'grid';
+  });
   const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
   const [bulkText, setBulkText] = useState<string>('');
   const [isAnalyzingImage, setIsAnalyzingImage] = useState<boolean>(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageSuccessCount, setImageSuccessCount] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleModeChange = (mode: 'grid' | 'racetrack') => {
+    setInputMode(mode);
+    localStorage.setItem('roleta_input_mode', mode);
+  };
 
   // Handle Image OCR Upload with Gemini Vision
   const processImageFile = async (file: File) => {
@@ -253,6 +262,36 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Mode Switcher Tabs (Grid vs Racetrack) */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleModeChange('grid')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase transition-all flex items-center gap-1.5 ${
+                  inputMode === 'grid'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Visualização em grade numérica sequencial (0 a 36)"
+              >
+                <Grid className="w-3.5 h-3.5" />
+                <span>Teclado Grid</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeChange('racetrack')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase transition-all flex items-center gap-1.5 ${
+                  inputMode === 'racetrack'
+                    ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Visualização em Pista de Vizinhos / Racetrack (Ordem Real da Roda)"
+              >
+                <Disc className="w-3.5 h-3.5" />
+                <span>Roleta Race (Pista)</span>
+              </button>
+            </div>
+
             {/* Multiplier Pills */}
             <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
               <span className="text-[9px] uppercase font-bold text-slate-500 px-1.5 hidden sm:inline">Mult:</span>
@@ -301,56 +340,71 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
           </div>
         </div>
 
-        {/* Visual Roulette Number Pad Grid */}
-        <div className="grid grid-cols-12 sm:grid-cols-13 gap-1">
-          {/* Zero */}
-          {(() => {
-            const isZeroLast = lastNumber === 0;
-            return (
-              <button
-                onClick={() => handleQuickClick(0)}
-                className={`col-span-12 sm:col-span-1 h-8 sm:h-9 rounded-lg text-slate-950 font-black text-xs sm:text-sm shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
-                  isZeroLast
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
-                    : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400/40'
-                }`}
-              >
-                <span>0</span>
-                {isZeroLast && (
-                  <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
-                    ÚLTIMO
-                  </span>
-                )}
-              </button>
-            );
-          })()}
+        {/* Render Selected Input Mode: Grid vs Racetrack */}
+        {inputMode === 'grid' ? (
+          /* Visual Roulette Number Pad Grid (0-36) */
+          <div className="grid grid-cols-12 sm:grid-cols-13 gap-1">
+            {/* Zero */}
+            {(() => {
+              const isZeroLast = lastNumber === 0;
+              return (
+                <button
+                  onClick={() => handleQuickClick(0)}
+                  className={`col-span-12 sm:col-span-1 h-8 sm:h-9 rounded-lg text-slate-950 font-black text-xs sm:text-sm shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
+                    isZeroLast
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
+                      : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400/40'
+                  }`}
+                >
+                  <span>0</span>
+                  {isZeroLast && (
+                    <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
+                      ÚLTIMO
+                    </span>
+                  )}
+                </button>
+              );
+            })()}
 
-          {/* 1 to 36 */}
-          {Array.from({ length: 36 }, (_, i) => i + 1).map((num) => {
-            const isRed = RED_NUMBERS.includes(num);
-            const isLast = lastNumber === num;
-            return (
-              <button
-                key={num}
-                onClick={() => handleQuickClick(num)}
-                className={`h-8 sm:h-9 rounded-lg font-black text-xs shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
-                  isLast
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
-                    : isRed
-                    ? 'bg-rose-950/80 hover:bg-rose-800 border-rose-800/80 text-rose-200'
-                    : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200'
-                }`}
-              >
-                <span>{num}</span>
-                {isLast && (
-                  <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
-                    ÚLTIMO
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+            {/* 1 to 36 */}
+            {Array.from({ length: 36 }, (_, i) => i + 1).map((num) => {
+              const isRed = RED_NUMBERS.includes(num);
+              const isLast = lastNumber === num;
+              return (
+                <button
+                  key={num}
+                  onClick={() => handleQuickClick(num)}
+                  className={`h-8 sm:h-9 rounded-lg font-black text-xs shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
+                    isLast
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
+                      : isRed
+                      ? 'bg-rose-950/80 hover:bg-rose-800 border-rose-800/80 text-rose-200'
+                      : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200'
+                  }`}
+                >
+                  <span>{num}</span>
+                  {isLast && (
+                    <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
+                      ÚLTIMO
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /* 🏎️ Roleta Race / Pista Racetrack (Exact Oval Racetrack as in user image) */
+          <div className="space-y-2.5 animate-fadeIn">
+            <div className="flex items-center justify-between text-[11px] text-slate-300 px-1 font-bold uppercase tracking-wider">
+              <span>🎡 Roleta Race (Pista de Vizinhos Oval)</span>
+              <span className="text-amber-400 font-extrabold text-[10px]">Passe o mouse nos setores (TIER, ORPHELINS, VOISINS, ZERO) para destacar</span>
+            </div>
+            <OvalRacetrackBoard
+              onSelectNumber={handleQuickClick}
+              lastNumber={lastNumber}
+            />
+          </div>
+        )}
       </div>
 
       {/* 📦 Bulk Input Modal / Dialog */}
