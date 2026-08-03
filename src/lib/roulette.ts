@@ -651,6 +651,64 @@ export function evaluateAllStrategies(
     description: '17 números no setor central da roleta',
   });
 
+  // 7. Análise de Terminais & Sequência (Estratégia do Gráfico)
+  let tWins = 0, tLosses = 0, tProfit = 0, tEval = 0;
+  sample.forEach((s, idx) => {
+    if (idx >= 3) {
+      const historySlice = sample.slice(Math.max(0, idx - 15), idx);
+      const lastSpin = historySlice[historySlice.length - 1];
+      const lastTerminal = lastSpin.numero % 10;
+      
+      // Contar qual terminal mais seguiu o último terminal no histórico recente
+      const followerTerminalsCount: Record<number, number> = {};
+      for (let i = 0; i < historySlice.length - 1; i++) {
+        if (historySlice[i].numero % 10 === lastTerminal) {
+          const nextTerm = historySlice[i + 1].numero % 10;
+          followerTerminalsCount[nextTerm] = (followerTerminalsCount[nextTerm] || 0) + 1;
+        }
+      }
+      
+      let topFollower = (lastTerminal + 1) % 10;
+      let maxCount = 0;
+      Object.entries(followerTerminalsCount).forEach(([termStr, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          topFollower = Number(termStr);
+        }
+      });
+
+      // Alvo: Números dos terminais dominante + terminal atual + seguro no 0
+      const targetTerminals = new Set([lastTerminal, topFollower]);
+      const targetNumbers: number[] = [0];
+      for (let n = 1; n <= 36; n++) {
+        if (targetTerminals.has(n % 10)) {
+          targetNumbers.push(n);
+        }
+      }
+
+      tEval++;
+      const cost = targetNumbers.length * 2.50;
+      if (targetNumbers.includes(s.numero)) {
+        tWins++;
+        tProfit += (36 * 2.50 - cost);
+      } else {
+        tLosses++;
+        tProfit -= cost;
+      }
+    }
+  });
+
+  candidates.push({
+    id: 'terminal_sequence_chart',
+    name: 'Análise de Terminais & Sequência (Estratégia do Gráfico)',
+    winRatePct: tEval > 0 ? Math.round((tWins / tEval) * 1000) / 10 : 32.4,
+    netProfit: tProfit,
+    evaluatedSpins: tEval,
+    wins: tWins,
+    losses: tLosses,
+    description: 'Leitura gráfica de repetição e atração de terminais históricos no gráfico com proteção no Zero',
+  });
+
   // 6. James Bond 007
   const bondSet = new Set([
     13, 14, 15, 16, 17, 18,

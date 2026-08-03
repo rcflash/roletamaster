@@ -34,7 +34,7 @@ interface StrategyBacktestPanelProps {
 export interface BacktestResult {
   id: string;
   name: string;
-  category: 'Frequência / Ciclo' | 'Cobertura Alta' | 'Chances Simples' | 'Setor Físico (Roda)';
+  category: 'Frequência / Ciclo' | 'Cobertura Alta' | 'Chances Simples' | 'Setor Físico (Roda)' | 'Terminais & Padrões';
   authorOrigin: string;
   description: string;
   coveragePct: number;
@@ -645,7 +645,114 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
       };
     };
 
+    // --- 8. STRATEGY: ANÁLISE DE TERMINAIS & SEQUÊNCIA (ESTRATÉGIA DO GRÁFICO) ---
+    // Identifies terminal repetition, preceding/succeeding terminal pulls from historical chart, plus zero safety.
+    const runTerminalSequenceChart = (): BacktestResult => {
+      let balance = initialBankroll;
+      let winCount = 0;
+      let lossCount = 0;
+      let currWins = 0, maxWins = 0;
+      let currLoss = 0, maxLoss = 0;
+      let peak = initialBankroll;
+      let maxDD = 0;
+      let totalWagered = 0;
+      const history = [{ spinIndex: 0, balance: initialBankroll }];
+
+      sortedSpins.forEach((spin, idx) => {
+        if (idx < 3) {
+          history.push({ spinIndex: idx + 1, balance });
+          return;
+        }
+
+        const historySlice = sortedSpins.slice(Math.max(0, idx - 15), idx);
+        const lastSpin = historySlice[historySlice.length - 1];
+        const lastTerminal = lastSpin.numero % 10;
+
+        const followerCount: Record<number, number> = {};
+        for (let i = 0; i < historySlice.length - 1; i++) {
+          if (historySlice[i].numero % 10 === lastTerminal) {
+            const nextTerm = historySlice[i + 1].numero % 10;
+            followerCount[nextTerm] = (followerCount[nextTerm] || 0) + 1;
+          }
+        }
+
+        let topFollower = (lastTerminal + 1) % 10;
+        let maxCount = 0;
+        Object.entries(followerCount).forEach(([termStr, count]) => {
+          if (count > maxCount) {
+            maxCount = count;
+            topFollower = Number(termStr);
+          }
+        });
+
+        const targetTerminals = new Set([lastTerminal, topFollower]);
+        const targetNumbers: number[] = [0];
+        for (let n = 1; n <= 36; n++) {
+          if (targetTerminals.has(n % 10)) {
+            targetNumbers.push(n);
+          }
+        }
+
+        const chipVal = Math.max(0.5, unitBet / targetNumbers.length);
+        const cost = targetNumbers.length * chipVal;
+        totalWagered += cost;
+
+        const isHit = targetNumbers.includes(spin.numero);
+        if (isHit) {
+          const payout = 36 * chipVal;
+          balance += (payout - cost);
+          winCount++;
+          currWins++;
+          currLoss = 0;
+          if (currWins > maxWins) maxWins = currWins;
+        } else {
+          balance -= cost;
+          lossCount++;
+          currLoss++;
+          currWins = 0;
+          if (currLoss > maxLoss) maxLoss = currLoss;
+        }
+
+        if (balance > peak) peak = balance;
+        const dd = peak - balance;
+        if (dd > maxDD) maxDD = dd;
+
+        history.push({ spinIndex: idx + 1, balance });
+      });
+
+      const netProfit = balance - initialBankroll;
+      const evaluatedSpins = winCount + lossCount;
+
+      return {
+        id: 'terminal_sequence_chart',
+        name: 'Análise de Terminais & Sequência (Estratégia do Gráfico)',
+        category: 'Terminais & Padrões',
+        authorOrigin: 'Estratégia do Gráfico (Análise de Padrões e Falhas de Sequência)',
+        description: 'Mapeia a atração e repetição de terminais no histórico recente do gráfico, identificando terminais com alto índice de atração e cobrindo os números correspondentes mais o Zero de proteção.',
+        coveragePct: 24.3,
+        riskLevel: 'Médio',
+        initialBalance: initialBankroll,
+        finalBalance: balance,
+        netProfit,
+        roiPct: totalWagered > 0 ? (netProfit / totalWagered) * 100 : 0,
+        winCount,
+        lossCount,
+        winRatePct: evaluatedSpins > 0 ? (winCount / evaluatedSpins) * 100 : 0,
+        maxConsecutiveWins: maxWins,
+        maxConsecutiveLosses: maxLoss,
+        maxDrawdown: maxDD,
+        historyChartData: history,
+        howToApply: [
+          'Observe no histórico recente do gráfico quais terminais (ex: 7, 1, 6, 4, 3, 8) estão se atraindo em sequência.',
+          `Identifique o último terminal sorteado e os 2 terminais correspondentes mais fortes na curva do gráfico.`,
+          `Faça a cobertura dividida entre todos os números desses 2 terminais (ex: 4, 14, 24, 34 e 8, 18, 28) + 1 ficha de seguro no número Zero (0).`,
+          'Capitalize quando a roleta mantiver o padrão de repetição de sequências de terminais observadas no gráfico.'
+        ]
+      };
+    };
+
     const results = [
+      runTerminalSequenceChart(),
       runRomanosky(),
       runTwoDozens(),
       runNeighborsAlert(),
@@ -748,6 +855,7 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
             { id: 'Cobertura Alta', label: 'Alta Cobertura (60%+)' },
             { id: 'Chances Simples', label: 'Chances Simples' },
             { id: 'Setor Físico (Roda)', label: 'Setor do Cilindro' },
+            { id: 'Terminais & Padrões', label: 'Terminais & Gráfico' },
           ].map((cat) => (
             <button
               key={cat.id}
