@@ -261,54 +261,35 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* Mode Switcher Tabs (Grid vs Racetrack) */}
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-0.5 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
               <button
                 type="button"
                 onClick={() => handleModeChange('grid')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase transition-all flex items-center gap-1.5 ${
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase transition-all flex items-center gap-1 ${
                   inputMode === 'grid'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                    ? 'bg-emerald-500 text-slate-950 shadow-sm font-black'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                 }`}
                 title="Visualização em grade numérica sequencial (0 a 36)"
               >
-                <Grid className="w-3.5 h-3.5" />
+                <Grid className="w-3 h-3" />
                 <span>Teclado Grid</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleModeChange('racetrack')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase transition-all flex items-center gap-1.5 ${
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase transition-all flex items-center gap-1 ${
                   inputMode === 'racetrack'
-                    ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                    ? 'bg-amber-400 text-slate-950 shadow-sm font-black'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                 }`}
                 title="Visualização em Pista de Vizinhos / Racetrack (Ordem Real da Roda)"
               >
-                <Disc className="w-3.5 h-3.5" />
+                <Disc className="w-3 h-3" />
                 <span>Roleta Race (Pista)</span>
               </button>
-            </div>
-
-            {/* Multiplier Pills */}
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-              <span className="text-[9px] uppercase font-bold text-slate-500 px-1.5 hidden sm:inline">Mult:</span>
-              {[1, 2, 5, 10, 20, 50, 100].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMultiplier(m)}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all ${
-                    multiplier === m
-                      ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
-                >
-                  {m}x
-                </button>
-              ))}
             </div>
 
             {/* Bulk / Batch Import Button */}
@@ -319,10 +300,10 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 setImageSuccessCount(null);
                 setShowBulkModal(true);
               }}
-              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black text-[11px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm cursor-pointer"
               title="Cole números ou envie um print da tela para extração por IA"
             >
-              <Camera className="w-3.5 h-3.5 text-amber-400" />
+              <Camera className="w-3 h-3 text-amber-400" />
               <span>Importar Lote / Print IA</span>
             </button>
 
@@ -332,9 +313,9 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               onClick={onUndoLastSpin}
               disabled={totalSpins === 0}
               title="Desfazer último número lançado"
-              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:hover:bg-rose-500/10 text-rose-400 border border-rose-500/30 font-black text-[11px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+              className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:hover:bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm cursor-pointer disabled:cursor-not-allowed"
             >
-              <Undo2 className="w-3.5 h-3.5 text-rose-400" />
+              <Undo2 className="w-3 h-3 text-rose-400" />
               <span>Desfazer</span>
             </button>
           </div>

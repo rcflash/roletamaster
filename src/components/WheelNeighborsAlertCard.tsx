@@ -1,7 +1,7 @@
 import React from 'react';
 import { Compass, Flame, AlertCircle, Sparkles, Crosshair } from 'lucide-react';
 import { SpinRecord, StrategyConfig } from '../types';
-import { getWheelNeighbors, calculateNeighborsAlert } from '../lib/roulette';
+import { getWheelNeighbors, calculateNeighborsAlert, getNumberColor } from '../lib/roulette';
 
 interface WheelNeighborsAlertCardProps {
   spins: SpinRecord[];
@@ -31,9 +31,9 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between h-full">
+    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 shadow-md flex flex-col justify-between h-full">
       <div>
-        <div className="flex items-center justify-between mb-3 border-b border-indigo-500/20 pb-2 flex-wrap gap-2">
+        <div className="flex items-center justify-between mb-2 border-b border-indigo-500/20 pb-1.5 flex-wrap gap-1.5">
           <div className="flex items-center gap-2">
             <Compass className="w-5 h-5 text-amber-400" />
             <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
@@ -75,19 +75,30 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
           <div className="flex items-center justify-center gap-1.5 flex-wrap py-0.5">
             {currentNeighbors.map((num, index) => {
               const isCenter = num === targetNum;
+              const colorType = getNumberColor(num);
+              
+              let colorStyle = 'bg-slate-950 border-slate-700/80 text-white';
+              if (colorType === 'red') {
+                colorStyle = 'bg-rose-600/90 border-rose-500/90 text-white shadow-xs';
+              } else if (colorType === 'green') {
+                colorStyle = 'bg-emerald-600 border-emerald-400 text-white shadow-xs';
+              } else {
+                colorStyle = 'bg-slate-950 border-slate-700/80 text-white shadow-xs';
+              }
+
               return (
                 <div
                   key={`neighbor-${num}-${index}`}
-                  className={`flex flex-col items-center justify-center rounded-lg px-2.5 py-1 transition-all ${
+                  className={`flex flex-col items-center justify-center rounded-lg px-2.5 py-1 transition-all border ${colorStyle} ${
                     isCenter
-                      ? 'bg-amber-500/20 border border-amber-400 text-amber-300 font-black shadow-md scale-105'
-                      : 'bg-slate-900 border border-slate-700/80 text-slate-200 font-bold'
+                      ? 'ring-2 ring-amber-400 border-amber-400 font-black shadow-md scale-105 z-10'
+                      : 'font-bold'
                   }`}
                 >
-                  <span className={`text-xs ${isCenter ? 'text-amber-300 font-black' : 'text-slate-100'}`}>
+                  <span className={`text-xs ${isCenter ? 'text-amber-300 font-black' : 'text-slate-100 font-extrabold'}`}>
                     {num}
                   </span>
-                  <span className="text-[8px] text-slate-400 font-medium">
+                  <span className={`text-[8px] font-medium ${isCenter ? 'text-amber-300 font-bold' : 'text-slate-300'}`}>
                     {isCenter ? 'CENTRO' : 'VIZINHO'}
                   </span>
                 </div>

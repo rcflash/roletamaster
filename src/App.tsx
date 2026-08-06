@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
   Trophy,
   Wallet,
+  Layers,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -120,6 +121,7 @@ import { TableWarmupCard } from './components/TableWarmupCard';
 import { TableAnalysisCard } from './components/TableAnalysisCard';
 import { MonitoramentoGiroCard } from './components/MonitoramentoGiroCard';
 import { ModoContabilizacaoCard } from './components/ModoContabilizacaoCard';
+import { BlockAnalysisPanel } from './components/BlockAnalysisPanel';
 
 export default function App() {
   // LocalStorage Persistence Keys
@@ -141,7 +143,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks'>('dashboard');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -269,24 +271,12 @@ export default function App() {
   const winningSpins = realBettingSpins.filter((s) => s.netResult > 0).length;
   const winRatePct = totalBettingSpins > 0 ? (winningSpins / totalBettingSpins) * 100 : 0;
 
-  // Header Green & Red counts and Sequences (Real betting if active, or Warmup alert stats if in warmup)
+  // Header Green & Red counts and Sequences (Real betting spins only, after 100-spin warmup)
   const alertOutcomes: boolean[] = [];
-  if (realBettingSpins.length > 0) {
-    realBettingSpins.forEach((s) => {
-      if (s.netResult > 0) alertOutcomes.push(true);
-      else if (s.netResult < 0) alertOutcomes.push(false);
-    });
-  } else if (spins.length > 0) {
-    const radius = strategy.neighborRadius || 2;
-    for (let i = 2; i < spins.length; i++) {
-      const historyUpToCurrent = spins.slice(0, i);
-      const alertInfo = calculateNeighborsAlert(historyUpToCurrent, radius);
-      if (alertInfo.hasAlert) {
-        const isHit = alertInfo.neighborsList.includes(spins[i].numero);
-        alertOutcomes.push(isHit);
-      }
-    }
-  }
+  realBettingSpins.forEach((s) => {
+    if (s.netResult > 0) alertOutcomes.push(true);
+    else if (s.netResult < 0) alertOutcomes.push(false);
+  });
 
   const greenCount = alertOutcomes.filter((o) => o).length;
   const redCount = alertOutcomes.filter((o) => !o).length;
@@ -690,6 +680,16 @@ export default function App() {
             onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
             config={config}
             spins={spins}
+            disabledStrategies={strategy.disabledStrategies || []}
+            onToggleStrategy={(id) => {
+              setStrategy((prev) => {
+                const currentDisabled = prev.disabledStrategies || [];
+                const updated = currentDisabled.includes(id)
+                  ? currentDisabled.filter((s) => s !== id)
+                  : [...currentDisabled, id];
+                return { ...prev, disabledStrategies: updated };
+              });
+            }}
             onOpenStrategyPdf={() => setIsStrategyPdfOpen(true)}
           />
         );
@@ -757,6 +757,17 @@ export default function App() {
               }`}
             >
               Painel Principal
+            </button>
+            <button
+              onClick={() => setActiveTab('blocks')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'blocks'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span>Análise por Blocos (10 Giros)</span>
             </button>
             <button
               onClick={() => setActiveTab('strategies')}
@@ -956,10 +967,53 @@ export default function App() {
             <StrategyBacktestPanel
               spins={spins}
               config={config}
+              disabledStrategies={strategy.disabledStrategies || []}
+              onToggleStrategy={(id) => {
+                setStrategy((prev) => {
+                  const currentDisabled = prev.disabledStrategies || [];
+                  const updated = currentDisabled.includes(id)
+                    ? currentDisabled.filter((s) => s !== id)
+                    : [...currentDisabled, id];
+                  return { ...prev, disabledStrategies: updated };
+                });
+              }}
+              onToggleAllStrategies={(enable) => {
+                setStrategy((prev) => ({
+                  ...prev,
+                  disabledStrategies: enable
+                    ? []
+                    : [
+                        'romanosky', 'two_dozens', 'neighbors', 'cold_cycle', 'james_bond',
+                        'voisins', 'dalembert', 'guga_tv', 'terminal_chart', 'simples',
+                        'dirty_done_cheap', 'hopscotch_pro_max', 'split_on_corners', 'martingale'
+                      ]
+                }));
+              }}
               onApplyStrategy={(strategyName) => {
                 setStrategy((prev) => ({ ...prev, activeStrategy: strategyName }));
                 setActiveTab('dashboard');
               }}
+            />
+          </div>
+        )}
+
+        {/* Tab 5: Block Analysis (10-Spin Cycles) */}
+        {activeTab === 'blocks' && (
+          <div className="space-y-6">
+            <QuickSpinInput
+              onAddSpin={handleAddSpin}
+              onBatchAddSpins={handleBatchAddSpins}
+              onUndoLastSpin={handleUndoLastSpin}
+              onClearAllSpins={handleClearAllSpins}
+              totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
+              showWarmupBanner={false}
+            />
+            <BlockAnalysisPanel
+              spins={spins}
+              config={config}
+              strategy={strategy}
+              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
             />
           </div>
         )}

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Bot, Cpu, Download, Target, ChevronDown, Sparkles, Zap } from 'lucide-react';
+import { Bot, Cpu, Download, Target, ChevronDown, Sparkles, Zap, ToggleLeft, ToggleRight, ShieldAlert } from 'lucide-react';
 import { StrategyConfig, BankrollConfig, SpinRecord } from '../types';
-import { generateBotSuggestion, evaluateAllStrategies } from '../lib/roulette';
+import { generateBotSuggestion, evaluateAllStrategies, getStrategyIdFromName } from '../lib/roulette';
 import { generateStrategyPDF } from '../utils/pdfStrategyGenerator';
 
 interface ActiveStrategyPanelProps {
@@ -10,10 +10,19 @@ interface ActiveStrategyPanelProps {
   config: BankrollConfig;
   spins: SpinRecord[];
   onOpenStrategyPdf?: () => void;
+  disabledStrategies?: string[];
+  onToggleStrategy?: (id: string) => void;
 }
 
 const STRATEGY_OPTIONS = [
   '🤖 [AUTO] Seleção Automática (Maior Retorno Financeiro)',
+  'Estratégia Simples na Roleta Online',
+  'Estratégia Dirty Done Cheap (Progressão em Dúzias)',
+  'Estratégia Hopscotch Pro Max (Transição 1:1)',
+  'Estratégia Split on the Corners (Cantos & Splits)',
+  'Estratégia Martingale De Profissional Na Roleta',
+  'Estratégia Guga TV (Linha do Tempo & Terminais)',
+  'Análise de Terminais & Sequência (Estratégia do Gráfico)',
   'Alerta de Vizinhos do Cilindro',
   'Estratégia Romanosky (Cobertura 86.4%)',
   'Ciclo de Fechamento (Aposta em Ausentes)',
@@ -29,13 +38,21 @@ export const ActiveStrategyPanel: React.FC<ActiveStrategyPanelProps> = ({
   config,
   spins,
   onOpenStrategyPdf,
+  disabledStrategies = [],
+  onToggleStrategy,
 }) => {
-  const botInfo = generateBotSuggestion(spins, strategy);
   const currentStrategy = strategy.activeStrategy || '🤖 [AUTO] Seleção Automática (Maior Retorno Financeiro)';
   const neighborRadius = strategy.neighborRadius || 2;
   const isAutoMode = currentStrategy.toLowerCase().includes('auto') || currentStrategy.toLowerCase().includes('automatica') || currentStrategy.toLowerCase().includes('automática');
 
-  const topRanked = isAutoMode ? evaluateAllStrategies(spins, neighborRadius)[0] : null;
+  const botInfo = generateBotSuggestion(spins, {
+    ...strategy,
+  });
+  
+  const topRanked = isAutoMode ? evaluateAllStrategies(spins, neighborRadius, disabledStrategies)[0] : null;
+
+  const currentStrategyId = getStrategyIdFromName(currentStrategy);
+  const isCurrentDisabled = currentStrategyId ? disabledStrategies.includes(currentStrategyId) : false;
 
   const handleStrategyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onUpdateStrategy({ activeStrategy: e.target.value });
@@ -48,7 +65,7 @@ export const ActiveStrategyPanel: React.FC<ActiveStrategyPanelProps> = ({
   return (
     <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/40 rounded-2xl p-4 border border-indigo-500/20 shadow-xl flex flex-col justify-between h-full space-y-3">
       <div>
-        <div className="flex items-center justify-between mb-3 border-b border-indigo-500/20 pb-2">
+        <div className="flex items-center justify-between mb-3 border-b border-indigo-500/20 pb-2 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Cpu className="w-5 h-5 text-indigo-400" />
             <h3 className="text-sm font-extrabold text-indigo-100 uppercase tracking-wide">
@@ -62,7 +79,7 @@ export const ActiveStrategyPanel: React.FC<ActiveStrategyPanelProps> = ({
 
         {/* Strategy Selector Control */}
         <div className="mb-3 space-y-1.5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-1">
             <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
               <Target className="w-3.5 h-3.5 text-amber-400" />
               <span>Estratégia no Robô:</span>
@@ -87,31 +104,73 @@ export const ActiveStrategyPanel: React.FC<ActiveStrategyPanelProps> = ({
             )}
           </div>
 
-          <div className="relative">
-            <select
-              value={currentStrategy}
-              onChange={handleStrategyChange}
-              className={`w-full bg-slate-950 border text-xs rounded-xl px-3 py-2 appearance-none cursor-pointer focus:outline-none focus:ring-2 transition-all pr-8 font-extrabold ${
-                isAutoMode
-                  ? 'border-emerald-500/50 text-emerald-300 bg-emerald-950/20 focus:ring-emerald-500/40'
-                  : 'border-indigo-500/30 text-amber-300 focus:ring-amber-500/40'
-              }`}
-            >
-              {STRATEGY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt} className="bg-slate-900 text-slate-200 font-semibold">
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-amber-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <select
+                value={currentStrategy}
+                onChange={handleStrategyChange}
+                className={`w-full bg-slate-950 border text-xs rounded-xl px-3 py-2 appearance-none cursor-pointer focus:outline-none focus:ring-2 transition-all pr-8 font-extrabold ${
+                  isAutoMode
+                    ? 'border-emerald-500/50 text-emerald-300 bg-emerald-950/20 focus:ring-emerald-500/40'
+                    : isCurrentDisabled
+                    ? 'border-rose-500/50 text-rose-300 bg-rose-950/20 focus:ring-rose-500/40'
+                    : 'border-indigo-500/30 text-amber-300 focus:ring-amber-500/40'
+                }`}
+              >
+                {STRATEGY_OPTIONS.map((opt) => {
+                  const sId = getStrategyIdFromName(opt);
+                  const isOptDisabled = sId ? disabledStrategies.includes(sId) : false;
+                  return (
+                    <option key={opt} value={opt} className={`bg-slate-900 ${isOptDisabled ? 'text-rose-400 italic' : 'text-slate-200 font-semibold'}`}>
+                      {opt} {isOptDisabled ? '⛔ (Desativada)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="w-4 h-4 text-amber-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {!isAutoMode && currentStrategyId && (
+              <button
+                type="button"
+                onClick={() => onToggleStrategy && onToggleStrategy(currentStrategyId)}
+                className={`px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+                  isCurrentDisabled
+                    ? 'bg-rose-950/90 text-rose-300 border-rose-500/60 hover:bg-rose-900'
+                    : 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 hover:bg-emerald-900'
+                }`}
+                title={isCurrentDisabled ? 'Estratégia DESATIVADA (Salvo no F5). Clique para Habilitar.' : 'Estratégia HABILITADA (Salvo no F5). Clique para Desativar.'}
+              >
+                {isCurrentDisabled ? (
+                  <>
+                    <ToggleLeft className="w-4 h-4 text-rose-400" />
+                    <span>Desativada</span>
+                  </>
+                ) : (
+                  <>
+                    <ToggleRight className="w-4 h-4 text-emerald-400" />
+                    <span>Habilitada</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
+
+          {isCurrentDisabled && !isAutoMode && (
+            <div className="bg-rose-950/50 border border-rose-500/30 rounded-xl p-2 text-[10px] text-rose-300 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>
+                <strong>Atenção:</strong> Esta estratégia está <strong>Desabilitada</strong>. Clique no botão ao lado para reativá-la.
+              </span>
+            </div>
+          )}
 
           {isAutoMode && topRanked && (
             <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2 text-[10px] text-emerald-300 flex items-center justify-between gap-1.5 shadow-sm">
               <div className="flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-emerald-400 shrink-0 animate-pulse" />
                 <span>
-                  <strong>Seleção Automática Ativa:</strong> Recomendando a estratégia de maior lucro líquido no momento: <strong className="text-amber-300">{topRanked.name}</strong> ({topRanked.netProfit >= 0 ? '+' : ''}R$ {topRanked.netProfit.toFixed(2)} | {topRanked.winRatePct.toFixed(1)}% acerto).
+                  <strong>Seleção Automática Ativa:</strong> Recomendando a estratégia de maior lucro líquido no momento (excluindo desabilitadas): <strong className="text-amber-300">{topRanked.name}</strong> ({topRanked.netProfit >= 0 ? '+' : ''}R$ {topRanked.netProfit.toFixed(2)} | {topRanked.winRatePct.toFixed(1)}% acerto).
                 </span>
               </div>
             </div>
@@ -131,7 +190,7 @@ export const ActiveStrategyPanel: React.FC<ActiveStrategyPanelProps> = ({
 
         <p className="text-[11px] text-slate-400 leading-relaxed">
           {isAutoMode
-            ? 'O modo automático analisa a mesa a cada giro e alterna para a estratégia com maior taxa de acerto e retorno em tempo real.'
+            ? 'O modo automático analisa a mesa a cada giro e alterna para a melhor estratégia habilitada com maior retorno em tempo real.'
             : 'O robô ajusta a sugestão de entrada em tempo real conforme a estratégia selecionada acima.'}
         </p>
       </div>

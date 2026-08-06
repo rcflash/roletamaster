@@ -483,9 +483,29 @@ export interface StrategyPerformanceRank {
   neighborRadius?: number;
 }
 
+export function getStrategyIdFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('romanosky')) return 'romanosky';
+  if (lower.includes('ausentes') || lower.includes('ciclo')) return 'cold_cycle';
+  if (lower.includes('2 dúzias') || lower.includes('duzias dominantes')) return 'two_dozens';
+  if (lower.includes('dalembert') || lower.includes("d'alembert")) return 'dalembert';
+  if (lower.includes('james bond') || lower.includes('007')) return 'james_bond';
+  if (lower.includes('voisins') || lower.includes('vizinhos do zero')) return 'voisins';
+  if (lower.includes('vizinhos do cilindro') || lower.includes('alerta de vizinhos')) return 'neighbors';
+  if (lower.includes('gráfico') || lower.includes('grafico') || lower.includes('sequência') || lower.includes('terminal_sequence')) return 'terminal_sequence_chart';
+  if (lower.includes('guga')) return 'guga_tv';
+  if (lower.includes('martingale')) return 'martingale_profissional';
+  if (lower.includes('simples')) return 'estrategia_simples';
+  if (lower.includes('dirty')) return 'dirty_done_cheap';
+  if (lower.includes('hopscotch')) return 'hopscotch_pro_max';
+  if (lower.includes('split on') || lower.includes('corners')) return 'split_on_corners';
+  return '';
+}
+
 export function evaluateAllStrategies(
   spins: SpinRecord[],
-  neighborRadius: number = 2
+  neighborRadius: number = 2,
+  disabledStrategyIds: string[] = []
 ): StrategyPerformanceRank[] {
   const sorted = [...spins].sort((a, b) => a.giro - b.giro);
   const sample = sorted.length > 60 ? sorted.slice(-60) : sorted;
@@ -709,6 +729,280 @@ export function evaluateAllStrategies(
     description: 'Leitura gráfica de repetição e atração de terminais históricos no gráfico com proteção no Zero',
   });
 
+  // 8. Estratégia Guga TV (Linha do Tempo & Terminais)
+  let gWins = 0, gLosses = 0, gProfit = 0, gEval = 0;
+  sample.forEach((s, idx) => {
+    if (idx >= 2) {
+      const historySlice = sample.slice(Math.max(0, idx - 12), idx);
+      const recentTerminals = historySlice.map(spin => spin.numero % 10);
+      
+      // Guga TV targets key hot line terminals (1, 4, 7, 0, 3) + Zero protection
+      const hotTerminals = new Set([1, 4, 7, 0, 3]);
+      const activeTerminals = new Set<number>();
+      
+      recentTerminals.slice(-5).forEach(term => {
+        if (hotTerminals.has(term)) {
+          activeTerminals.add(term);
+        }
+      });
+      if (activeTerminals.size < 2) {
+        activeTerminals.add(1);
+        activeTerminals.add(7);
+      }
+
+      const gugaTargetNumbers: number[] = [0];
+      for (let n = 1; n <= 36; n++) {
+        if (activeTerminals.has(n % 10)) {
+          gugaTargetNumbers.push(n);
+        }
+      }
+
+      gEval++;
+      const cost = gugaTargetNumbers.length * 2.50;
+      if (gugaTargetNumbers.includes(s.numero)) {
+        gWins++;
+        gProfit += (36 * 2.50 - cost);
+      } else {
+        gLosses++;
+        gProfit -= cost;
+      }
+    }
+  });
+
+  candidates.push({
+    id: 'guga_tv',
+    name: 'Estratégia Guga TV (Linha do Tempo & Terminais)',
+    winRatePct: gEval > 0 ? Math.round((gWins / gEval) * 1000) / 10 : 35.1,
+    netProfit: gProfit,
+    evaluatedSpins: gEval,
+    wins: gWins,
+    losses: gLosses,
+    description: 'Análise de linha do tempo de terminais quentes (1, 4, 7, 0, 3) com vizinhos e proteção no Zero',
+  });
+
+  // 9. Estratégia Martingale De Profissional Na Roleta
+  let mWins = 0, mLosses = 0, mProfit = 0, mEval = 0;
+  sample.forEach((s, idx) => {
+    if (idx >= 3) {
+      const historySlice = sample.slice(Math.max(0, idx - 10), idx);
+      const recentNumbers = historySlice.map(spin => spin.numero);
+      
+      const targetSet = new Set<number>([0, 7, 8, 9]);
+      recentNumbers.slice(-3).forEach(num => {
+        targetSet.add(num);
+        const wIdx = EUROPEAN_WHEEL_ORDER.indexOf(num);
+        if (wIdx !== -1) {
+          const prev = EUROPEAN_WHEEL_ORDER[(wIdx - 1 + 37) % 37];
+          const next = EUROPEAN_WHEEL_ORDER[(wIdx + 1) % 37];
+          targetSet.add(prev);
+          targetSet.add(next);
+        }
+      });
+
+      const targets = Array.from(targetSet);
+      mEval++;
+      
+      const prevSpin = sample[idx - 1];
+      const wasPrevHit = targets.includes(prevSpin.numero);
+      const betMultiplier = wasPrevHit ? 1 : 2;
+      
+      const chipValue = 2.50 * betMultiplier;
+      const totalCost = targets.length * chipValue;
+      
+      if (targets.includes(s.numero)) {
+        mWins++;
+        mProfit += (36 * chipValue - totalCost);
+      } else {
+        mLosses++;
+        mProfit -= totalCost;
+      }
+    }
+  });
+
+  candidates.push({
+    id: 'martingale_profissional',
+    name: 'Estratégia Martingale De Profissional Na Roleta',
+    winRatePct: mEval > 0 ? Math.round((mWins / mEval) * 1000) / 10 : 38.5,
+    netProfit: mProfit,
+    evaluatedSpins: mEval,
+    wins: mWins,
+    losses: mLosses,
+    description: 'Martingale profissional de 1 etapa focado em zonas quentes do cilindro (números quentes com 1 vizinho) + terminais altos (7, 8, 9) + Zero (0)',
+  });
+
+  // 10. Estratégia Simples na Roleta Online
+  let sWins = 0, sLosses = 0, sProfit = 0, sEval = 0;
+  sample.forEach((s, idx) => {
+    if (idx >= 2) {
+      const historySlice = sample.slice(Math.max(0, idx - 10), idx);
+      const lastNum = historySlice[historySlice.length - 1].numero;
+      const lastTerm = lastNum % 10;
+      const targetTerm2 = (lastTerm + 7) % 10;
+
+      const targetSet = new Set<number>([0]);
+      for (let n = 1; n <= 36; n++) {
+        const t = n % 10;
+        if (t === lastTerm || t === targetTerm2) {
+          targetSet.add(n);
+        }
+      }
+      const wIdx = EUROPEAN_WHEEL_ORDER.indexOf(lastNum);
+      if (wIdx !== -1) {
+        targetSet.add(EUROPEAN_WHEEL_ORDER[(wIdx - 1 + 37) % 37]);
+        targetSet.add(EUROPEAN_WHEEL_ORDER[(wIdx + 1) % 37]);
+      }
+
+      const targets = Array.from(targetSet);
+      sEval++;
+      const cost = targets.length * 2.50;
+      if (targets.includes(s.numero)) {
+        sWins++;
+        sProfit += (36 * 2.50 - cost);
+      } else {
+        sLosses++;
+        sProfit -= cost;
+      }
+    }
+  });
+
+  candidates.push({
+    id: 'estrategia_simples',
+    name: 'Estratégia Simples na Roleta Online',
+    winRatePct: sEval > 0 ? Math.round((sWins / sEval) * 1000) / 10 : 36.8,
+    netProfit: sProfit,
+    evaluatedSpins: sEval,
+    wins: sWins,
+    losses: sLosses,
+    description: 'Análise de linha do tempo e vizinhos camuflados do cilindro para acertos de primeira tiro rápido',
+  });
+
+  // 11. Dirty Done Cheap (Progressão em Dúzias)
+  let ddcPhase = 1;
+  let ddcWins = 0, ddcLosses = 0, ddcProfit = 0;
+  sample.forEach(s => {
+    let bet1 = 10, bet2 = 15;
+    if (ddcPhase === 2) { bet1 = 20; bet2 = 25; }
+    else if (ddcPhase === 3) { bet1 = 30; bet2 = 30; }
+    else if (ddcPhase === 4) { bet1 = 25; bet2 = 50; }
+
+    const cost = bet1 + bet2;
+    if (s.dozen === '1a') {
+      ddcWins++;
+      const payout = bet1 * 3;
+      ddcProfit += (payout - cost);
+      if (ddcPhase === 1) ddcPhase = 1;
+      else if (ddcPhase === 2) ddcPhase = 3;
+      else if (ddcPhase === 3) ddcPhase = 1;
+      else if (ddcPhase === 4) ddcPhase = 1;
+    } else if (s.dozen === '2a') {
+      ddcWins++;
+      const payout = bet2 * 3;
+      ddcProfit += (payout - cost);
+      if (ddcPhase === 1) ddcPhase = 2;
+      else if (ddcPhase === 2) ddcPhase = 4;
+      else if (ddcPhase === 3) ddcPhase = 1;
+      else if (ddcPhase === 4) ddcPhase = 1;
+    } else {
+      ddcLosses++;
+      ddcProfit -= cost;
+      ddcPhase = 1;
+    }
+  });
+  const ddcEval = sample.length;
+  candidates.push({
+    id: 'dirty_done_cheap',
+    name: 'Estratégia Dirty Done Cheap (Progressão em Dúzias)',
+    winRatePct: ddcEval > 0 ? Math.round((ddcWins / ddcEval) * 1000) / 10 : 64.8,
+    netProfit: ddcProfit,
+    evaluatedSpins: ddcEval,
+    wins: ddcWins,
+    losses: ddcLosses,
+    description: 'Progressão estratégica em 4 fases cobrindo 2 dúzias com regras dinâmicas de avanço',
+  });
+
+  // 12. Hopscotch Pro Max (Transição 1:1 para Dúzias)
+  let hsPhase = 1;
+  let hsWins = 0, hsLosses = 0, hsProfit = 0;
+  sample.forEach(s => {
+    if (hsPhase === 1) {
+      const cost = 20;
+      if (s.color === 'black') {
+        hsWins++;
+        hsProfit += 20;
+        hsPhase = 2;
+      } else {
+        hsLosses++;
+        hsProfit -= 20;
+      }
+    } else if (hsPhase === 2) {
+      const cost = 40;
+      if (s.dozen === '1a' || s.dozen === '2a') {
+        hsWins++;
+        hsProfit += 20; // 20*3 - 40
+        hsPhase = 3;
+      } else {
+        hsLosses++;
+        hsProfit -= cost;
+        hsPhase = 1;
+      }
+    } else { // hsPhase 3
+      const cost = 60;
+      if (s.dozen === '1a' || s.dozen === '2a') {
+        hsWins++;
+        hsProfit += 30; // 30*3 - 60
+        hsPhase = 1;
+      } else {
+        hsLosses++;
+        hsProfit -= cost;
+        hsPhase = 1;
+      }
+    }
+  });
+  const hsEval = sample.length;
+  candidates.push({
+    id: 'hopscotch_pro_max',
+    name: 'Estratégia Hopscotch Pro Max (Transição 1:1)',
+    winRatePct: hsEval > 0 ? Math.round((hsWins / hsEval) * 1000) / 10 : 54.1,
+    netProfit: hsProfit,
+    evaluatedSpins: hsEval,
+    wins: hsWins,
+    losses: hsLosses,
+    description: 'Sistema de baixo risco de transição gradual das chances simples (1:1) para dúzias',
+  });
+
+  // 13. Split on the Corners (Cantos + Splits Fixos)
+  const cornerNums = new Set([2,3,5,6, 8,9,11,12, 14,15,17,18, 20,21,23,24, 26,27,29,30]);
+  const splitNums = new Set([1,4, 10,13, 31,34, 32,33, 35,36]);
+  let socWins = 0, socLosses = 0, socProfit = 0;
+  sample.forEach(s => {
+    const cost = 175; // 5 x 25 corners + 5 x 10 splits
+    let payout = 0;
+    if (cornerNums.has(s.numero)) {
+      payout += 25 * 9; // 225
+    }
+    if (splitNums.has(s.numero)) {
+      payout += 10 * 18; // 180
+    }
+    if (payout > 0) {
+      socWins++;
+      socProfit += (payout - cost);
+    } else {
+      socLosses++;
+      socProfit -= cost;
+    }
+  });
+  const socEval = sample.length;
+  candidates.push({
+    id: 'split_on_corners',
+    name: 'Estratégia Split on the Corners (Cantos & Splits)',
+    winRatePct: socEval > 0 ? Math.round((socWins / socEval) * 1000) / 10 : 81.1,
+    netProfit: socProfit,
+    evaluatedSpins: socEval,
+    wins: socWins,
+    losses: socLosses,
+    description: 'Alta cobertura de 81.1% da mesa combinando 5 cantos e 5 splits com valores fixos sem progressão',
+  });
+
   // 6. James Bond 007
   const bondSet = new Set([
     13, 14, 15, 16, 17, 18,
@@ -737,15 +1031,28 @@ export function evaluateAllStrategies(
     description: '25 números cobertos (Altas + Seisena + Seguro no 0)',
   });
 
+  // Filter out disabled strategies if any
+  const disabledSet = new Set(disabledStrategyIds);
+  let availableCandidates = candidates.filter((c) => {
+    if (disabledSet.has(c.id)) return false;
+    if (c.id.startsWith('neighbors') && disabledSet.has('neighbors')) return false;
+    if (c.id === 'ausentes' && disabledSet.has('cold_cycle')) return false;
+    return true;
+  });
+
+  if (availableCandidates.length === 0) {
+    availableCandidates = candidates;
+  }
+
   // Sort candidates by netProfit DESC, then by winRatePct DESC (highest financial return)
-  candidates.sort((a, b) => {
+  availableCandidates.sort((a, b) => {
     if (b.netProfit !== a.netProfit) {
       return b.netProfit - a.netProfit;
     }
     return b.winRatePct - a.winRatePct;
   });
 
-  return candidates;
+  return availableCandidates;
 }
 
 export function generateBotSuggestion(
@@ -828,6 +1135,143 @@ export function generateBotSuggestion(
     if (lastSpin.botLevel === 'N1') level = 'N2';
     else if (lastSpin.botLevel === 'N2') level = 'N3';
     else level = 'N1';
+  }
+
+  // Handle TERMINAL SEQUENCE CHART (ESTRATÉGIA DO GRÁFICO)
+  if (
+    activeStrategy.toLowerCase().includes('gráfico') ||
+    activeStrategy.toLowerCase().includes('grafico') ||
+    activeStrategy.toLowerCase().includes('sequência') ||
+    activeStrategy.toLowerCase().includes('sequencia') ||
+    activeStrategy.toLowerCase().includes('terminal_sequence')
+  ) {
+    const sName = 'Análise de Terminais & Sequência (Estratégia do Gráfico)';
+    if (spins.length === 0) {
+      return {
+        level: 'N1',
+        suggestion: '📈 ESTRATÉGIA DO GRÁFICO: Insira giros para mapear a atração de terminais históricos no gráfico.',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+    const lastNum = spins[spins.length - 1].numero;
+    const lastTerm = lastNum % 10;
+    return {
+      level,
+      suggestion: `📈 ESTRATÉGIA DO GRÁFICO ATIVA! Foco na atração do terminal [${lastTerm}] + Terminais quentes no histórico + Proteção no Zero (0).`,
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle ESTRATÉGIA SIMPLES NA ROLETA ONLINE
+  if (
+    activeStrategy.toLowerCase().includes('simples') ||
+    activeStrategy.toLowerCase().includes('estrategia simples') ||
+    activeStrategy.toLowerCase().includes('estratégia simples')
+  ) {
+    const sName = 'Estratégia Simples na Roleta Online';
+    if (spins.length === 0) {
+      return {
+        level: 'N1',
+        suggestion: '⚡ ESTRATÉGIA SIMPLES: Insira giros para analisar a linha do tempo e vizinhos camuflados do cilindro.',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+    const lastNum = spins[spins.length - 1].numero;
+    const lastTerm = lastNum % 10;
+    return {
+      level,
+      suggestion: `⚡ ESTRATÉGIA SIMPLES ATIVA! Leitura de linha do tempo do terminal [${lastTerm}] + Vizinhos de roda camuflados + Seguro no Zero (0). Tiro de primeira!`,
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle DIRTY DONE CHEAP
+  if (
+    activeStrategy.toLowerCase().includes('dirty') ||
+    activeStrategy.toLowerCase().includes('cheap')
+  ) {
+    const sName = 'Estratégia Dirty Done Cheap (Progressão em Dúzias)';
+    return {
+      level,
+      suggestion: '💰 DIRTY DONE CHEAP ATIVA! Progressão por 4 fases em 2 dúzias. Siga a tabela de elevação de fichas (10€/15€ -> 20€/25€ -> 30€/30€ -> 25€/50€).',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle HOPSCOTCH PRO MAX
+  if (
+    activeStrategy.toLowerCase().includes('hopscotch') ||
+    activeStrategy.toLowerCase().includes('pro max')
+  ) {
+    const sName = 'Estratégia Hopscotch Pro Max (Transição 1:1)';
+    return {
+      level,
+      suggestion: '🎲 HOPSCOTCH PRO MAX ATIVA! Fase 1 em Chance Simples (Preto/Vermelho 20€). Ao vencer, transicione para 2 Dúzias (20€/20€ -> 30€/30€).',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle SPLIT ON THE CORNERS
+  if (
+    activeStrategy.toLowerCase().includes('split on') ||
+    activeStrategy.toLowerCase().includes('corners')
+  ) {
+    const sName = 'Estratégia Split on the Corners (Cantos & Splits)';
+    return {
+      level,
+      suggestion: '🎯 SPLIT ON THE CORNERS ATIVA! Cobertura estática sem progressão de 81.1% da mesa: 5 Cantos (25€ cada) + 5 Splits (10€ cada).',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle GUGA TV
+  if (activeStrategy.toLowerCase().includes('guga') || activeStrategy.toLowerCase().includes('guga tv')) {
+    const sName = 'Estratégia Guga TV (Linha do Tempo & Terminais)';
+    if (spins.length === 0) {
+      return {
+        level: 'N1',
+        suggestion: '📺 GUGA TV: Insira giros para analisar a linha do tempo de terminais quentes (1, 4, 7, 0, 3, 8).',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+    return {
+      level,
+      suggestion: '📺 ESTRATÉGIA GUGA TV ATIVA! Entradas nos terminais quentes da linha do tempo (1, 4, 7, 0, 3) + Vizinhos + Seguro no Zero (0).',
+      strategyName: sName,
+      hasAlert: true,
+    };
+  }
+
+  // Handle MARTINGALE DE PROFISSIONAL
+  if (
+    activeStrategy.toLowerCase().includes('martingale') ||
+    activeStrategy.toLowerCase().includes('profissional') ||
+    activeStrategy.toLowerCase().includes('martingale_profissional')
+  ) {
+    const sName = 'Estratégia Martingale De Profissional Na Roleta';
+    if (spins.length === 0) {
+      return {
+        level: 'N1',
+        suggestion: '🎲 MARTINGALE PROFISSIONAL: Insira giros para mapear as zonas quentes do cilindro com vizinhos + terminais altos (7,8,9) e Zero.',
+        strategyName: sName,
+        hasAlert: false,
+      };
+    }
+    const lastNum = spins[spins.length - 1].numero;
+    return {
+      level,
+      suggestion: `🎲 MARTINGALE PROFISSIONAL ATIVO! Entrada nas Zonas Quentes do cilindro (últimos números com 1 vizinho cada lado) + Terminais Altos (7,8,9) + Zero (0). Se a 1ª entrada falhar, aplique a Dobra Inteligente (Martingale de 1 etapa).`,
+      strategyName: sName,
+      hasAlert: true,
+    };
   }
 
   // Handle ROMANOSKY

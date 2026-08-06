@@ -18,12 +18,31 @@ export const AlertsAndGoalCard: React.FC<AlertsAndGoalCardProps> = ({ config, ne
 
   useEffect(() => {
     if (isGoalReached) {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#10b981', '#f59e0b', '#3b82f6'],
-      });
+      try {
+        if (typeof window !== 'undefined' && window.HTMLCanvasElement && !window.HTMLCanvasElement.prototype.getBoundingClientRect) {
+          window.HTMLCanvasElement.prototype.getBoundingClientRect = function () {
+            return {
+              top: 0,
+              left: 0,
+              width: window.innerWidth || 300,
+              height: window.innerHeight || 150,
+              right: window.innerWidth || 300,
+              bottom: window.innerHeight || 150,
+              x: 0,
+              y: 0,
+              toJSON: () => {},
+            };
+          };
+        }
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#10b981', '#f59e0b', '#3b82f6'],
+        });
+      } catch (err) {
+        console.warn('Could not launch confetti animation:', err);
+      }
     }
   }, [isGoalReached]);
 
