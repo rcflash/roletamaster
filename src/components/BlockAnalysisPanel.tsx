@@ -520,17 +520,17 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             </div>
 
             {/* Active Block Partial Results */}
-            <div className="flex items-center gap-2.5 bg-slate-950/80 py-1 px-2.5 rounded-lg border border-slate-800 shrink-0">
+            <div className="flex items-center gap-2.5 bg-slate-950/90 py-1.5 px-3 rounded-lg border border-slate-800/80 shrink-0 flex-wrap">
               <div>
                 <span className="text-[9px] font-bold text-slate-400 uppercase block">Giros</span>
-                <div className="flex items-center gap-0.5 mt-0.5">
+                <div className="flex items-center gap-0.5 mt-0.5 max-w-[220px] sm:max-w-none overflow-x-auto pb-0.5">
                   {[...activeBlock.spins].reverse().map((s, idx) => {
                     const c = (s.color || '').toLowerCase();
                     const colorClass = c === 'red' ? 'bg-rose-600 border-rose-500' : c === 'black' ? 'bg-slate-900 border-slate-700' : 'bg-emerald-600 border-emerald-500';
                     return (
                       <span
                         key={idx}
-                        className={`w-5 h-5 rounded border ${colorClass} text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs`}
+                        className={`w-5 h-5 rounded border ${colorClass} text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs shrink-0`}
                         title={`Giro ${s.giro}: Número ${s.numero}`}
                       >
                         {s.numero}
@@ -540,11 +540,27 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 </div>
               </div>
 
-              <div className="h-6 w-px bg-slate-800" />
+              <div className="h-7 w-px bg-slate-800/80 hidden sm:block" />
 
               <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase block">Saldo Parcial ({selectedStrategy})</span>
-                <div className={`text-xs font-black font-mono leading-tight ${activeBlock[selectedStrategy].profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Greens / Reds</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-500/40 text-[11px] font-black font-mono flex items-center gap-1 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    {activeBlock[selectedStrategy].wins} Greens
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-rose-950/90 text-rose-400 border border-rose-500/40 text-[11px] font-black font-mono flex items-center gap-1 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                    {activeBlock[selectedStrategy].losses} Reds
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-7 w-px bg-slate-800/80 hidden sm:block" />
+
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Saldo Parcial ({selectedStrategy.toUpperCase()})</span>
+                <div className={`text-xs sm:text-sm font-black font-mono leading-tight mt-0.5 ${activeBlock[selectedStrategy].profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {activeBlock[selectedStrategy].profit >= 0 ? '+' : ''}
                   {activeBlock[selectedStrategy].profit.toFixed(1)}u ({currency} {(activeBlock[selectedStrategy].profit * unitBet).toFixed(2)})
                 </div>
