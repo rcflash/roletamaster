@@ -20,7 +20,10 @@ import {
   Info,
   ShieldCheck,
   Award,
-  Clock
+  Clock,
+  Activity,
+  Trophy,
+  History
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
 import { getNumberColor, getNumberDozen } from '../lib/roulette';
@@ -385,6 +388,101 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     };
   }, [completeBlocks, selectedStrategy]);
 
+  // Outcome (Green/Red) per round/spin for the selected strategy across ALL spins
+  const spinOutcomes = useMemo(() => {
+    return sortedSpins.map((spin, idx) => {
+      const num = spin.numero;
+      let isWin = false;
+      if (selectedStrategy === 'twoDozens') {
+        isWin = num >= 1 && num <= 24;
+      } else if (selectedStrategy === 'twoColumns') {
+        isWin = num > 0 && num % 3 !== 0;
+      } else if (selectedStrategy === 'romanosky') {
+        isWin = ROMANOSKY_SET.has(num);
+      } else if (selectedStrategy === 'voisins') {
+        isWin = VOISINS_SET.has(num);
+      } else if (selectedStrategy === 'wheelNeighbors') {
+        if (idx > 0) {
+          const prevNum = sortedSpins[idx - 1]?.numero;
+          if (prevNum !== null && prevNum !== undefined) {
+            const neighbors = getWheelNeighbors(prevNum, vizinhosCount);
+            isWin = neighbors.has(num);
+          }
+        }
+      } else if (selectedStrategy === 'tier') {
+        isWin = TIER_SET.has(num);
+      } else if (selectedStrategy === 'orphelins') {
+        isWin = ORPHELINS_SET.has(num);
+      }
+
+      return {
+        giro: spin.giro,
+        numero: num,
+        color: spin.color,
+        isWin,
+      };
+    });
+  }, [sortedSpins, selectedStrategy, vizinhosCount]);
+
+  // Streak & sequence statistics for all rounds
+  const roundStreakStats = useMemo(() => {
+    if (spinOutcomes.length === 0) {
+      return {
+        totalWins: 0,
+        totalLosses: 0,
+        winRatePct: 0,
+        currentType: null as 'GREEN' | 'RED' | null,
+        currentCount: 0,
+        lastStreakType: null as 'GREEN' | 'RED' | null,
+        lastStreakCount: 0,
+        maxGreenStreak: 0,
+        maxRedStreak: 0,
+      };
+    }
+
+    let totalWins = 0;
+    let totalLosses = 0;
+    let maxGreen = 0;
+    let maxRed = 0;
+
+    const completedStreaks: { type: 'GREEN' | 'RED'; count: number }[] = [];
+    let curType: 'GREEN' | 'RED' | null = null;
+    let curCount = 0;
+
+    spinOutcomes.forEach((spin) => {
+      const type: 'GREEN' | 'RED' = spin.isWin ? 'GREEN' : 'RED';
+      if (spin.isWin) totalWins++;
+      else totalLosses++;
+
+      if (curType === type) {
+        curCount++;
+      } else {
+        if (curType !== null) {
+          completedStreaks.push({ type: curType, count: curCount });
+        }
+        curType = type;
+        curCount = 1;
+      }
+
+      if (type === 'GREEN' && curCount > maxGreen) maxGreen = curCount;
+      if (type === 'RED' && curCount > maxRed) maxRed = curCount;
+    });
+
+    const lastCompleted = completedStreaks.length > 0 ? completedStreaks[completedStreaks.length - 1] : null;
+
+    return {
+      totalWins,
+      totalLosses,
+      winRatePct: spinOutcomes.length > 0 ? (totalWins / spinOutcomes.length) * 100 : 0,
+      currentType: curType,
+      currentCount: curCount,
+      lastStreakType: lastCompleted?.type || null,
+      lastStreakCount: lastCompleted?.count || 0,
+      maxGreenStreak: maxGreen,
+      maxRedStreak: maxRed,
+    };
+  }, [spinOutcomes]);
+
   const totalNeighborNums = 2 * vizinhosCount + 1;
   const coveragePct = ((totalNeighborNums / 37) * 100).toFixed(1);
 
@@ -571,7 +669,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
       )}
 
       {/* Visual Block Timeline Grid (Visual Map of all blocks) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 shadow-sm space-y-2">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 flex-wrap gap-1.5">
           <div className="flex items-center gap-1.5">
             <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
@@ -585,6 +683,107 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
           <span className="text-[10px] text-slate-400">
             Clique no bloco para expandir os detalhes dos {blockSize} giros
           </span>
+        </div>
+
+        {/* Detailed Green / Red Sequence & Streaks Summary for ALL rounds */}
+        <div className="bg-slate-950/90 border border-slate-800/80 rounded-xl p-3 space-y-2.5 shadow-inner">
+          {/* Row 1: Streaks Summary Badges */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            {/* Sequência Atual */}
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sequência Atual</span>
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black">
+                <span className={`px-2 py-0.5 rounded-md border text-xs font-bold uppercase flex items-center gap-1 ${
+                  roundStreakStats.currentType === 'GREEN'
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
+                    : 'bg-rose-950 text-rose-300 border-rose-500/50'
+                }`}>
+                  <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                  {roundStreakStats.currentCount}x {roundStreakStats.currentType === 'GREEN' ? '🟩 GREEN' : '🟥 RED'}
+                </span>
+              </div>
+            </div>
+
+            {/* Última Sequência Concluída */}
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Última Sequência Ant.</span>
+              <div className="mt-1 font-mono font-black">
+                {roundStreakStats.lastStreakType ? (
+                  <span className={`px-2 py-0.5 rounded-md border text-xs font-bold uppercase flex items-center gap-1 ${
+                    roundStreakStats.lastStreakType === 'GREEN'
+                      ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
+                      : 'bg-rose-950/80 text-rose-400 border-rose-500/30'
+                  }`}>
+                    <History className="w-3 h-3 text-slate-400 shrink-0" />
+                    {roundStreakStats.lastStreakCount}x {roundStreakStats.lastStreakType === 'GREEN' ? '🟩 GREEN' : '🟥 RED'}
+                  </span>
+                ) : (
+                  <span className="text-slate-500 font-normal text-xs">-</span>
+                )}
+              </div>
+            </div>
+
+            {/* Maior Sequência Histórica (Última Maior Sequência) */}
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Maior Sequência Histórica</span>
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
+                <span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                  🟩 Max {roundStreakStats.maxGreenStreak}x
+                </span>
+                <span className="text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
+                  🟥 Max {roundStreakStats.maxRedStreak}x
+                </span>
+              </div>
+            </div>
+
+            {/* Placar de Rodadas */}
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Placar das {spinOutcomes.length} Rodadas</span>
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
+                <span className="text-emerald-400 font-bold">
+                  {roundStreakStats.totalWins} Greens
+                </span>
+                <span className="text-slate-600">/</span>
+                <span className="text-rose-400 font-bold">
+                  {roundStreakStats.totalLosses} Reds
+                </span>
+                <span className="text-amber-400 font-black ml-auto">
+                  ({roundStreakStats.winRatePct.toFixed(0)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Sequence of GREEN / RED for ALL rounds */}
+          <div className="pt-2 border-t border-slate-800/80">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400 mb-1.5">
+              <span className="flex items-center gap-1.5 text-amber-400">
+                <Activity className="w-3.5 h-3.5" />
+                Sequência de Green (🟩) / Red (🟥) de Todas as {spinOutcomes.length} Rodadas:
+              </span>
+              <span className="text-slate-500 font-mono text-[9px]">
+                {blockSortOrder === 'desc' ? 'Recentes ➔ Antigos' : 'Antigos ➔ Recentes'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full scrollbar-thin scrollbar-thumb-slate-800">
+              {(blockSortOrder === 'desc' ? [...spinOutcomes].reverse() : spinOutcomes).map((spin) => (
+                <div
+                  key={spin.giro}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-black font-mono shrink-0 flex items-center gap-1 border shadow-2xs ${
+                    spin.isWin
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
+                      : 'bg-rose-950 text-rose-300 border-rose-500/50'
+                  }`}
+                  title={`Giro #${spin.giro}: Número ${spin.numero} (${spin.color}) - ${spin.isWin ? 'GREEN (Vitória)' : 'RED (Derrota)'}`}
+                >
+                  <span className="opacity-60 text-[9px]">#{spin.giro}</span>
+                  <span className="font-extrabold">{spin.numero}</span>
+                  <span>{spin.isWin ? '🟩' : '🟥'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Grid of Block Cards */}
