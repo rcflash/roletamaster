@@ -14,7 +14,7 @@ export const INITIAL_STRATEGY_CONFIG: StrategyConfig = {
   useBotRecommendation: true,
   activePreset: 'top5_hot',
   activeStrategy: '🤖 [AUTO] Seleção Automática (Maior Retorno Financeiro)',
-  neighborRadius: 2,
+  neighborRadius: 7,
   neighborChipValue: 2.5,
   dozen1Bet: 5,
   dozen2Bet: 5,

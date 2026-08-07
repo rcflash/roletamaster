@@ -55,8 +55,8 @@ export const ModoContabilizacaoCard: React.FC<ModoContabilizacaoCardProps> = ({
 
       <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-[11px] font-semibold text-slate-400">Cobertura no Cilindro:</span>
-        <div className="flex items-center gap-1">
-          {([2, 3, 4] as const).map((cnt) => (
+        <div className="flex items-center gap-1 flex-wrap">
+          {([2, 3, 4, 5, 6, 7] as const).map((cnt) => (
             <button
               key={cnt}
               onClick={() => onUpdateStrategy({ neighborRadius: cnt })}

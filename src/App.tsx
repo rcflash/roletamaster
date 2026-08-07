@@ -143,7 +143,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks'>('blocks');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -749,16 +749,6 @@ export default function App() {
         <div className="flex items-center justify-between border-b border-slate-800 pb-2 gap-1.5 flex-wrap">
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              Painel Principal
-            </button>
-            <button
               onClick={() => setActiveTab('blocks')}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                 activeTab === 'blocks'
@@ -767,7 +757,17 @@ export default function App() {
               }`}
             >
               <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Análise por Blocos (10 Giros)</span>
+              <span>Análise por Blocos (12 Giros)</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
+                activeTab === 'dashboard'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              Painel Principal
             </button>
             <button
               onClick={() => setActiveTab('strategies')}

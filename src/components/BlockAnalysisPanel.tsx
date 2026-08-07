@@ -99,7 +99,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   strategy,
   onUpdateStrategy,
 }) => {
-  const [blockSize, setBlockSize] = useState<number>(10);
+  const [blockSize, setBlockSize] = useState<number>(12);
   const [selectedStrategy, setSelectedStrategy] = useState<'twoDozens' | 'romanosky' | 'voisins' | 'wheelNeighbors' | 'twoColumns' | 'tier' | 'orphelins'>('wheelNeighbors');
   const [vizinhosCount, setVizinhosCount] = useState<number>(7); // Default 7 vizinhos (15 numbers)
   const [blockSortOrder, setBlockSortOrder] = useState<'desc' | 'asc'>('desc'); // Default 'desc': newest blocks first (#52 -> #1)
@@ -108,6 +108,18 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
   const unitBet = config.defaultSpinCost || 10;
   const currency = config.currency || 'R$';
+
+  const getStrategyBetCost = (stratKey: string) => {
+    if (stratKey === 'wheelNeighbors') {
+      const chipVal = strategy?.neighborChipValue || 2.50;
+      const totalNums = 2 * vizinhosCount + 1;
+      return totalNums * chipVal;
+    }
+    if (stratKey === 'voisins') return 17 * (strategy?.neighborChipValue || 2.50);
+    if (stratKey === 'tier') return 12 * (strategy?.neighborChipValue || 2.50);
+    if (stratKey === 'orphelins') return 8 * (strategy?.neighborChipValue || 2.50);
+    return unitBet;
+  };
 
   // Chronologically sorted spins
   const sortedSpins = useMemo(() => {
@@ -495,6 +507,96 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     };
   }, [currentBlock, currentBlockOutcomes, selectedStrategy]);
 
+  // Outcome (Green/Red) per round/spin for the selected strategy across ALL spins in history
+  const allSpinsOutcomes = useMemo(() => {
+    return sortedSpins.map((spin, idx) => {
+      const num = spin.numero;
+      let isWin = false;
+
+      if (selectedStrategy === 'twoDozens') {
+        isWin = num >= 1 && num <= 24;
+      } else if (selectedStrategy === 'twoColumns') {
+        isWin = num > 0 && num % 3 !== 0;
+      } else if (selectedStrategy === 'romanosky') {
+        isWin = ROMANOSKY_SET.has(num);
+      } else if (selectedStrategy === 'voisins') {
+        isWin = VOISINS_SET.has(num);
+      } else if (selectedStrategy === 'wheelNeighbors') {
+        if (idx > 0) {
+          const prevNum = sortedSpins[idx - 1]?.numero;
+          if (prevNum !== null && prevNum !== undefined) {
+            const neighbors = getWheelNeighbors(prevNum, vizinhosCount);
+            isWin = neighbors.has(num);
+          }
+        }
+      } else if (selectedStrategy === 'tier') {
+        isWin = TIER_SET.has(num);
+      } else if (selectedStrategy === 'orphelins') {
+        isWin = ORPHELINS_SET.has(num);
+      }
+
+      return {
+        giro: spin.giro,
+        numero: num,
+        color: spin.color,
+        isWin,
+      };
+    });
+  }, [sortedSpins, selectedStrategy, vizinhosCount]);
+
+  // Global Streak & Total Statistics across ALL rounds (continuous total sequence)
+  const globalStreakStats = useMemo(() => {
+    if (allSpinsOutcomes.length === 0) {
+      return {
+        totalWins: 0,
+        totalLosses: 0,
+        totalSpins: 0,
+        winRatePct: 0,
+        currentType: null as 'GREEN' | 'RED' | null,
+        currentCount: 0,
+        maxGreenStreak: 0,
+        maxRedStreak: 0,
+      };
+    }
+
+    let totalWins = 0;
+    let totalLosses = 0;
+    let maxGreen = 0;
+    let maxRed = 0;
+    let curType: 'GREEN' | 'RED' | null = null;
+    let curCount = 0;
+
+    allSpinsOutcomes.forEach((spin) => {
+      const type: 'GREEN' | 'RED' = spin.isWin ? 'GREEN' : 'RED';
+      if (spin.isWin) totalWins++;
+      else totalLosses++;
+
+      if (curType === type) {
+        curCount++;
+      } else {
+        curType = type;
+        curCount = 1;
+      }
+
+      if (type === 'GREEN' && curCount > maxGreen) maxGreen = curCount;
+      if (type === 'RED' && curCount > maxRed) maxRed = curCount;
+    });
+
+    const totalSpins = allSpinsOutcomes.length;
+    const winRatePct = totalSpins > 0 ? (totalWins / totalSpins) * 100 : 0;
+
+    return {
+      totalWins,
+      totalLosses,
+      totalSpins,
+      winRatePct,
+      currentType: curType,
+      currentCount: curCount,
+      maxGreenStreak: maxGreen,
+      maxRedStreak: maxRed,
+    };
+  }, [allSpinsOutcomes]);
+
   const totalNeighborNums = 2 * vizinhosCount + 1;
   const coveragePct = ((totalNeighborNums / 37) * 100).toFixed(1);
 
@@ -600,7 +702,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
               {aggregateStats.avgProfitUnits.toFixed(2)}u
             </div>
             <div className="text-[9px] text-slate-400 mt-1 font-mono truncate">
-              ~ {currency} {(aggregateStats.avgProfitUnits * unitBet).toFixed(2)}
+              ~ {currency} {(aggregateStats.avgProfitUnits * getStrategyBetCost(selectedStrategy)).toFixed(2)}
             </div>
           </div>
         </div>
@@ -672,8 +774,13 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 <span className="text-[9px] font-bold text-slate-400 uppercase block">Saldo Parcial ({selectedStrategy.toUpperCase()})</span>
                 <div className={`text-xs sm:text-sm font-black font-mono leading-tight mt-0.5 ${activeBlock[selectedStrategy].profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {activeBlock[selectedStrategy].profit >= 0 ? '+' : ''}
-                  {activeBlock[selectedStrategy].profit.toFixed(1)}u ({currency} {(activeBlock[selectedStrategy].profit * unitBet).toFixed(2)})
+                  {activeBlock[selectedStrategy].profit.toFixed(1)}u ({currency} {(activeBlock[selectedStrategy].profit * getStrategyBetCost(selectedStrategy)).toFixed(2)})
                 </div>
+                {selectedStrategy === 'wheelNeighbors' && (
+                  <span className="text-[8px] font-bold text-amber-400 block mt-0.5">
+                    Aposta/Giro: {currency} {getStrategyBetCost('wheelNeighbors').toFixed(2)} ({2 * vizinhosCount + 1}n × {currency} {(strategy?.neighborChipValue || 2.50).toFixed(2)})
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -699,20 +806,20 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
         {/* Detailed Green / Red Sequence & Streaks Summary for CURRENT BLOCK ONLY */}
         <div className="bg-slate-950/90 border border-slate-800/80 rounded-xl p-3 space-y-2.5 shadow-inner">
-          {/* Row 1: Streaks Summary Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          {/* Row 1: Streaks & Total Summary Badges */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
             {/* Sequência Atual */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sequência Atual</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sequência Atual Total</span>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black">
-                {currentBlockStreakStats.currentType ? (
+                {globalStreakStats.currentType ? (
                   <span className={`px-2 py-0.5 rounded-md border text-xs font-bold uppercase flex items-center gap-1 ${
-                    currentBlockStreakStats.currentType === 'GREEN'
+                    globalStreakStats.currentType === 'GREEN'
                       ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
                       : 'bg-rose-950 text-rose-300 border-rose-500/50'
                   }`}>
                     <Zap className="w-3 h-3 text-amber-400 shrink-0" />
-                    {currentBlockStreakStats.currentCount}x {currentBlockStreakStats.currentType === 'GREEN' ? '🟩 GREEN' : '🟥 RED'}
+                    {globalStreakStats.currentCount}x {globalStreakStats.currentType === 'GREEN' ? 'GREEN Seguidos' : 'RED Seguidos'}
                   </span>
                 ) : (
                   <span className="text-slate-500 font-normal text-xs">-</span>
@@ -720,7 +827,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
               </div>
             </div>
 
-            {/* Última Sequência Concluída */}
+            {/* Última Sequência Ant. */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Última Sequência Ant.</span>
               <div className="mt-1 font-mono font-black">
@@ -731,7 +838,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                       : 'bg-rose-950/80 text-rose-400 border-rose-500/30'
                   }`}>
                     <History className="w-3 h-3 text-slate-400 shrink-0" />
-                    {currentBlockStreakStats.lastStreakCount}x {currentBlockStreakStats.lastStreakType === 'GREEN' ? '🟩 GREEN' : '🟥 RED'}
+                    {currentBlockStreakStats.lastStreakCount}x {currentBlockStreakStats.lastStreakType === 'GREEN' ? 'GREEN' : 'RED'}
                   </span>
                 ) : (
                   <span className="text-slate-500 font-normal text-xs">-</span>
@@ -739,15 +846,15 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
               </div>
             </div>
 
-            {/* Maior Sequência no Bloco */}
+            {/* Maior Sequência Histórica */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Maior Sequência no Bloco</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Maior Sequência Histórica</span>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
                 <span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
-                  🟩 Max {currentBlockStreakStats.maxGreenStreak}x
+                  🟩 Max {globalStreakStats.maxGreenStreak}x
                 </span>
                 <span className="text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
-                  🟥 Max {currentBlockStreakStats.maxRedStreak}x
+                  🟥 Max {globalStreakStats.maxRedStreak}x
                 </span>
               </div>
             </div>
@@ -755,7 +862,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             {/* Placar do Bloco Atual */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Placar do Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize} Giros)
+                Placar Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize}g)
               </span>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
                 <span className="text-emerald-400 font-bold">
@@ -772,9 +879,30 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Placar Total Geral */}
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-amber-500/30 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-amber-400/90 uppercase tracking-wider block">
+                Total Geral ({globalStreakStats.totalSpins} Giros)
+              </span>
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
+                <span className="text-emerald-400 font-bold">
+                  {globalStreakStats.totalWins} {globalStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
+                </span>
+                <span className="text-slate-600">/</span>
+                <span className="text-rose-400 font-bold">
+                  {globalStreakStats.totalLosses} {globalStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
+                </span>
+                {globalStreakStats.totalSpins > 0 && (
+                  <span className="text-amber-400 font-black ml-auto">
+                    ({globalStreakStats.winRatePct.toFixed(0)}%)
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Row 2: Sequence of GREEN / RED for CURRENT BLOCK ONLY */}
+          {/* Row 2: Sequence of GREEN / RED for CURRENT BLOCK ONLY + TOTAL GERAL */}
           <div className="pt-2 border-t border-slate-800/80">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400 mb-1.5 flex-wrap gap-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -782,8 +910,8 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   <Activity className="w-3.5 h-3.5" />
                   Sequência do Bloco Atual #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length} de {blockSize} rodadas):
                 </span>
-                {/* Numeric summary badge: e.g. "3 Greens / 1 Red" */}
-                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700/80 text-xs font-black font-mono flex items-center gap-1.5 shadow-xs">
+                {/* Numeric summary badge for current block: e.g. "3 Greens / 1 Red" */}
+                <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700/80 text-xs font-black font-mono flex items-center gap-1.5 shadow-xs" title="Placar do Bloco Atual">
                   <span className="text-emerald-400 flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                     {currentBlockStreakStats.totalWins} {currentBlockStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
@@ -794,6 +922,39 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                     {currentBlockStreakStats.totalLosses} {currentBlockStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
                   </span>
                 </span>
+
+                {/* Total Geral Summary Badge across ALL spins */}
+                <span className="px-2.5 py-0.5 rounded-md bg-amber-950/40 border border-amber-500/40 text-xs font-black font-mono flex items-center gap-1.5 shadow-xs" title="Placar Total Geral de Todos os Giros do Histórico">
+                  <span className="text-amber-400 font-bold uppercase text-[10px]">Total Geral ({globalStreakStats.totalSpins}g):</span>
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    {globalStreakStats.totalWins} {globalStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
+                  </span>
+                  <span className="text-slate-600 font-normal">/</span>
+                  <span className="text-rose-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                    {globalStreakStats.totalLosses} {globalStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
+                  </span>
+                  {globalStreakStats.totalSpins > 0 && (
+                    <span className="text-amber-300 font-bold ml-0.5 text-[10px]">
+                      ({globalStreakStats.winRatePct.toFixed(0)}%)
+                    </span>
+                  )}
+                </span>
+
+                {/* Consecutive sequence badge: e.g. "🔥 10 GREENS SEGUIDOS" or "🔥 4 REDS SEGUIDOS" */}
+                {globalStreakStats.currentType && (
+                  <span className={`px-2 py-0.5 rounded-md border text-xs font-black font-mono flex items-center gap-1.5 shadow-xs ${
+                    globalStreakStats.currentType === 'GREEN'
+                      ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60'
+                      : 'bg-rose-950/90 text-rose-300 border-rose-500/60'
+                  }`}>
+                    <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span>
+                      {globalStreakStats.currentCount} {globalStreakStats.currentType === 'GREEN' ? 'GREENS SEGUIDOS' : 'REDS SEGUIDOS'}
+                    </span>
+                  </span>
+                )}
               </div>
 
               <span className="text-slate-500 font-mono text-[9px]">
@@ -1105,7 +1266,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                       <span className="text-[10px] uppercase font-bold text-slate-500 block">Resultado Líquido</span>
                       <span className={`text-sm font-black font-mono ${data.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {data.profit >= 0 ? '+' : ''}
-                        {data.profit.toFixed(1)}u ({currency} {(data.profit * unitBet).toFixed(2)})
+                        {data.profit.toFixed(1)}u ({currency} {(data.profit * getStrategyBetCost(selectedStrategy)).toFixed(2)})
                       </span>
                     </div>
 
