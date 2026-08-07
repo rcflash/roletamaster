@@ -54,6 +54,9 @@ export interface StrategyConfig {
   activeStrategy?: string;
   neighborRadius?: 2 | 3 | 4 | 5 | 6 | 7;
   neighborChipValue?: number;
+  tablePayoutMultiplier?: number;
+  customWinReturn?: number;
+  tablePayoutMode?: '36x' | '30x' | '1:1' | 'custom';
   dozen1Bet: number;
   dozen2Bet: number;
   dozen3Bet: number;

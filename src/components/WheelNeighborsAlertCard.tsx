@@ -22,7 +22,10 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   const currentNeighbors = getWheelNeighbors(targetNum, neighborRadius);
 
   const chipValue = strategy?.neighborChipValue || 2.5;
+  const tableMult = strategy?.tablePayoutMultiplier || 36;
   const totalBet = currentNeighbors.length * chipValue;
+  const grossReturn = chipValue * tableMult;
+  const netProfit = grossReturn - totalBet;
 
   const handleSelectRadius = (count: 2 | 3 | 4 | 5 | 6 | 7) => {
     if (onUpdateStrategy) {
@@ -120,7 +123,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
               {alertData.alertMessage}
             </p>
             <div className="text-[10px] font-bold text-emerald-400 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800 mt-1 inline-block">
-              💰 Aposta Sugerida: R$ {chipValue.toFixed(2)} por casa em [{currentNeighbors.join(', ')}] (Total R$ {totalBet.toFixed(2)})
+              💰 Aposta Sugerida: R$ {chipValue.toFixed(2)} por casa (Aposta R$ {totalBet.toFixed(2)} ➔ Retorno R$ {grossReturn.toFixed(2)})
             </div>
           </div>
         </div>
@@ -131,7 +134,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
             Monitore a frequência no setor do #{targetNum}. Se repetir, alerta surgirá!
           </span>
           <span className="text-[10px] font-black text-amber-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 shrink-0">
-            Custo {currentNeighbors.length} vizinhos: R$ {totalBet.toFixed(2)}
+            Aposta {currentNeighbors.length} casas: R$ {totalBet.toFixed(2)} | Retorno: R$ {grossReturn.toFixed(2)}
           </span>
         </div>
       )}

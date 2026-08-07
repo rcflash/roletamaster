@@ -398,7 +398,8 @@ export function evaluateNeighborsPayout(
   spinsUpToPrev: SpinRecord[] | number | null | undefined,
   neighborRadius: number = 2,
   chipValue: number = 2.50,
-  multiplier?: number
+  multiplier?: number,
+  tablePayoutMultiplier: number = 36
 ): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
   // Support passing array of previous spins or direct prevNum
   let spinsHistory: SpinRecord[] = [];
@@ -434,8 +435,9 @@ export function evaluateNeighborsPayout(
   let winAmount = 0;
 
   if (neighbors.includes(num)) {
-    // Aposta plena paga 35 para 1 (retorna 36x o valor da ficha)
-    winAmount = unitChip * 36;
+    // Multiplicador da mesa configurável (padrão 36x para 35:1, 30x para Lightning, 2x para 1:1, etc)
+    const tableMult = tablePayoutMultiplier > 0 ? tablePayoutMultiplier : 36;
+    winAmount = unitChip * tableMult;
   }
 
   const netResult = winAmount - lossAmount;
@@ -450,9 +452,10 @@ export function evaluateSpinPayout(
 ): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
   const radius = strategy.neighborRadius || 2;
   const chipVal = strategy.neighborChipValue || 2.50;
+  const tableMult = strategy.tablePayoutMultiplier || 36;
 
   if (spinsUpToPrev !== undefined && spinsUpToPrev !== null) {
-    return evaluateNeighborsPayout(num, spinsUpToPrev, radius, chipVal, multiplier);
+    return evaluateNeighborsPayout(num, spinsUpToPrev, radius, chipVal, multiplier, tableMult);
   }
 
   return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
@@ -463,10 +466,11 @@ export function evaluateBotTipOutcome(
   suggestion: string,
   spinsUpToPrev?: SpinRecord[] | number | null,
   strategyRadius: number = 2,
-  multiplier?: number
+  multiplier?: number,
+  tablePayoutMultiplier: number = 36
 ): { winAmount: number; lossAmount: number; netResult: number; betPlaced: boolean } {
   if (spinsUpToPrev !== undefined && spinsUpToPrev !== null) {
-    return evaluateNeighborsPayout(num, spinsUpToPrev, strategyRadius, 2.50, multiplier);
+    return evaluateNeighborsPayout(num, spinsUpToPrev, strategyRadius, 2.50, multiplier, tablePayoutMultiplier);
   }
   return { winAmount: 0, lossAmount: 0, netResult: 0, betPlaced: false };
 }

@@ -222,7 +222,8 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         const prevSpinNum = globalSpinIdx > 0 ? sortedSpins[globalSpinIdx - 1]?.numero : null;
         if (prevSpinNum !== null && prevSpinNum !== undefined) {
           const totalNeighborNums = 2 * vizinhosCount + 1;
-          const winPayout = Number(((36 - totalNeighborNums) / totalNeighborNums).toFixed(2));
+          const tableMult = strategy?.tablePayoutMultiplier || 36;
+          const winPayout = Number(((tableMult - totalNeighborNums) / totalNeighborNums).toFixed(2));
           const neighbors = getWheelNeighbors(prevSpinNum, vizinhosCount);
           if (neighbors.has(num)) {
             pWNei += winPayout;

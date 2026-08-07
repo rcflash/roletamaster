@@ -210,7 +210,8 @@ export default function App() {
 
       if (!isWarmupPhase && prevNum !== null) {
         const spinsUpToIdx = spins.slice(0, idx);
-        const payout = evaluateNeighborsPayout(s.numero, spinsUpToIdx, radius, chipVal, s.multiplier);
+        const tableMult = strategy.tablePayoutMultiplier || 36;
+        const payout = evaluateNeighborsPayout(s.numero, spinsUpToIdx, radius, chipVal, s.multiplier, tableMult);
         winAmt = payout.winAmount;
         lossAmt = payout.lossAmount;
         net = payout.netResult;
@@ -244,7 +245,7 @@ export default function App() {
     if (changed) {
       setSpins(updated);
     }
-  }, [strategy.neighborRadius, strategy.neighborChipValue, strategy.activeStrategy, config.initialBankroll]);
+  }, [strategy.neighborRadius, strategy.neighborChipValue, strategy.tablePayoutMultiplier, strategy.activeStrategy, config.initialBankroll]);
 
   useEffect(() => {
     localStorage.setItem('roleta_master_spins', JSON.stringify(spins));

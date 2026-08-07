@@ -16,6 +16,8 @@ export const INITIAL_STRATEGY_CONFIG: StrategyConfig = {
   activeStrategy: '🤖 [AUTO] Seleção Automática (Maior Retorno Financeiro)',
   neighborRadius: 7,
   neighborChipValue: 2.5,
+  tablePayoutMultiplier: 36,
+  tablePayoutMode: '36x',
   dozen1Bet: 5,
   dozen2Bet: 5,
   dozen3Bet: 0,
