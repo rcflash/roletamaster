@@ -484,6 +484,7 @@ export default function App() {
     const updated = spins.filter((s) => s.id !== id);
     const radius = strategy.neighborRadius || 2;
     const chipVal = strategy.neighborChipValue || 2.50;
+    const tableMult = strategy.tablePayoutMultiplier || 36;
 
     let current = config.initialBankroll;
     const recalculated = updated.map((s, idx) => {
@@ -497,7 +498,7 @@ export default function App() {
 
       if (!isWarmupPhase && prevNum !== null) {
         const spinsUpToIdx = updated.slice(0, idx);
-        const payout = evaluateNeighborsPayout(s.numero, spinsUpToIdx, radius, chipVal, s.multiplier);
+        const payout = evaluateNeighborsPayout(s.numero, spinsUpToIdx, radius, chipVal, s.multiplier, tableMult);
         winAmt = payout.winAmount;
         lossAmt = payout.lossAmount;
         net = payout.netResult;
@@ -932,7 +933,10 @@ export default function App() {
           <BankrollControlPanel
             config={config}
             spins={spins}
+            strategy={strategy}
             onUpdateConfig={(upd) => setConfig(upd)}
+            onDeleteSpin={handleDeleteSpin}
+            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
           />
         )}
 
