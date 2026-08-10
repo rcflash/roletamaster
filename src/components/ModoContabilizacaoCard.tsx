@@ -218,7 +218,7 @@ export const ModoContabilizacaoCard: React.FC<ModoContabilizacaoCardProps> = ({
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
             <input
               type="number"
-              step="0.10"
+              step="any"
               min="0.01"
               value={chipInput}
               onChange={handleChipInputChange}
@@ -337,8 +337,8 @@ export const ModoContabilizacaoCard: React.FC<ModoContabilizacaoCardProps> = ({
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
                 <input
                   type="number"
-                  step="1.00"
-                  min="0.1"
+                  step="any"
+                  min="0.01"
                   value={returnInput}
                   onChange={handleReturnInputChange}
                   className="w-full pl-8 pr-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"

@@ -15,6 +15,7 @@ import {
   Trophy,
   Wallet,
   Layers,
+  FolderArchive,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -122,6 +123,7 @@ import { TableAnalysisCard } from './components/TableAnalysisCard';
 import { MonitoramentoGiroCard } from './components/MonitoramentoGiroCard';
 import { ModoContabilizacaoCard } from './components/ModoContabilizacaoCard';
 import { BlockAnalysisPanel } from './components/BlockAnalysisPanel';
+import { SavedSessionsPanel } from './components/SavedSessionsPanel';
 
 export default function App() {
   // LocalStorage Persistence Keys
@@ -143,7 +145,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks'>('blocks');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks' | 'sessions'>('blocks');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -794,6 +796,17 @@ export default function App() {
               <span>Gestão de Banca & ROI</span>
             </button>
             <button
+              onClick={() => setActiveTab('sessions')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'sessions'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <FolderArchive className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Sessões Salvas</span>
+            </button>
+            <button
               onClick={() => setActiveTab('board')}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
                 activeTab === 'board'
@@ -936,7 +949,19 @@ export default function App() {
             strategy={strategy}
             onUpdateConfig={(upd) => setConfig(upd)}
             onDeleteSpin={handleDeleteSpin}
+            onClearAllSpins={handleClearAllSpins}
             onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+          />
+        )}
+
+        {/* Tab 1.8: Saved Sessions Repository */}
+        {activeTab === 'sessions' && (
+          <SavedSessionsPanel
+            currentSpins={spins}
+            initialBankroll={config.initialBankroll}
+            strategy={strategy}
+            onLoadSessionToTable={(loadedSpins) => setSpins(loadedSpins)}
+            onClearTableSpins={handleClearAllSpins}
           />
         )}
 

@@ -85,7 +85,7 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
   const [expandedHowTo, setExpandedHowTo] = useState<boolean>(true);
 
   const initialBankroll = config.initialBankroll || 100;
-  const unitBet = config.defaultSpinCost || 10;
+  const unitBet = config.defaultSpinCost || 37.50;
 
   // Run Backtests on current spins
   const backtestResults = useMemo<BacktestResult[]>(() => {

@@ -103,7 +103,7 @@ export const BankrollCards: React.FC<BankrollCardsProps> = ({
             <span className="text-xs text-slate-400">giros</span>
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">
-            Custo/Giro: {config.currency} {config.defaultSpinCost}
+            Custo/Giro: {config.currency} {(config.defaultSpinCost || 37.50).toFixed(2)}
           </p>
         </div>
       </div>

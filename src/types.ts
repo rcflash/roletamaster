@@ -33,8 +33,31 @@ export interface DailySessionRecord {
   roiPct: number;
   totalSpins: number;
   winCount: number;
+  lossCount?: number;
+  greenCount?: number;
+  redCount?: number;
+  valuePerGreen?: number;
+  valuePerRed?: number;
   goalMet: boolean;
   stopLossHit: boolean;
+  notes?: string;
+}
+
+export interface SavedRouletteSession {
+  id: string;
+  title: string;
+  date: string;
+  timestamp: number;
+  tableName?: string;
+  strategyName?: string;
+  initialBankroll: number;
+  finalBankroll: number;
+  netProfit: number;
+  totalSpins: number;
+  winCount: number;
+  lossCount: number;
+  winRatePct: number;
+  spins: SpinRecord[];
   notes?: string;
 }
 

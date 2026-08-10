@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Wallet,
-  TrendingUp,
   Target,
   ShieldAlert,
   Calendar,
@@ -13,13 +12,16 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   BookmarkPlus,
-  PiggyBank,
-  History,
   Save,
   RotateCcw,
   Coins,
   Filter,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Minus,
+  Sparkles,
+  TrendingUp,
+  History
 } from 'lucide-react';
 import { BankrollConfig, SpinRecord, DailySessionRecord, StrategyConfig } from '../types';
 
@@ -29,6 +31,7 @@ interface BankrollControlPanelProps {
   strategy?: StrategyConfig;
   onUpdateConfig: (newConfig: BankrollConfig) => void;
   onDeleteSpin?: (id: string) => void;
+  onClearAllSpins?: () => void;
   onUpdateStrategy?: (updated: Partial<StrategyConfig>) => void;
 }
 
@@ -40,8 +43,9 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   strategy,
   onUpdateConfig,
   onDeleteSpin,
+  onClearAllSpins,
 }) => {
-  // Local state for Daily Sessions
+  // Local state for Daily Sessions - Defaults to empty [] for fresh start
   const [dailySessions, setDailySessions] = useState<DailySessionRecord[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SESSIONS);
@@ -49,56 +53,49 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     } catch (e) {
       console.error(e);
     }
-    return [
-      {
-        id: '1',
-        date: new Date(Date.now() - 86400000 * 2).toLocaleDateString('pt-BR'),
-        initialBankroll: 100,
-        finalBankroll: 120,
-        netProfit: 20,
-        roiPct: 20.0,
-        totalSpins: 45,
-        winCount: 28,
-        goalMet: true,
-        stopLossHit: false,
-        notes: 'Sessão com estratégia de Vizinhos no Cilindro.',
-      },
-      {
-        id: '2',
-        date: new Date(Date.now() - 86400000).toLocaleDateString('pt-BR'),
-        initialBankroll: 120,
-        finalBankroll: 145,
-        netProfit: 25,
-        roiPct: 20.8,
-        totalSpins: 52,
-        winCount: 34,
-        goalMet: true,
-        stopLossHit: false,
-        notes: 'Aproveitou alta taxa de acertos no setor zero.',
-      },
-    ];
+    return [];
   });
 
   // State for Initial Bankroll configuration inline inputs
   const [editingBankroll, setEditingBankroll] = useState<string>(config.initialBankroll.toString());
   const [editingGoal, setEditingGoal] = useState<string>(config.dailyGoal.toString());
   const [editingStopLoss, setEditingStopLoss] = useState<string>(config.stopLossLimit.toString());
+  const [editingSpinCost, setEditingSpinCost] = useState<string>((config.defaultSpinCost || 37.50).toString());
   const [bankrollSaveMsg, setBankrollSaveMsg] = useState<boolean>(false);
+
+  // Default value per green and red based on active strategy
+  const defaultValGreen = strategy?.customWinReturn || 90.0;
+  const defaultValRed = config.defaultSpinCost || 37.50;
+
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [manualValGreen, setManualValGreen] = useState<string>(defaultValGreen.toString());
+  const [manualValRed, setManualValRed] = useState<string>(defaultValRed.toString());
+  const [manualInitialBankroll, setManualInitialBankroll] = useState<string>(config.initialBankroll.toString());
 
   // Sync config inputs if updated externally
   useEffect(() => {
     setEditingBankroll(config.initialBankroll.toString());
     setEditingGoal(config.dailyGoal.toString());
     setEditingStopLoss(config.stopLossLimit.toString());
-  }, [config.initialBankroll, config.dailyGoal, config.stopLossLimit]);
+    setEditingSpinCost((config.defaultSpinCost || 37.50).toString());
+    if (!editingSessionId) {
+      setManualValRed((config.defaultSpinCost || 37.50).toString());
+      setManualInitialBankroll(config.initialBankroll.toString());
+    }
+  }, [config.initialBankroll, config.dailyGoal, config.stopLossLimit, config.defaultSpinCost, editingSessionId]);
 
-  // State for Manual Daily Entry / Edit Form
+  useEffect(() => {
+    if (!editingSessionId) {
+      setManualValGreen((strategy?.customWinReturn || 90.0).toString());
+    }
+  }, [strategy?.customWinReturn, editingSessionId]);
+
+  // State for NEW Manual Daily Entry by Greens and Reds
   const getTodayISO = () => new Date().toISOString().split('T')[0];
   const [manualDate, setManualDate] = useState<string>(getTodayISO());
-  const [manualEarnedAmount, setManualEarnedAmount] = useState<string>('0.00');
-  const [manualInitialBankroll, setManualInitialBankroll] = useState<string>(config.initialBankroll.toString());
+  const [manualGreenCount, setManualGreenCount] = useState<number>(4);
+  const [manualRedCount, setManualRedCount] = useState<number>(2);
   const [manualNotes, setManualNotes] = useState<string>('');
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 
   // Compound projections settings
   const [projectionDays, setProjectionDays] = useState<number>(14);
@@ -107,6 +104,11 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
 
   // Filter for Plays Log
   const [playsFilter, setPlaysFilter] = useState<'ALL' | 'VALENDO' | 'WINS' | 'LOSSES'>('VALENDO');
+
+  // Modal and notification state for bankroll reset
+  const [showResetModal, setShowResetModal] = useState<boolean>(false);
+  const [resetSpinsAlso, setResetSpinsAlso] = useState<boolean>(true);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState<boolean>(false);
 
   // Save sessions to localStorage on change
   useEffect(() => {
@@ -158,12 +160,32 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   // Spin Risk % of Current Bankroll
   const spinRiskPct = currentBalance > 0 ? (config.defaultSpinCost / currentBalance) * 100 : 0;
 
+  // Calculations for the current Green & Red entry form
+  const parsedValGreen = parseFloat(manualValGreen.replace(',', '.')) || 0;
+  const parsedValRed = parseFloat(manualValRed.replace(',', '.')) || 0;
+  const parsedInitialBank = parseFloat(manualInitialBankroll.replace(',', '.')) || config.initialBankroll;
+
+  const totalAmountWagered = (manualGreenCount + manualRedCount) * parsedValRed;
+  const calculatedGrossGreenReturn = manualGreenCount * parsedValGreen;
+  const calculatedNetGreenProfit = manualGreenCount * Math.max(0, parsedValGreen - parsedValRed);
+  const calculatedRedLoss = manualRedCount * parsedValRed;
+
+  // True Net Result = Gross Returns from Greens - Total Amount Wagered on all spins
+  // (e.g., 2 Greens with R$ 90 return - 3 spins with R$ 37.50 stake = 180 - 112.50 = +R$ 67.50)
+  const calculatedNetResult = calculatedGrossGreenReturn - totalAmountWagered;
+
+  const calculatedFinalBank = parsedInitialBank + calculatedNetResult;
+  const calculatedRoiPct = parsedInitialBank > 0 ? (calculatedNetResult / parsedInitialBank) * 100 : 0;
+  const calculatedTotalEntries = manualGreenCount + manualRedCount;
+  const calculatedWinRatePct = calculatedTotalEntries > 0 ? (manualGreenCount / calculatedTotalEntries) * 100 : 0;
+
   // Handle Save Initial Bankroll & Targets
   const handleSaveBankrollConfig = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedBankroll = parseFloat(editingBankroll.replace(',', '.'));
     const parsedGoal = parseFloat(editingGoal.replace(',', '.'));
     const parsedStopLoss = parseFloat(editingStopLoss.replace(',', '.'));
+    const parsedSpinCost = parseFloat(editingSpinCost.replace(',', '.'));
 
     if (!isNaN(parsedBankroll) && parsedBankroll > 0) {
       onUpdateConfig({
@@ -171,6 +193,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         initialBankroll: parsedBankroll,
         dailyGoal: !isNaN(parsedGoal) ? parsedGoal : config.dailyGoal,
         stopLossLimit: !isNaN(parsedStopLoss) ? parsedStopLoss : config.stopLossLimit,
+        defaultSpinCost: !isNaN(parsedSpinCost) && parsedSpinCost > 0 ? parsedSpinCost : (config.defaultSpinCost || 37.50),
       });
       setBankrollSaveMsg(true);
       setTimeout(() => setBankrollSaveMsg(false), 3000);
@@ -188,19 +211,13 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     return isoDateStr;
   };
 
-  // Handle Manual Entry or Edit of Daily Session
+  // Handle Save Manual Entry by Greens/Reds
   const handleSaveManualSession = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedEarned = parseFloat(manualEarnedAmount.replace(',', '.'));
-    const parsedInitial = parseFloat(manualInitialBankroll.replace(',', '.')) || config.initialBankroll;
-
-    if (isNaN(parsedEarned)) return;
 
     const formattedDate = formatDateBR(manualDate);
-    const finalBank = parsedInitial + parsedEarned;
-    const roi = parsedInitial > 0 ? (parsedEarned / parsedInitial) * 100 : 0;
-    const goalMet = parsedEarned >= config.dailyGoal;
-    const stopLossHit = parsedEarned <= -config.stopLossLimit;
+    const goalMet = calculatedNetResult >= config.dailyGoal;
+    const stopLossHit = calculatedNetResult <= -config.stopLossLimit;
 
     if (editingSessionId) {
       // Update existing record
@@ -210,13 +227,20 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             ? {
                 ...s,
                 date: formattedDate,
-                initialBankroll: parsedInitial,
-                finalBankroll: finalBank,
-                netProfit: parsedEarned,
-                roiPct: roi,
+                initialBankroll: parsedInitialBank,
+                finalBankroll: calculatedFinalBank,
+                netProfit: calculatedNetResult,
+                roiPct: calculatedRoiPct,
+                totalSpins: calculatedTotalEntries,
+                winCount: manualGreenCount,
+                lossCount: manualRedCount,
+                greenCount: manualGreenCount,
+                redCount: manualRedCount,
+                valuePerGreen: parsedValGreen,
+                valuePerRed: parsedValRed,
                 goalMet,
                 stopLossHit,
-                notes: manualNotes || s.notes || 'Sessão editada manualmente.',
+                notes: manualNotes || s.notes || `Lançamento: ${manualGreenCount} Greens e ${manualRedCount} Reds.`,
               }
             : s
         )
@@ -227,15 +251,20 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
       const newRecord: DailySessionRecord = {
         id: `session-${Date.now()}`,
         date: formattedDate,
-        initialBankroll: parsedInitial,
-        finalBankroll: finalBank,
-        netProfit: parsedEarned,
-        roiPct: roi,
-        totalSpins: totalSpins,
-        winCount: winsCount,
+        initialBankroll: parsedInitialBank,
+        finalBankroll: calculatedFinalBank,
+        netProfit: calculatedNetResult,
+        roiPct: calculatedRoiPct,
+        totalSpins: calculatedTotalEntries,
+        winCount: manualGreenCount,
+        lossCount: manualRedCount,
+        greenCount: manualGreenCount,
+        redCount: manualRedCount,
+        valuePerGreen: parsedValGreen,
+        valuePerRed: parsedValRed,
         goalMet,
         stopLossHit,
-        notes: manualNotes || 'Lançamento manual registrado.',
+        notes: manualNotes || `Lançamento de ${manualGreenCount} Greens e ${manualRedCount} Reds.`,
       };
 
       setDailySessions((prev) => [newRecord, ...prev]);
@@ -244,15 +273,13 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     setSaveSuccessMsg(true);
     setTimeout(() => setSaveSuccessMsg(false), 3000);
 
-    // Reset form
-    setManualEarnedAmount('0.00');
+    // Reset notes
     setManualNotes('');
   };
 
   // Populate form for editing existing session
   const handleStartEditSession = (session: DailySessionRecord) => {
     setEditingSessionId(session.id);
-    // Convert DD/MM/AAAA back to YYYY-MM-DD for date input if possible
     if (session.date.includes('/')) {
       const parts = session.date.split('/');
       if (parts.length === 3) {
@@ -263,7 +290,11 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     } else {
       setManualDate(session.date);
     }
-    setManualEarnedAmount(session.netProfit.toString());
+
+    setManualGreenCount(session.greenCount !== undefined ? session.greenCount : session.winCount || 0);
+    setManualRedCount(session.redCount !== undefined ? session.redCount : (session.lossCount || 0));
+    if (session.valuePerGreen) setManualValGreen(session.valuePerGreen.toString());
+    if (session.valuePerRed) setManualValRed(session.valuePerRed.toString());
     setManualInitialBankroll(session.initialBankroll.toString());
     setManualNotes(session.notes || '');
   };
@@ -271,9 +302,11 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   // Cancel edit mode
   const handleCancelEditSession = () => {
     setEditingSessionId(null);
-    setManualEarnedAmount('0.00');
     setManualNotes('');
     setManualDate(getTodayISO());
+    setManualValGreen((strategy?.customWinReturn || 90.0).toString());
+    setManualValRed((config.defaultSpinCost || 37.50).toString());
+    setManualInitialBankroll(config.initialBankroll.toString());
   };
 
   // Quick Save Current Auto Session
@@ -290,6 +323,9 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
       roiPct: bankrollGrowthPct,
       totalSpins,
       winCount: winsCount,
+      lossCount: spins.filter((s) => s.netResult < 0).length,
+      greenCount: winsCount,
+      redCount: spins.filter((s) => s.netResult < 0).length,
       goalMet: isGoalReached,
       stopLossHit: isStopLossHit,
       notes: manualNotes || 'Sessão gravada automaticamente pelos giros da roleta.',
@@ -309,6 +345,24 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
 
   const handleDeleteSession = (id: string) => {
     setDailySessions(dailySessions.filter((s) => s.id !== id));
+  };
+
+  // Reset ALL bankroll sessions and optionally clear table spins
+  const handleResetAllSessions = () => {
+    setDailySessions([]);
+    localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify([]));
+    setManualGreenCount(0);
+    setManualRedCount(0);
+    setManualNotes('');
+    setEditingSessionId(null);
+
+    if (resetSpinsAlso && onClearAllSpins) {
+      onClearAllSpins();
+    }
+
+    setShowResetModal(false);
+    setResetSuccessMsg(true);
+    setTimeout(() => setResetSuccessMsg(false), 4000);
   };
 
   // Compound Growth Projections
@@ -338,11 +392,11 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
 
   // Filtered Plays for Automatic Plays Section
   const filteredSpins = React.useMemo(() => {
-    const list = [...spins].reverse(); // newest first
+    const list = [...spins].reverse();
     if (playsFilter === 'VALENDO') return list.filter((s) => s.giro > 100 || s.winAmount > 0 || s.lossAmount > 0);
     if (playsFilter === 'WINS') return list.filter((s) => s.netResult > 0);
     if (playsFilter === 'LOSSES') return list.filter((s) => s.netResult < 0);
-    return list; // ALL
+    return list;
   }, [spins, playsFilter]);
 
   return (
@@ -355,10 +409,10 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-indigo-500 text-slate-950 font-black text-[10px] uppercase tracking-widest rounded-full flex items-center gap-1 shadow-md">
-                <Wallet className="w-3.5 h-3.5" /> Controle de Banca & ROI
+                <Wallet className="w-3.5 h-3.5" /> Gestão de Banca & Lançamentos
               </span>
               <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 text-xs font-bold rounded-lg border border-slate-700">
-                Gestão Financeira & Lançamento Manual/Auto
+                Lançamento Rápido de Greens e Reds
               </span>
             </div>
 
@@ -367,7 +421,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             </h2>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Configure seu Saldo Inicial de banca, lance manualmente o ganho diário ou deixe o sistema registrar os giros automáticos. Exclua facilmente jogadas em que você não entrou!
+              Defina seu Saldo Inicial de banca, configure suas metas e lance seus resultados diários informando apenas a quantidade de <strong>Greens 🟢</strong> e <strong>Reds 🔴</strong> do dia!
             </p>
           </div>
 
@@ -377,7 +431,16 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
               className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02]"
             >
               <BookmarkPlus className="w-4 h-4" />
-              <span>Gravar Sessão Atual dos Giros</span>
+              <span>Gravar Giros Atuais do Robô</span>
+            </button>
+
+            <button
+              onClick={() => setShowResetModal(true)}
+              className="px-4 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold border border-rose-500/40 text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02]"
+              title="Zerar todos os lançamentos para começar do zero"
+            >
+              <RotateCcw className="w-4 h-4 text-rose-400" />
+              <span>Reset Geral de Banca</span>
             </button>
           </div>
         </div>
@@ -385,7 +448,14 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         {saveSuccessMsg && (
           <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
             <CheckCircle2 className="w-4 h-4" />
-            <span>Sessão diária gravada/atualizada com sucesso no relatório local!</span>
+            <span>Resultado diário gravado com sucesso no relatório local!</span>
+          </div>
+        )}
+
+        {resetSuccessMsg && (
+          <div className="mt-4 p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Todos os lançamentos de banca foram zerados com sucesso! Você está começando do zero.</span>
           </div>
         )}
       </div>
@@ -410,7 +480,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
           )}
         </div>
 
-        <form onSubmit={handleSaveBankrollConfig} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <form onSubmit={handleSaveBankrollConfig} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-xs font-bold text-slate-300 block mb-1">
               Saldo Inicial da Banca (R$):
@@ -419,15 +489,15 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
               <input
                 type="number"
-                step="1.00"
-                min="1"
+                step="any"
+                min="0.01"
                 value={editingBankroll}
                 onChange={(e) => setEditingBankroll(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
                 placeholder="100.00"
               />
             </div>
-            <span className="text-[10px] text-slate-500 block mt-1">Capital inicial para cálculo de lucros e ROI.</span>
+            <span className="text-[10px] text-slate-500 block mt-1">Capital inicial base para cálculo do ROI.</span>
           </div>
 
           <div>
@@ -438,8 +508,8 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
               <input
                 type="number"
-                step="1.00"
-                min="1"
+                step="any"
+                min="0.01"
                 value={editingGoal}
                 onChange={(e) => setEditingGoal(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
@@ -457,8 +527,8 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
               <input
                 type="number"
-                step="1.00"
-                min="1"
+                step="any"
+                min="0.01"
                 value={editingStopLoss}
                 onChange={(e) => setEditingStopLoss(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-rose-400 focus:outline-none focus:border-rose-500"
@@ -468,7 +538,26 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             <span className="text-[10px] text-slate-500 block mt-1">Perda máxima permitida por dia.</span>
           </div>
 
-          <div className="sm:col-span-3 flex justify-end">
+          <div>
+            <label className="text-xs font-bold text-slate-300 block mb-1">
+              Aposta Mínima / Custo por Red (R$):
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+              <input
+                type="number"
+                step="any"
+                min="0.01"
+                value={editingSpinCost}
+                onChange={(e) => setEditingSpinCost(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-indigo-400 focus:outline-none focus:border-indigo-500"
+                placeholder="37.50"
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block mt-1">Ex: R$ 37,50 (15 fichas x R$ 2,50 na Mesa BR).</span>
+          </div>
+
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
             <button
               type="submit"
               className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2"
@@ -478,6 +567,278 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             </button>
           </div>
         </form>
+      </div>
+
+      {/* LANÇAMENTO AUTOMÁTICO DIÁRIO APENAS INFORMANDO GREENS E REDS */}
+      <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 bg-indigo-500/10 rounded-2xl text-indigo-400 border border-indigo-500/20">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase text-indigo-400 tracking-wider">Lançamento Direto</span>
+              <h3 className="text-xl font-black text-slate-100">
+                {editingSessionId ? '✏️ Editar Lançamento do Dia' : '➕ Lançar Resultado do Dia por Greens e Reds'}
+              </h3>
+            </div>
+          </div>
+
+          {editingSessionId && (
+            <button
+              onClick={handleCancelEditSession}
+              className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Cancelar Edição
+            </button>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveManualSession} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Coluna 1: Data e Saldo Base */}
+            <div className="space-y-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <span className="text-xs font-black uppercase text-slate-400 tracking-wider block border-b border-slate-800 pb-2">
+                1. Configuração do Dia
+              </span>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Data do Dia:</label>
+                <input
+                  type="date"
+                  value={manualDate}
+                  onChange={(e) => setManualDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-100 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Banca Inicial do Dia (R$):</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    value={manualInitialBankroll}
+                    onChange={(e) => setManualInitialBankroll(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-200 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Observações:</label>
+                <input
+                  type="text"
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  placeholder="Ex: Operou à tarde na mesa VIP"
+                />
+              </div>
+            </div>
+
+            {/* Coluna 2: Contadores de GREENS e REDS */}
+            <div className="space-y-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <span className="text-xs font-black uppercase text-slate-400 tracking-wider block border-b border-slate-800 pb-2">
+                2. Informar Greens e Reds
+              </span>
+
+              {/* Quantidade de GREENS */}
+              <div className="bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black uppercase text-emerald-400 flex items-center gap-1">
+                    🟢 Quantidade de GREENS (Vitórias):
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setManualGreenCount(Math.max(0, manualGreenCount - 1))}
+                    className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 font-black flex items-center justify-center shrink-0"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+
+                  <input
+                    type="number"
+                    min="0"
+                    value={manualGreenCount}
+                    onChange={(e) => setManualGreenCount(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full py-1.5 bg-slate-900 border border-emerald-500/40 rounded-xl text-center text-lg font-mono font-black text-emerald-400 focus:outline-none"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setManualGreenCount(manualGreenCount + 1)}
+                    className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 font-black flex items-center justify-center shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>Retorno Bruto/Green (R$):</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={manualValGreen}
+                    onChange={(e) => setManualValGreen(e.target.value)}
+                    className="w-24 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono text-emerald-300 font-bold"
+                  />
+                </div>
+                <div className="text-[10px] text-slate-500 text-right">
+                  Lucro líq: R$ {Math.max(0, parsedValGreen - parsedValRed).toFixed(2)} / vitória
+                </div>
+              </div>
+
+              {/* Quantidade de REDS */}
+              <div className="bg-rose-950/40 border border-rose-500/30 p-3.5 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black uppercase text-rose-400 flex items-center gap-1">
+                    🔴 Quantidade de REDS (Derrotas):
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setManualRedCount(Math.max(0, manualRedCount - 1))}
+                    className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-rose-400 border border-rose-500/30 font-black flex items-center justify-center shrink-0"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+
+                  <input
+                    type="number"
+                    min="0"
+                    value={manualRedCount}
+                    onChange={(e) => setManualRedCount(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full py-1.5 bg-slate-900 border border-rose-500/40 rounded-xl text-center text-lg font-mono font-black text-rose-400 focus:outline-none"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setManualRedCount(manualRedCount + 1)}
+                    className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-rose-400 border border-rose-500/30 font-black flex items-center justify-center shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>Aposta/Custo por Giro (R$):</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={manualValRed}
+                    onChange={(e) => setManualValRed(e.target.value)}
+                    className="w-24 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono text-rose-300 font-bold"
+                  />
+                </div>
+                <div className="text-[10px] text-slate-500 text-right">
+                  Valor apostado em cada giro
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna 3: Prévia Automática dos Cálculos */}
+            <div className="space-y-3 bg-gradient-to-b from-slate-950 to-indigo-950/40 p-4 rounded-2xl border border-indigo-500/30 flex flex-col justify-between">
+              <span className="text-xs font-black uppercase text-indigo-400 tracking-wider block border-b border-indigo-500/20 pb-2">
+                3. Cálculos Automáticos do Dia
+              </span>
+
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex justify-between items-center text-emerald-400">
+                  <span>🟢 Retorno Greens ({manualGreenCount}x R$ {parsedValGreen.toFixed(2)}):</span>
+                  <span className="font-bold">+R$ {calculatedGrossGreenReturn.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-rose-400">
+                  <span>🔴 Aposta Total ({calculatedTotalEntries} giros x R$ {parsedValRed.toFixed(2)}):</span>
+                  <span className="font-bold">-R$ {totalAmountWagered.toFixed(2)}</span>
+                </div>
+
+                <div className="border-t border-slate-800 my-1 pt-2 flex justify-between items-center">
+                  <span className="text-slate-300 font-bold">Resultado Líquido:</span>
+                  <span className={`text-base font-black ${calculatedNetResult >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {calculatedNetResult >= 0 ? '+' : ''}R$ {calculatedNetResult.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/80 p-2 rounded-xl text-[10px] text-slate-400 space-y-1 font-sans border border-slate-800">
+                  <div className="flex justify-between">
+                    <span>Lucro Líq. Greens ({manualGreenCount}x R$ {(parsedValGreen - parsedValRed).toFixed(2)}):</span>
+                    <span className="text-emerald-400 font-bold">+R$ {calculatedNetGreenProfit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Prejuízo Reds ({manualRedCount}x R$ {parsedValRed.toFixed(2)}):</span>
+                    <span className="text-rose-400 font-bold">-R$ {calculatedRedLoss.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-slate-400 text-[11px]">
+                  <span>Taxa de Acerto:</span>
+                  <span className="text-teal-400 font-bold">{calculatedWinRatePct.toFixed(1)}% ({manualGreenCount}/{calculatedTotalEntries})</span>
+                </div>
+
+                <div className="flex justify-between items-center text-slate-400 text-[11px]">
+                  <span>ROI do Dia:</span>
+                  <span className={`font-bold ${calculatedRoiPct >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
+                    {calculatedRoiPct >= 0 ? '+' : ''}{calculatedRoiPct.toFixed(1)}%
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-slate-300 pt-1 border-t border-slate-800/80">
+                  <span>Banca Final Projetada:</span>
+                  <span className="text-sm font-black text-amber-400">R$ {calculatedFinalBank.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:scale-[1.01]"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>{editingSessionId ? 'Atualizar Resultado do Dia' : 'Salvar Lançamento do Dia'}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* Resumo Automático dos Lançamentos */}
+        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Ganho Acumulado</span>
+            <span className={`text-base font-black ${totalManualProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {totalManualProfit >= 0 ? '+' : ''}{config.currency} {totalManualProfit.toFixed(2)}
+            </span>
+          </div>
+
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase">Média Diária de Lucro</span>
+            <span className={`text-base font-black ${avgProfitPerDay >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
+              {avgProfitPerDay >= 0 ? '+' : ''}{config.currency} {avgProfitPerDay.toFixed(2)}/dia
+            </span>
+          </div>
+
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase">Dias no Green</span>
+            <span className="text-base font-black text-emerald-400 flex items-center justify-center gap-1">
+              <ArrowUpRight className="w-4 h-4" /> {greenDaysCount} dias
+            </span>
+          </div>
+
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold text-slate-400 block uppercase">Dias no Red</span>
+            <span className="text-base font-black text-rose-400 flex items-center justify-center gap-1">
+              <ArrowDownRight className="w-4 h-4" /> {redDaysCount} dias
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards Grid */}
@@ -538,7 +899,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             {spinRiskPct.toFixed(1)}% da Banca
           </span>
           <span className="text-[10px] text-slate-400 block truncate">
-            {config.currency} {config.defaultSpinCost.toFixed(2)} por ficha
+            {config.currency} {(config.defaultSpinCost || 37.50).toFixed(2)} por giro
           </span>
         </div>
       </div>
@@ -659,143 +1020,6 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         </div>
       </div>
 
-      {/* LANÇAMENTO MANUAL / EDIÇÃO DE RESULTADOS DIÁRIOS (VALOR GANHO DO DIA E DATA) */}
-      <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-indigo-500/10 rounded-2xl text-indigo-400 border border-indigo-500/20">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase text-indigo-400 tracking-wider">Lançamento Direto</span>
-              <h3 className="text-lg font-black text-slate-100">
-                {editingSessionId ? '✏️ Editar Resultado Diário' : '➕ Lançar Valor Ganho do Dia e Data'}
-              </h3>
-            </div>
-          </div>
-
-          {editingSessionId && (
-            <button
-              onClick={handleCancelEditSession}
-              className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1 self-start sm:self-auto"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Cancelar Edição
-            </button>
-          )}
-        </div>
-
-        {/* Form Lançamento de Lucro e Data */}
-        <form onSubmit={handleSaveManualSession} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Data */}
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Data do Dia:
-            </label>
-            <input
-              type="date"
-              value={manualDate}
-              onChange={(e) => setManualDate(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-100 focus:outline-none focus:border-indigo-500"
-              required
-            />
-          </div>
-
-          {/* Valor Ganho no Dia (R$) */}
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Valor Ganho / Lucro no Dia (R$):
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
-              <input
-                type="number"
-                step="0.50"
-                value={manualEarnedAmount}
-                onChange={(e) => setManualEarnedAmount(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
-                placeholder="90.00"
-                required
-              />
-            </div>
-            <span className="text-[9px] text-slate-500 block mt-1">Use valor positivo para Lucro e negativo (-) para Perda.</span>
-          </div>
-
-          {/* Banca Inicial do Dia */}
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Banca Inicial do Dia (R$):
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
-              <input
-                type="number"
-                step="1.00"
-                min="1"
-                value={manualInitialBankroll}
-                onChange={(e) => setManualInitialBankroll(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-200 focus:outline-none focus:border-indigo-500"
-                placeholder="100.00"
-              />
-            </div>
-          </div>
-
-          {/* Observações */}
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Observações / Notas:
-            </label>
-            <input
-              type="text"
-              value={manualNotes}
-              onChange={(e) => setManualNotes(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              placeholder="Ex: Mesa com retorno de 90.00 por win"
-            />
-          </div>
-
-          <div className="sm:col-span-2 md:col-span-4 flex justify-end">
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>{editingSessionId ? 'Atualizar Resultado do Dia' : 'Salvar Lançamento do Dia'}</span>
-            </button>
-          </div>
-        </form>
-
-        {/* Resumo Automático dos Lançamentos */}
-        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Ganho Acumulado</span>
-            <span className={`text-base font-black ${totalManualProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {totalManualProfit >= 0 ? '+' : ''}{config.currency} {totalManualProfit.toFixed(2)}
-            </span>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 block uppercase">Média Diária de Lucro</span>
-            <span className={`text-base font-black ${avgProfitPerDay >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
-              {avgProfitPerDay >= 0 ? '+' : ''}{config.currency} {avgProfitPerDay.toFixed(2)}/dia
-            </span>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 block uppercase">Dias no Green</span>
-            <span className="text-base font-black text-emerald-400 flex items-center justify-center gap-1">
-              <ArrowUpRight className="w-4 h-4" /> {greenDaysCount} dias
-            </span>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 block uppercase">Dias no Red</span>
-            <span className="text-base font-black text-rose-400 flex items-center justify-center gap-1">
-              <ArrowDownRight className="w-4 h-4" /> {redDaysCount} dias
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* HISTÓRICO DE SESSÕES SALVAS DIÁRIAS */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -803,16 +1027,28 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             <Calendar className="w-5 h-5 text-amber-400" />
             <div>
               <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">Histórico de Registros</span>
-              <h3 className="text-lg font-black text-slate-100">Relatório de Sessões Diárias Salvaguardadas</h3>
+              <h3 className="text-lg font-black text-slate-100">Relatório de Resultados Diários Lancados</h3>
             </div>
           </div>
 
-          <span className="text-xs text-slate-400 font-bold">{dailySessions.length} dias registrados</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-bold">{dailySessions.length} dias registrados</span>
+            {dailySessions.length > 0 && (
+              <button
+                onClick={() => setShowResetModal(true)}
+                className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors flex items-center gap-1.5"
+                title="Limpar todos os relatórios da banca"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Zerar Relatórios</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {dailySessions.length === 0 ? (
           <div className="text-center py-8 text-slate-500 text-xs italic">
-            Nenhum registro encontrado. Use o formulário acima para lançar a data e o valor ganho do dia.
+            Nenhum registro encontrado. Use o formulário acima para lançar os Greens e Reds do dia.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -821,8 +1057,9 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                 <tr>
                   <th className="py-3 px-4">Data</th>
                   <th className="py-3 px-4">Banca Inicial</th>
+                  <th className="py-3 px-4">Greens / Reds</th>
+                  <th className="py-3 px-4">Lucro Líquido</th>
                   <th className="py-3 px-4">Banca Final</th>
-                  <th className="py-3 px-4">Valor Ganho no Dia</th>
                   <th className="py-3 px-4">ROI %</th>
                   <th className="py-3 px-4">Status Meta</th>
                   <th className="py-3 px-4">Notas</th>
@@ -836,11 +1073,16 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                     <td className="py-3 px-4 text-slate-300">
                       {config.currency} {s.initialBankroll.toFixed(2)}
                     </td>
-                    <td className="py-3 px-4 font-bold text-slate-100">
-                      {config.currency} {s.finalBankroll.toFixed(2)}
+                    <td className="py-3 px-4">
+                      <span className="text-emerald-400 font-bold">{s.greenCount !== undefined ? s.greenCount : s.winCount} 🟢</span>
+                      {' / '}
+                      <span className="text-rose-400 font-bold">{s.redCount !== undefined ? s.redCount : (s.lossCount || 0)} 🔴</span>
                     </td>
                     <td className={`py-3 px-4 font-black ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {s.netProfit >= 0 ? '+' : ''}{config.currency} {s.netProfit.toFixed(2)}
+                    </td>
+                    <td className="py-3 px-4 font-bold text-slate-100">
+                      {config.currency} {s.finalBankroll.toFixed(2)}
                     </td>
                     <td className={`py-3 px-4 font-bold ${s.roiPct >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
                       {s.roiPct >= 0 ? '+' : ''}{s.roiPct.toFixed(1)}%
@@ -848,7 +1090,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                     <td className="py-3 px-4">
                       {s.goalMet ? (
                         <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                          Meta Bati 🎉
+                          Meta Batida 🎉
                         </span>
                       ) : s.stopLossHit ? (
                         <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
@@ -860,7 +1102,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-slate-400 text-[11px] max-w-[200px] truncate" title={s.notes}>
+                    <td className="py-3 px-4 text-slate-400 text-[11px] max-w-[180px] truncate" title={s.notes}>
                       {s.notes || '-'}
                     </td>
                     <td className="py-3 px-4 text-right">
@@ -889,7 +1131,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         )}
       </div>
 
-      {/* SEÇÃO DE LANÇAMENTO E EXCLUSÃO DE JOGADAS AUTOMÁTICAS (Apostei vs Não Entrei) */}
+      {/* SEÇÃO DE LANÇAMENTO E EXCLUSÃO DE JOGADAS AUTOMÁTICAS */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2.5">
@@ -1071,34 +1313,92 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
           </div>
         </div>
 
-        {/* Projection Grid Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          {compoundProjections.slice(0, 6).map((proj) => (
-            <div key={proj.day} className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800/80 space-y-1">
-              <span className="text-[10px] font-black uppercase text-amber-400 block">Dia {proj.day}</span>
-              <span className="text-base font-black text-slate-100 block">
-                {config.currency} {proj.balance.toFixed(2)}
-              </span>
-              <span className="text-[10px] text-emerald-400 font-bold block">
-                +{config.currency} {proj.dailyProfit.toFixed(2)}/dia
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2 text-amber-300 font-bold">
-            <PiggyBank className="w-5 h-5 shrink-0" />
-            <span>
-              Resultado estimado ao final de {projectionDays} dias mantendo {projectionDailyGoalPct}% ao dia:{' '}
-              <strong className="text-emerald-400 text-sm font-black">
-                {config.currency} {compoundProjections[compoundProjections.length - 1]?.balance.toFixed(2)}
-              </strong>{' '}
-              (+{((compoundProjections[compoundProjections.length - 1]?.totalGain / config.initialBankroll) * 100).toFixed(0)}% de Lucro Acumulado!).
-            </span>
-          </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-medium">
+            <thead className="bg-slate-950 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th className="py-3 px-4">Dia</th>
+                <th className="py-3 px-4">Meta (%)</th>
+                <th className="py-3 px-4">Lucro do Dia</th>
+                <th className="py-3 px-4">Saldo Acumulado</th>
+                <th className="py-3 px-4">Lucro Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {compoundProjections.map((p) => (
+                <tr key={p.day} className="hover:bg-slate-800/40 transition-colors">
+                  <td className="py-3 px-4 font-bold text-slate-300">Dia {p.day}</td>
+                  <td className="py-3 px-4 text-emerald-400 font-bold">+{projectionDailyGoalPct}%</td>
+                  <td className="py-3 px-4 text-emerald-300 font-mono">
+                    +{config.currency} {p.dailyProfit.toFixed(2)}
+                  </td>
+                  <td className="py-3 px-4 font-mono font-bold text-slate-100">
+                    {config.currency} {p.balance.toFixed(2)}
+                  </td>
+                  <td className="py-3 px-4 text-emerald-400 font-mono font-bold">
+                    +{config.currency} {p.totalGain.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* CONFIRMATION MODAL FOR RESET GERAL DE BANCA */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 relative">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-400 border border-rose-500/30">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-100">Reset Geral de Banca</h3>
+                <p className="text-xs text-rose-400 font-bold">Ação irreversível de limpeza</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
+              <p>
+                Você está prestes a realizar um <strong>reset geral de todos os lançamentos</strong> de banca e relatórios salvos para começar do zero.
+              </p>
+
+              {onClearAllSpins && (
+                <label className="flex items-start gap-2.5 p-3 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer mt-2">
+                  <input
+                    type="checkbox"
+                    checked={resetSpinsAlso}
+                    onChange={(e) => setResetSpinsAlso(e.target.checked)}
+                    className="mt-0.5 rounded text-rose-500 focus:ring-rose-500"
+                  />
+                  <span className="text-slate-300 text-[11px] leading-tight">
+                    Também zerar e limpar a tabela de giros recentes da roleta
+                  </span>
+                </label>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleResetAllSessions}
+                className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Sim, Zerar Tudo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

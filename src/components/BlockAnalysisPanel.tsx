@@ -106,7 +106,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   const [expandedBlockId, setExpandedBlockId] = useState<number | null>(null); // Expand latest block by default
   const [targetGainUnits, setTargetGainUnits] = useState<number>(2.0);
 
-  const unitBet = config.defaultSpinCost || 10;
+  const unitBet = config.defaultSpinCost || 37.50;
   const currency = config.currency || 'R$';
 
   const getStrategyBetCost = (stratKey: string) => {

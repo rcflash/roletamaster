@@ -5,7 +5,7 @@ export const INITIAL_BANKROLL_CONFIG: BankrollConfig = {
   initialBankroll: 100,
   dailyGoal: 20,
   stopLossLimit: 50,
-  defaultSpinCost: 15,
+  defaultSpinCost: 37.5,
   currency: 'R$',
   soundEnabled: true,
 };
