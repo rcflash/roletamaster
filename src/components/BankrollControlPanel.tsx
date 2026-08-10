@@ -401,174 +401,6 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-indigo-500 text-slate-950 font-black text-[10px] uppercase tracking-widest rounded-full flex items-center gap-1 shadow-md">
-                <Wallet className="w-3.5 h-3.5" /> Gestão de Banca & Lançamentos
-              </span>
-              <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 text-xs font-bold rounded-lg border border-slate-700">
-                Lançamento Rápido de Greens e Reds
-              </span>
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
-              Painel de Gestão de Banca e Resultados
-            </h2>
-
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Defina seu Saldo Inicial de banca, configure suas metas e lance seus resultados diários informando apenas a quantidade de <strong>Greens 🟢</strong> e <strong>Reds 🔴</strong> do dia!
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleSaveCurrentSessionAuto}
-              className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02]"
-            >
-              <BookmarkPlus className="w-4 h-4" />
-              <span>Gravar Giros Atuais do Robô</span>
-            </button>
-
-            <button
-              onClick={() => setShowResetModal(true)}
-              className="px-4 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold border border-rose-500/40 text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02]"
-              title="Zerar todos os lançamentos para começar do zero"
-            >
-              <RotateCcw className="w-4 h-4 text-rose-400" />
-              <span>Reset Geral de Banca</span>
-            </button>
-          </div>
-        </div>
-
-        {saveSuccessMsg && (
-          <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Resultado diário gravado com sucesso no relatório local!</span>
-          </div>
-        )}
-
-        {resetSuccessMsg && (
-          <div className="mt-4 p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Todos os lançamentos de banca foram zerados com sucesso! Você está começando do zero.</span>
-          </div>
-        )}
-      </div>
-
-      {/* CONFIGURAÇÃO DO SALDO INICIAL DA BANCA */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
-              <Coins className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">Lançamento Base</span>
-              <h3 className="text-base font-black text-slate-100">Configurar Saldo Inicial e Metas da Banca</h3>
-            </div>
-          </div>
-
-          {bankrollSaveMsg && (
-            <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-lg border border-emerald-500/40 flex items-center gap-1.5 animate-fadeIn">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Saldo Inicial atualizado com sucesso!
-            </span>
-          )}
-        </div>
-
-        <form onSubmit={handleSaveBankrollConfig} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Saldo Inicial da Banca (R$):
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
-              <input
-                type="number"
-                step="any"
-                min="0.01"
-                value={editingBankroll}
-                onChange={(e) => setEditingBankroll(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
-                placeholder="100.00"
-              />
-            </div>
-            <span className="text-[10px] text-slate-500 block mt-1">Capital inicial base para cálculo do ROI.</span>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Meta Diária de Lucro (R$):
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
-              <input
-                type="number"
-                step="any"
-                min="0.01"
-                value={editingGoal}
-                onChange={(e) => setEditingGoal(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
-                placeholder="20.00"
-              />
-            </div>
-            <span className="text-[10px] text-slate-500 block mt-1">Alvo diário desejado de lucro.</span>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Limite de Stop Loss (R$):
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
-              <input
-                type="number"
-                step="any"
-                min="0.01"
-                value={editingStopLoss}
-                onChange={(e) => setEditingStopLoss(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-rose-400 focus:outline-none focus:border-rose-500"
-                placeholder="50.00"
-              />
-            </div>
-            <span className="text-[10px] text-slate-500 block mt-1">Perda máxima permitida por dia.</span>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">
-              Aposta Mínima / Custo por Red (R$):
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
-              <input
-                type="number"
-                step="any"
-                min="0.01"
-                value={editingSpinCost}
-                onChange={(e) => setEditingSpinCost(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-indigo-400 focus:outline-none focus:border-indigo-500"
-                placeholder="37.50"
-              />
-            </div>
-            <span className="text-[10px] text-slate-500 block mt-1">Ex: R$ 37,50 (15 fichas x R$ 2,50 na Mesa BR).</span>
-          </div>
-
-          <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>Salvar Configuração de Banca</span>
-            </button>
-          </div>
-        </form>
-      </div>
-
       {/* LANÇAMENTO AUTOMÁTICO DIÁRIO APENAS INFORMANDO GREENS E REDS */}
       <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
@@ -841,6 +673,117 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         </div>
       </div>
 
+      {/* HISTÓRICO DE SESSÕES SALVAS DIÁRIAS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-2.5">
+            <Calendar className="w-5 h-5 text-amber-400" />
+            <div>
+              <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">Histórico de Registros</span>
+              <h3 className="text-lg font-black text-slate-100">Relatório de Resultados Diários Lancados</h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-bold">{dailySessions.length} dias registrados</span>
+            {dailySessions.length > 0 && (
+              <button
+                onClick={() => setShowResetModal(true)}
+                className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors flex items-center gap-1.5"
+                title="Limpar todos os relatórios da banca"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Zerar Relatórios</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {dailySessions.length === 0 ? (
+          <div className="text-center py-8 text-slate-500 text-xs italic">
+            Nenhum registro encontrado. Use o formulário acima para lançar os Greens e Reds do dia.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950 text-slate-400 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="py-3 px-4">Data</th>
+                  <th className="py-3 px-4">Banca Inicial</th>
+                  <th className="py-3 px-4">Greens / Reds</th>
+                  <th className="py-3 px-4">Lucro Líquido</th>
+                  <th className="py-3 px-4">Banca Final</th>
+                  <th className="py-3 px-4">ROI %</th>
+                  <th className="py-3 px-4">Status Meta</th>
+                  <th className="py-3 px-4">Notas</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-medium">
+                {dailySessions.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-bold text-slate-200">{s.date}</td>
+                    <td className="py-3 px-4 text-slate-300">
+                      {config.currency} {s.initialBankroll.toFixed(2)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="text-emerald-400 font-bold">{s.greenCount !== undefined ? s.greenCount : s.winCount} 🟢</span>
+                      {' / '}
+                      <span className="text-rose-400 font-bold">{s.redCount !== undefined ? s.redCount : (s.lossCount || 0)} 🔴</span>
+                    </td>
+                    <td className={`py-3 px-4 font-black ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {s.netProfit >= 0 ? '+' : ''}{config.currency} {s.netProfit.toFixed(2)}
+                    </td>
+                    <td className="py-3 px-4 font-bold text-slate-100">
+                      {config.currency} {s.finalBankroll.toFixed(2)}
+                    </td>
+                    <td className={`py-3 px-4 font-bold ${s.roiPct >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
+                      {s.roiPct >= 0 ? '+' : ''}{s.roiPct.toFixed(1)}%
+                    </td>
+                    <td className="py-3 px-4">
+                      {s.goalMet ? (
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                          Meta Batida 🎉
+                        </span>
+                      ) : s.stopLossHit ? (
+                        <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
+                          Stop Loss 🔴
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">
+                          {s.netProfit >= 0 ? 'Positivo' : 'Negativo'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-slate-400 text-[11px] max-w-[180px] truncate" title={s.notes}>
+                      {s.notes || '-'}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleStartEditSession(s)}
+                          className="p-1.5 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors"
+                          title="Editar este registro"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSession(s.id)}
+                          className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors"
+                          title="Excluir este registro"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {/* Card 1: Banca Inicial */}
@@ -1018,117 +961,6 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* HISTÓRICO DE SESSÕES SALVAS DIÁRIAS */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2.5">
-            <Calendar className="w-5 h-5 text-amber-400" />
-            <div>
-              <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">Histórico de Registros</span>
-              <h3 className="text-lg font-black text-slate-100">Relatório de Resultados Diários Lancados</h3>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400 font-bold">{dailySessions.length} dias registrados</span>
-            {dailySessions.length > 0 && (
-              <button
-                onClick={() => setShowResetModal(true)}
-                className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors flex items-center gap-1.5"
-                title="Limpar todos os relatórios da banca"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Zerar Relatórios</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {dailySessions.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 text-xs italic">
-            Nenhum registro encontrado. Use o formulário acima para lançar os Greens e Reds do dia.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 text-slate-400 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4">Data</th>
-                  <th className="py-3 px-4">Banca Inicial</th>
-                  <th className="py-3 px-4">Greens / Reds</th>
-                  <th className="py-3 px-4">Lucro Líquido</th>
-                  <th className="py-3 px-4">Banca Final</th>
-                  <th className="py-3 px-4">ROI %</th>
-                  <th className="py-3 px-4">Status Meta</th>
-                  <th className="py-3 px-4">Notas</th>
-                  <th className="py-3 px-4 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-medium">
-                {dailySessions.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-200">{s.date}</td>
-                    <td className="py-3 px-4 text-slate-300">
-                      {config.currency} {s.initialBankroll.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-emerald-400 font-bold">{s.greenCount !== undefined ? s.greenCount : s.winCount} 🟢</span>
-                      {' / '}
-                      <span className="text-rose-400 font-bold">{s.redCount !== undefined ? s.redCount : (s.lossCount || 0)} 🔴</span>
-                    </td>
-                    <td className={`py-3 px-4 font-black ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {s.netProfit >= 0 ? '+' : ''}{config.currency} {s.netProfit.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-4 font-bold text-slate-100">
-                      {config.currency} {s.finalBankroll.toFixed(2)}
-                    </td>
-                    <td className={`py-3 px-4 font-bold ${s.roiPct >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
-                      {s.roiPct >= 0 ? '+' : ''}{s.roiPct.toFixed(1)}%
-                    </td>
-                    <td className="py-3 px-4">
-                      {s.goalMet ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                          Meta Batida 🎉
-                        </span>
-                      ) : s.stopLossHit ? (
-                        <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
-                          Stop Loss 🔴
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">
-                          {s.netProfit >= 0 ? 'Positivo' : 'Negativo'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-slate-400 text-[11px] max-w-[180px] truncate" title={s.notes}>
-                      {s.notes || '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleStartEditSession(s)}
-                          className="p-1.5 hover:bg-indigo-500/20 text-indigo-400 rounded-lg transition-colors"
-                          title="Editar este registro"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSession(s.id)}
-                          className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors"
-                          title="Excluir este registro"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
       {/* SEÇÃO DE LANÇAMENTO E EXCLUSÃO DE JOGADAS AUTOMÁTICAS */}
@@ -1343,6 +1175,174 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Header Banner & Informações Gerais */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-indigo-500 text-slate-950 font-black text-[10px] uppercase tracking-widest rounded-full flex items-center gap-1 shadow-md">
+                <Wallet className="w-3.5 h-3.5" /> Gestão de Banca & Lançamentos
+              </span>
+              <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 text-xs font-bold rounded-lg border border-slate-700">
+                Lançamento Rápido de Greens e Reds
+              </span>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
+              Painel de Gestão de Banca e Resultados
+            </h2>
+
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Defina seu Saldo Inicial de banca, configure suas metas e lance seus resultados diários informando apenas a quantidade de <strong>Greens 🟢</strong> e <strong>Reds 🔴</strong> do dia!
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSaveCurrentSessionAuto}
+              className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02]"
+            >
+              <BookmarkPlus className="w-4 h-4" />
+              <span>Gravar Giros Atuais do Robô</span>
+            </button>
+
+            <button
+              onClick={() => setShowResetModal(true)}
+              className="px-4 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold border border-rose-500/40 text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02]"
+              title="Zerar todos os lançamentos para começar do zero"
+            >
+              <RotateCcw className="w-4 h-4 text-rose-400" />
+              <span>Reset Geral de Banca</span>
+            </button>
+          </div>
+        </div>
+
+        {saveSuccessMsg && (
+          <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Resultado diário gravado com sucesso no relatório local!</span>
+          </div>
+        )}
+
+        {resetSuccessMsg && (
+          <div className="mt-4 p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Todos os lançamentos de banca foram zerados com sucesso! Você está começando do zero.</span>
+          </div>
+        )}
+      </div>
+
+      {/* CONFIGURAÇÃO DO SALDO INICIAL DA BANCA */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
+              <Coins className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">Lançamento Base</span>
+              <h3 className="text-base font-black text-slate-100">Configurar Saldo Inicial e Metas da Banca</h3>
+            </div>
+          </div>
+
+          {bankrollSaveMsg && (
+            <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-lg border border-emerald-500/40 flex items-center gap-1.5 animate-fadeIn">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Saldo Inicial atualizado com sucesso!
+            </span>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveBankrollConfig} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="text-xs font-bold text-slate-300 block mb-1">
+              Saldo Inicial da Banca (R$):
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+              <input
+                type="number"
+                step="any"
+                min="0.01"
+                value={editingBankroll}
+                onChange={(e) => setEditingBankroll(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
+                placeholder="100.00"
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block mt-1">Capital inicial base para cálculo do ROI.</span>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-300 block mb-1">
+              Meta Diária de Lucro (R$):
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+              <input
+                type="number"
+                step="any"
+                min="0.01"
+                value={editingGoal}
+                onChange={(e) => setEditingGoal(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                placeholder="20.00"
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block mt-1">Alvo diário desejado de lucro.</span>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-300 block mb-1">
+              Limite de Stop Loss (R$):
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+              <input
+                type="number"
+                step="any"
+                min="0.01"
+                value={editingStopLoss}
+                onChange={(e) => setEditingStopLoss(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-rose-400 focus:outline-none focus:border-rose-500"
+                placeholder="50.00"
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block mt-1">Perda máxima permitida por dia.</span>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-300 block mb-1">
+              Aposta Mínima / Custo por Red (R$):
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+              <input
+                type="number"
+                step="any"
+                min="0.01"
+                value={editingSpinCost}
+                onChange={(e) => setEditingSpinCost(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm font-mono font-bold text-indigo-400 focus:outline-none focus:border-indigo-500"
+                placeholder="37.50"
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block mt-1">Ex: R$ 37,50 (15 fichas x R$ 2,50 na Mesa BR).</span>
+          </div>
+
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>Salvar Configuração de Banca</span>
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* CONFIRMATION MODAL FOR RESET GERAL DE BANCA */}
