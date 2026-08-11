@@ -29,6 +29,8 @@ interface BankrollControlPanelProps {
   config: BankrollConfig;
   spins: SpinRecord[];
   strategy?: StrategyConfig;
+  dailySessions?: DailySessionRecord[];
+  onUpdateDailySessions?: (sessions: DailySessionRecord[]) => void;
   onUpdateConfig: (newConfig: BankrollConfig) => void;
   onDeleteSpin?: (id: string) => void;
   onClearAllSpins?: () => void;
@@ -41,12 +43,14 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   config,
   spins,
   strategy,
+  dailySessions: propDailySessions,
+  onUpdateDailySessions,
   onUpdateConfig,
   onDeleteSpin,
   onClearAllSpins,
 }) => {
-  // Local state for Daily Sessions - Defaults to empty [] for fresh start
-  const [dailySessions, setDailySessions] = useState<DailySessionRecord[]>(() => {
+  // Local state for Daily Sessions
+  const [localDailySessions, setLocalDailySessions] = useState<DailySessionRecord[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SESSIONS);
       if (saved) return JSON.parse(saved);
@@ -55,6 +59,21 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     }
     return [];
   });
+
+  const dailySessions = propDailySessions ?? localDailySessions;
+
+  const updateSessions = (updated: DailySessionRecord[]) => {
+    if (onUpdateDailySessions) {
+      onUpdateDailySessions(updated);
+    } else {
+      setLocalDailySessions(updated);
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // State for Initial Bankroll configuration inline inputs
   const [editingBankroll, setEditingBankroll] = useState<string>(config.initialBankroll.toString());
@@ -72,7 +91,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const [manualValRed, setManualValRed] = useState<string>(defaultValRed.toString());
   const [manualInitialBankroll, setManualInitialBankroll] = useState<string>(config.initialBankroll.toString());
 
-  // Sync config inputs if updated externally
+  // Sync config inputs if updated externally & default initial bankroll to latest final bankroll
   useEffect(() => {
     setEditingBankroll(config.initialBankroll.toString());
     setEditingGoal(config.dailyGoal.toString());
@@ -80,9 +99,10 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     setEditingSpinCost((config.defaultSpinCost || 37.50).toString());
     if (!editingSessionId) {
       setManualValRed((config.defaultSpinCost || 37.50).toString());
-      setManualInitialBankroll(config.initialBankroll.toString());
+      const latestBank = dailySessions.length > 0 ? dailySessions[0].finalBankroll : config.initialBankroll;
+      setManualInitialBankroll(latestBank.toString());
     }
-  }, [config.initialBankroll, config.dailyGoal, config.stopLossLimit, config.defaultSpinCost, editingSessionId]);
+  }, [config.initialBankroll, config.dailyGoal, config.stopLossLimit, config.defaultSpinCost, editingSessionId, dailySessions]);
 
   useEffect(() => {
     if (!editingSessionId) {
@@ -90,11 +110,11 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     }
   }, [strategy?.customWinReturn, editingSessionId]);
 
-  // State for NEW Manual Daily Entry by Greens and Reds
+  // State for NEW Manual Daily Entry by Greens and Reds (Default strictly to 0)
   const getTodayISO = () => new Date().toISOString().split('T')[0];
   const [manualDate, setManualDate] = useState<string>(getTodayISO());
-  const [manualGreenCount, setManualGreenCount] = useState<number>(4);
-  const [manualRedCount, setManualRedCount] = useState<number>(2);
+  const [manualGreenCount, setManualGreenCount] = useState<number>(0);
+  const [manualRedCount, setManualRedCount] = useState<number>(0);
   const [manualNotes, setManualNotes] = useState<string>('');
 
   // Compound projections settings
@@ -124,9 +144,20 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const activeSpins = spins.filter((s) => s.giro > 100);
   const activeSpinsCount = activeSpins.length;
 
-  // Calculate Net Profit & Current Balance from active spins
-  const netProfit = spins.reduce((acc, s) => acc + s.netResult, 0);
+  // Calculate Net Profit & Current Balance from active spins and manual daily sessions
+  const spinsNetProfit = spins.reduce((acc, s) => acc + s.netResult, 0);
+  const manualNetProfit = dailySessions.reduce((acc, s) => acc + s.netProfit, 0);
+  const netProfit = spinsNetProfit + manualNetProfit;
   const currentBalance = config.initialBankroll + netProfit;
+
+  // Aggregate daily sessions profit by date for cumulative goal tracking
+  const dateProfitMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    dailySessions.forEach((s) => {
+      map[s.date] = (map[s.date] || 0) + s.netProfit;
+    });
+    return map;
+  }, [dailySessions]);
 
   // Calculate Total Wagered Amount in active spins
   const totalWagered = spins.reduce(
@@ -216,35 +247,40 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     e.preventDefault();
 
     const formattedDate = formatDateBR(manualDate);
-    const goalMet = calculatedNetResult >= config.dailyGoal;
-    const stopLossHit = calculatedNetResult <= -config.stopLossLimit;
+    // Calculate total net profit for this date combining existing entries on same date + current entry
+    const existingDateProfit = dailySessions
+      .filter((s) => s.date === formattedDate && s.id !== editingSessionId)
+      .reduce((acc, s) => acc + s.netProfit, 0);
+    const dateTotalNetResult = existingDateProfit + calculatedNetResult;
+
+    const goalMet = dateTotalNetResult >= config.dailyGoal;
+    const stopLossHit = dateTotalNetResult <= -config.stopLossLimit;
 
     if (editingSessionId) {
       // Update existing record
-      setDailySessions((prev) =>
-        prev.map((s) =>
-          s.id === editingSessionId
-            ? {
-                ...s,
-                date: formattedDate,
-                initialBankroll: parsedInitialBank,
-                finalBankroll: calculatedFinalBank,
-                netProfit: calculatedNetResult,
-                roiPct: calculatedRoiPct,
-                totalSpins: calculatedTotalEntries,
-                winCount: manualGreenCount,
-                lossCount: manualRedCount,
-                greenCount: manualGreenCount,
-                redCount: manualRedCount,
-                valuePerGreen: parsedValGreen,
-                valuePerRed: parsedValRed,
-                goalMet,
-                stopLossHit,
-                notes: manualNotes || s.notes || `Lançamento: ${manualGreenCount} Greens e ${manualRedCount} Reds.`,
-              }
-            : s
-        )
+      const updated = dailySessions.map((s) =>
+        s.id === editingSessionId
+          ? {
+              ...s,
+              date: formattedDate,
+              initialBankroll: parsedInitialBank,
+              finalBankroll: calculatedFinalBank,
+              netProfit: calculatedNetResult,
+              roiPct: calculatedRoiPct,
+              totalSpins: calculatedTotalEntries,
+              winCount: manualGreenCount,
+              lossCount: manualRedCount,
+              greenCount: manualGreenCount,
+              redCount: manualRedCount,
+              valuePerGreen: parsedValGreen,
+              valuePerRed: parsedValRed,
+              goalMet,
+              stopLossHit,
+              notes: manualNotes || s.notes || `Lançamento: ${manualGreenCount} Greens e ${manualRedCount} Reds.`,
+            }
+          : s
       );
+      updateSessions(updated);
       setEditingSessionId(null);
     } else {
       // Add new record
@@ -267,14 +303,16 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         notes: manualNotes || `Lançamento de ${manualGreenCount} Greens e ${manualRedCount} Reds.`,
       };
 
-      setDailySessions((prev) => [newRecord, ...prev]);
+      updateSessions([newRecord, ...dailySessions]);
     }
 
     setSaveSuccessMsg(true);
     setTimeout(() => setSaveSuccessMsg(false), 3000);
 
-    // Reset notes
+    // Reset notes and reset green/red counters to 0
     setManualNotes('');
+    setManualGreenCount(0);
+    setManualRedCount(0);
   };
 
   // Populate form for editing existing session
@@ -304,6 +342,8 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     setEditingSessionId(null);
     setManualNotes('');
     setManualDate(getTodayISO());
+    setManualGreenCount(0);
+    setManualRedCount(0);
     setManualValGreen((strategy?.customWinReturn || 90.0).toString());
     setManualValRed((config.defaultSpinCost || 37.50).toString());
     setManualInitialBankroll(config.initialBankroll.toString());
@@ -334,9 +374,9 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     if (existingIdx >= 0) {
       const updated = [...dailySessions];
       updated[existingIdx] = newRecord;
-      setDailySessions(updated);
+      updateSessions(updated);
     } else {
-      setDailySessions([newRecord, ...dailySessions]);
+      updateSessions([newRecord, ...dailySessions]);
     }
 
     setSaveSuccessMsg(true);
@@ -344,13 +384,12 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   };
 
   const handleDeleteSession = (id: string) => {
-    setDailySessions(dailySessions.filter((s) => s.id !== id));
+    updateSessions(dailySessions.filter((s) => s.id !== id));
   };
 
   // Reset ALL bankroll sessions and optionally clear table spins
   const handleResetAllSessions = () => {
-    setDailySessions([]);
-    localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify([]));
+    updateSessions([]);
     setManualGreenCount(0);
     setManualRedCount(0);
     setManualNotes('');
@@ -384,11 +423,13 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     return list;
   }, [config.initialBankroll, projectionDays, projectionDailyGoalPct]);
 
-  // Summary Metrics from Daily Saved Sessions
+  // Summary Metrics from Daily Saved Sessions (aggregated by distinct operational date)
   const totalManualProfit = dailySessions.reduce((acc, s) => acc + s.netProfit, 0);
-  const avgProfitPerDay = dailySessions.length > 0 ? totalManualProfit / dailySessions.length : 0;
-  const greenDaysCount = dailySessions.filter((s) => s.netProfit > 0).length;
-  const redDaysCount = dailySessions.filter((s) => s.netProfit < 0).length;
+  const uniqueDates = Object.keys(dateProfitMap);
+  const totalDaysCount = uniqueDates.length;
+  const avgProfitPerDay = totalDaysCount > 0 ? totalManualProfit / totalDaysCount : 0;
+  const greenDaysCount = uniqueDates.filter((d) => dateProfitMap[d] > 0).length;
+  const redDaysCount = uniqueDates.filter((d) => dateProfitMap[d] < 0).length;
 
   // Filtered Plays for Automatic Plays Section
   const filteredSpins = React.useMemo(() => {
@@ -720,41 +761,46 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 font-medium">
-                {dailySessions.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-200">{s.date}</td>
-                    <td className="py-3 px-4 text-slate-300">
-                      {config.currency} {s.initialBankroll.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-emerald-400 font-bold">{s.greenCount !== undefined ? s.greenCount : s.winCount} 🟢</span>
-                      {' / '}
-                      <span className="text-rose-400 font-bold">{s.redCount !== undefined ? s.redCount : (s.lossCount || 0)} 🔴</span>
-                    </td>
-                    <td className={`py-3 px-4 font-black ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {s.netProfit >= 0 ? '+' : ''}{config.currency} {s.netProfit.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-4 font-bold text-slate-100">
-                      {config.currency} {s.finalBankroll.toFixed(2)}
-                    </td>
-                    <td className={`py-3 px-4 font-bold ${s.roiPct >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
-                      {s.roiPct >= 0 ? '+' : ''}{s.roiPct.toFixed(1)}%
-                    </td>
-                    <td className="py-3 px-4">
-                      {s.goalMet ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                          Meta Batida 🎉
-                        </span>
-                      ) : s.stopLossHit ? (
-                        <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
-                          Stop Loss 🔴
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">
-                          {s.netProfit >= 0 ? 'Positivo' : 'Negativo'}
-                        </span>
-                      )}
-                    </td>
+                {dailySessions.map((s) => {
+                  const dayTotalProfit = dateProfitMap[s.date] ?? s.netProfit;
+                  const isDayGoalMet = dayTotalProfit >= config.dailyGoal;
+                  const isDayStopLossHit = dayTotalProfit <= -config.stopLossLimit;
+
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 font-bold text-slate-200">{s.date}</td>
+                      <td className="py-3 px-4 text-slate-300">
+                        {config.currency} {s.initialBankroll.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-emerald-400 font-bold">{s.greenCount !== undefined ? s.greenCount : s.winCount} 🟢</span>
+                        {' / '}
+                        <span className="text-rose-400 font-bold">{s.redCount !== undefined ? s.redCount : (s.lossCount || 0)} 🔴</span>
+                      </td>
+                      <td className={`py-3 px-4 font-black ${s.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {s.netProfit >= 0 ? '+' : ''}{config.currency} {s.netProfit.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-4 font-bold text-slate-100">
+                        {config.currency} {s.finalBankroll.toFixed(2)}
+                      </td>
+                      <td className={`py-3 px-4 font-bold ${s.roiPct >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
+                        {s.roiPct >= 0 ? '+' : ''}{s.roiPct.toFixed(1)}%
+                      </td>
+                      <td className="py-3 px-4">
+                        {isDayGoalMet ? (
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                            Meta Batida 🎉
+                          </span>
+                        ) : isDayStopLossHit ? (
+                          <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
+                            Stop Loss 🔴
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">
+                            {s.netProfit >= 0 ? 'Positivo' : 'Negativo'}
+                          </span>
+                        )}
+                      </td>
                     <td className="py-3 px-4 text-slate-400 text-[11px] max-w-[180px] truncate" title={s.notes}>
                       {s.notes || '-'}
                     </td>
@@ -777,7 +823,8 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

@@ -21,6 +21,7 @@ import {
   BankrollConfig,
   StrategyConfig,
   SpinRecord,
+  DailySessionRecord,
 } from './types';
 
 export type DashboardBlockId =
@@ -142,6 +143,24 @@ export default function App() {
     return saved ? JSON.parse(saved) : DEMO_SPINS;
   });
 
+  const [dailySessions, setDailySessions] = useState<DailySessionRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('roleta_master_daily_sessions_v1');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('roleta_master_daily_sessions_v1', JSON.stringify(dailySessions));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [dailySessions]);
+
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
@@ -261,10 +280,11 @@ export default function App() {
   const realBettingSpins = spins.filter((s) => s.giro > 100);
   const totalBettingSpins = realBettingSpins.length;
 
-  const currentBalance =
-    spins.length > 0 ? spins[spins.length - 1].accumulatedBalance : config.initialBankroll;
+  const spinsNetProfit = spins.reduce((acc, s) => acc + s.netResult, 0);
+  const manualNetProfit = dailySessions.reduce((acc, s) => acc + s.netProfit, 0);
+  const netProfit = spinsNetProfit + manualNetProfit;
+  const currentBalance = config.initialBankroll + netProfit;
 
-  const netProfit = currentBalance - config.initialBankroll;
   const profitMarginPct = config.initialBankroll > 0 ? (netProfit / config.initialBankroll) * 100 : 0;
 
   const totalWagered = realBettingSpins.reduce((acc, s) => acc + s.lossAmount, 0);
@@ -274,15 +294,27 @@ export default function App() {
   const winningSpins = realBettingSpins.filter((s) => s.netResult > 0).length;
   const winRatePct = totalBettingSpins > 0 ? (winningSpins / totalBettingSpins) * 100 : 0;
 
-  // Header Green & Red counts and Sequences (Real betting spins only, after 100-spin warmup)
+  // Header Green & Red counts and Sequences (Real betting spins + Manual daily sessions)
   const alertOutcomes: boolean[] = [];
   realBettingSpins.forEach((s) => {
     if (s.netResult > 0) alertOutcomes.push(true);
     else if (s.netResult < 0) alertOutcomes.push(false);
   });
 
-  const greenCount = alertOutcomes.filter((o) => o).length;
-  const redCount = alertOutcomes.filter((o) => !o).length;
+  const spinsGreenCount = alertOutcomes.filter((o) => o).length;
+  const spinsRedCount = alertOutcomes.filter((o) => !o).length;
+
+  const manualGreenCountTotal = dailySessions.reduce(
+    (acc, s) => acc + (s.greenCount !== undefined ? s.greenCount : (s.winCount || 0)),
+    0
+  );
+  const manualRedCountTotal = dailySessions.reduce(
+    (acc, s) => acc + (s.redCount !== undefined ? s.redCount : (s.lossCount || 0)),
+    0
+  );
+
+  const greenCount = spinsGreenCount + manualGreenCountTotal;
+  const redCount = spinsRedCount + manualRedCountTotal;
 
   let currentStreak: { type: 'GREEN' | 'RED' | 'NONE'; count: number } = { type: 'NONE', count: 0 };
   let maxGreenStreak = 0;
@@ -947,6 +979,8 @@ export default function App() {
             config={config}
             spins={spins}
             strategy={strategy}
+            dailySessions={dailySessions}
+            onUpdateDailySessions={setDailySessions}
             onUpdateConfig={(upd) => setConfig(upd)}
             onDeleteSpin={handleDeleteSpin}
             onClearAllSpins={handleClearAllSpins}
