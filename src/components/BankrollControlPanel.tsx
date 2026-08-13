@@ -144,11 +144,11 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const activeSpins = spins.filter((s) => s.giro > 100);
   const activeSpinsCount = activeSpins.length;
 
-  // Calculate Net Profit & Current Balance from active spins and manual daily sessions
-  const spinsNetProfit = spins.reduce((acc, s) => acc + s.netResult, 0);
-  const manualNetProfit = dailySessions.reduce((acc, s) => acc + s.netProfit, 0);
-  const netProfit = spinsNetProfit + manualNetProfit;
-  const currentBalance = config.initialBankroll + netProfit;
+  // Calculate Net Profit & Current Balance
+  const activeSpinsNetProfit = activeSpins.reduce((acc, s) => acc + s.netResult, 0);
+  const baseBankroll = dailySessions.length > 0 ? dailySessions[0].finalBankroll : config.initialBankroll;
+  const currentBalance = baseBankroll + activeSpinsNetProfit;
+  const netProfit = currentBalance - config.initialBankroll;
 
   // Aggregate daily sessions profit by date for cumulative goal tracking
   const dateProfitMap = React.useMemo(() => {

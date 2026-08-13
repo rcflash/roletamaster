@@ -280,10 +280,10 @@ export default function App() {
   const realBettingSpins = spins.filter((s) => s.giro > 100);
   const totalBettingSpins = realBettingSpins.length;
 
-  const spinsNetProfit = spins.reduce((acc, s) => acc + s.netResult, 0);
-  const manualNetProfit = dailySessions.reduce((acc, s) => acc + s.netProfit, 0);
-  const netProfit = spinsNetProfit + manualNetProfit;
-  const currentBalance = config.initialBankroll + netProfit;
+  const realBettingSpinsNetProfit = realBettingSpins.reduce((acc, s) => acc + s.netResult, 0);
+  const baseBankroll = dailySessions.length > 0 ? dailySessions[0].finalBankroll : config.initialBankroll;
+  const currentBalance = baseBankroll + realBettingSpinsNetProfit;
+  const netProfit = currentBalance - config.initialBankroll;
 
   const profitMarginPct = config.initialBankroll > 0 ? (netProfit / config.initialBankroll) * 100 : 0;
 
