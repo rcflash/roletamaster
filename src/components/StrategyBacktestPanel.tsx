@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig } from '../types';
 import { calculateNeighborsAlert, EUROPEAN_WHEEL_ORDER } from '../lib/roulette';
+import { calculateCamouflagedAlert, evaluateCamouflagedPayout, HORSE_FAMILIES_DATA } from '../lib/camouflagedStrategy';
 import { generateStrategyPDF } from '../utils/pdfStrategyGenerator';
 
 interface StrategyBacktestPanelProps {
@@ -1625,7 +1626,110 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
       };
     };
 
+    // --- 15. STRATEGY: NÚMEROS CAMUFLADOS & CAVALOS (BASTIÃO OFICIAL) ---
+    const runCamouflagedNumbers = (): BacktestResult => {
+      let balance = initialBankroll;
+      let winCount = 0;
+      let lossCount = 0;
+      let currWins = 0, maxWins = 0;
+      let currLoss = 0, maxLoss = 0;
+      let peak = initialBankroll;
+      let maxDD = 0;
+      let totalWagered = 0;
+      let post100WinCount = 0;
+      let post100LossCount = 0;
+      let post100Profit = 0;
+      let post100EvaluatedSpins = 0;
+      const history = [{ spinIndex: 0, balance: initialBankroll }];
+
+      sortedSpins.forEach((spin, idx) => {
+        const spinIndex = idx + 1;
+        if (idx < 2) {
+          history.push({ spinIndex, balance });
+          return;
+        }
+
+        const historySlice = sortedSpins.slice(0, idx);
+        const alert = calculateCamouflagedAlert(historySlice, 'smart', 2.50);
+
+        if (!alert || !alert.hasAlert) {
+          history.push({ spinIndex, balance });
+          return;
+        }
+
+        const chipVal = 2.50;
+        const payout = evaluateCamouflagedPayout(spin.numero, alert.betNumbers, chipVal, 36);
+        totalWagered += payout.lossAmount;
+        balance += payout.netResult;
+
+        if (payout.isWin) {
+          winCount++;
+          currWins++;
+          currLoss = 0;
+          if (currWins > maxWins) maxWins = currWins;
+          if (spinIndex > 100) {
+            post100WinCount++;
+            post100Profit += payout.netResult;
+            post100EvaluatedSpins++;
+          }
+        } else {
+          lossCount++;
+          currLoss++;
+          currWins = 0;
+          if (currLoss > maxLoss) maxLoss = currLoss;
+          if (spinIndex > 100) {
+            post100LossCount++;
+            post100Profit += payout.netResult;
+            post100EvaluatedSpins++;
+          }
+        }
+
+        if (balance > peak) peak = balance;
+        const dd = peak - balance;
+        if (dd > maxDD) maxDD = dd;
+
+        history.push({ spinIndex, balance });
+      });
+
+      const netProfit = balance - initialBankroll;
+      const evaluatedSpins = winCount + lossCount;
+
+      return {
+        id: 'camouflaged_numbers',
+        name: 'Números Camuflados & Cavalos (Bastião Oficial)',
+        category: 'Terminais & Padrões',
+        authorOrigin: 'Bastião Oficial - A Fortaleza da Leitura (Soma de Dígitos & Padrão de Mesa)',
+        description: 'Leitura avançada por soma dos dígitos (ex: 11 = 1+1=2 ➔ camufla Terminal 2) combinada com Famílias de Cavalos (1-4-7, 2-5-8 e 0-3-6-9) para antecipar puxadas de mesa com pagamentos diretos de 36x.',
+        coveragePct: 48.6,
+        riskLevel: 'Médio',
+        initialBalance: initialBankroll,
+        finalBalance: balance,
+        netProfit,
+        roiPct: totalWagered > 0 ? (netProfit / totalWagered) * 100 : 0,
+        winCount,
+        lossCount,
+        winRatePct: evaluatedSpins > 0 ? (winCount / evaluatedSpins) * 100 : 0,
+        post100WinCount,
+        post100LossCount,
+        post100Profit,
+        post100EvaluatedSpins,
+        maxConsecutiveWins: maxWins,
+        maxConsecutiveLosses: maxLoss,
+        maxDrawdown: maxDD,
+        historyChartData: history,
+        currentSeqType: currWins > 0 ? 'GREEN' : currLoss > 0 ? 'RED' : null,
+        currentSeqCount: currWins > 0 ? currWins : currLoss > 0 ? currLoss : 0,
+        howToApply: [
+          'Analise a soma dos dígitos do último número sorteado para revelar seu terminal camuflado (ex: #11 ➔ 1+1=2 ➔ Terminal 2).',
+          'Identifique a qual Família de Cavalo ele pertence: 1-4-7 (ex: 29-4-27), 2-5-8 (ex: 11-15-8) ou 0-3-6-9 (ex: 30-6-9).',
+          'Quando o Robô de Camuflados detectar momentum de família, cubra as casas recomendadas com fichas plenas.',
+          'Cada acerto direto na casa paga 36x o valor da ficha, garantindo lucro limpo e fechamento do ciclo!'
+        ]
+      };
+    };
+
     const results = [
+      runCamouflagedNumbers(),
       runEstrategiaSimples(),
       runDirtyDoneCheap(),
       runHopscotchProMax(),
