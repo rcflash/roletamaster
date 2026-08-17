@@ -34,13 +34,40 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 shadow-md flex flex-col justify-between h-full">
+    <div
+      className={`rounded-xl p-3 shadow-md flex flex-col justify-between h-full transition-all duration-300 ${
+        alertData?.hasAlert
+          ? 'bg-slate-900/95 border-2 border-amber-500/70 shadow-amber-500/10 shadow-lg ring-1 ring-amber-400/40'
+          : 'bg-slate-900/90 border border-slate-800'
+      }`}
+    >
       <div>
-        <div className="flex items-center justify-between mb-2 border-b border-indigo-500/20 pb-1.5 flex-wrap gap-1.5">
+        <div
+          className={`flex items-center justify-between mb-2 pb-1.5 flex-wrap gap-1.5 border-b transition-colors ${
+            alertData?.hasAlert ? 'border-amber-500/40' : 'border-indigo-500/20'
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <Compass className="w-5 h-5 text-amber-400" />
-            <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
-              ALERTA DE VIZINHOS DO CILINDRO
+            <Compass
+              className={`w-5 h-5 transition-transform ${
+                alertData?.hasAlert
+                  ? 'text-amber-400 animate-pulse scale-110 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]'
+                  : 'text-amber-400'
+              }`}
+            />
+            <h3
+              className={`text-sm tracking-wide uppercase transition-all ${
+                alertData?.hasAlert
+                  ? 'text-amber-300 font-black animate-pulse drop-shadow-[0_0_10px_rgba(251,191,36,0.8)] flex items-center gap-1.5'
+                  : 'text-slate-100 font-extrabold'
+              }`}
+            >
+              <span>ALERTA DE VIZINHOS DO CILINDRO</span>
+              {alertData?.hasAlert && (
+                <span className="text-[9px] font-black uppercase bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded shadow-sm">
+                  ENTRADA
+                </span>
+              )}
             </h3>
           </div>
 
