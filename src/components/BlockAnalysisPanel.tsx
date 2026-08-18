@@ -598,6 +598,41 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     };
   }, [allSpinsOutcomes]);
 
+  // Zero (0) Tracking Statistics
+  const zeroStats = useMemo(() => {
+    if (sortedSpins.length === 0) {
+      return {
+        spinsSinceZero: 0,
+        totalZeros: 0,
+        lastZeroGiro: null as number | null,
+        isOverdue: false,
+      };
+    }
+    let count = 0;
+    let found = false;
+    let lastGiro: number | null = null;
+    let total = 0;
+
+    for (let i = sortedSpins.length - 1; i >= 0; i--) {
+      if (sortedSpins[i].numero === 0) {
+        total++;
+        if (!found) {
+          found = true;
+          lastGiro = sortedSpins[i].giro;
+        }
+      } else if (!found) {
+        count++;
+      }
+    }
+
+    return {
+      spinsSinceZero: count,
+      totalZeros: total,
+      lastZeroGiro: lastGiro,
+      isOverdue: count >= 37,
+    };
+  }, [sortedSpins]);
+
   const totalNeighborNums = 2 * vizinhosCount + 1;
   const coveragePct = ((totalNeighborNums / 37) * 100).toFixed(1);
 
@@ -791,13 +826,22 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
       {/* Visual Block Timeline Grid (Visual Map of all blocks) */}
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 flex-wrap gap-1.5">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
             <h3 className="text-xs font-black uppercase text-slate-200 tracking-wider">
               Mapa Sequencial dos Blocos ({strategyTitles[selectedStrategy]})
             </h3>
             <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 text-[9px] font-bold border border-amber-500/20">
               {blockSortOrder === 'desc' ? 'Recentes Primeiro ⬇' : 'Antigos Primeiro ⬆'}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 shadow-xs ${
+              zeroStats.isOverdue
+                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 animate-pulse'
+                : 'bg-slate-950 text-emerald-400 border-slate-700'
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Zero (0): <strong className="font-mono">{zeroStats.spinsSinceZero} {zeroStats.spinsSinceZero === 1 ? 'giro' : 'giros'}</strong> sem sair
+              {zeroStats.isOverdue && <span className="text-amber-400 font-black ml-0.5">🔥 ATRASADO</span>}
             </span>
           </div>
           <span className="text-[10px] text-slate-400">
@@ -808,7 +852,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         {/* Detailed Green / Red Sequence & Streaks Summary for CURRENT BLOCK ONLY */}
         <div className="bg-slate-950/90 border border-slate-800/80 rounded-xl p-3 space-y-2.5 shadow-inner">
           {/* Row 1: Streaks & Total Summary Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
             {/* Sequência Atual */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sequência Atual Total</span>
@@ -857,6 +901,46 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 <span className="text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
                   🟥 Max {globalStreakStats.maxRedStreak}x
                 </span>
+              </div>
+            </div>
+
+            {/* Sem Sair o Zero (0) */}
+            <div className={`p-2.5 rounded-lg border flex flex-col justify-between transition-all ${
+              zeroStats.isOverdue
+                ? 'bg-emerald-950/30 border-emerald-500/50 shadow-sm'
+                : 'bg-slate-900 border-slate-800'
+            }`}>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                  Sem Sair o Zero (0)
+                </span>
+                <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[9px] font-black flex items-center justify-center shrink-0 shadow-xs">
+                  0
+                </span>
+              </div>
+              <div className="mt-1">
+                <div className="flex items-baseline gap-1 font-mono">
+                  <span className={`text-base font-black leading-none ${
+                    zeroStats.isOverdue
+                      ? 'text-emerald-400 animate-pulse'
+                      : zeroStats.spinsSinceZero >= 20
+                      ? 'text-amber-300'
+                      : 'text-slate-100'
+                  }`}>
+                    {zeroStats.spinsSinceZero}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold">
+                    {zeroStats.spinsSinceZero === 1 ? 'giro sem 0' : 'giros sem 0'}
+                  </span>
+                </div>
+                <div className="text-[9px] text-slate-500 mt-1 flex items-center justify-between font-mono">
+                  <span className="truncate">
+                    {zeroStats.lastZeroGiro !== null ? `Último: G#${zeroStats.lastZeroGiro}` : 'Nunca saiu'}
+                  </span>
+                  <span className="text-emerald-400 font-bold ml-1 shrink-0">
+                    {zeroStats.totalZeros}x total
+                  </span>
+                </div>
               </div>
             </div>
 

@@ -21,6 +21,18 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   const targetNum = lastSpin ? lastSpin.numero : 0;
   const currentNeighbors = getWheelNeighbors(targetNum, neighborRadius);
 
+  const spinsSinceZero = React.useMemo(() => {
+    if (spins.length === 0) return 0;
+    let count = 0;
+    for (let i = spins.length - 1; i >= 0; i--) {
+      if (spins[i].numero === 0) {
+        return count;
+      }
+      count++;
+    }
+    return count;
+  }, [spins]);
+
   const chipValue = strategy?.neighborChipValue || 2.5;
   const tableMult = strategy?.tablePayoutMultiplier || 36;
   const totalBet = currentNeighbors.length * chipValue;
@@ -91,11 +103,21 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
 
         {/* Target & Neighbor Wheel Map */}
         <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/80 mb-3">
-          <div className="flex items-center justify-between text-xs text-slate-300 font-bold mb-2">
-            <span className="flex items-center gap-1.5">
-              <Crosshair className="w-3.5 h-3.5 text-amber-400" />
-              Último Número: <span className="text-amber-400 font-extrabold text-sm">#{targetNum}</span>
-            </span>
+          <div className="flex items-center justify-between text-xs text-slate-300 font-bold mb-2 flex-wrap gap-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <Crosshair className="w-3.5 h-3.5 text-amber-400" />
+                Último Número: <span className="text-amber-400 font-extrabold text-sm">#{targetNum}</span>
+              </span>
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 ${
+                spinsSinceZero >= 37
+                  ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 animate-pulse'
+                  : 'bg-slate-900 text-emerald-400 border-slate-700/80'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Zero (0): <strong className="font-mono">{spinsSinceZero} {spinsSinceZero === 1 ? 'giro' : 'giros'}</strong> sem sair
+              </span>
+            </div>
             <span className="text-[10px] text-slate-400 font-semibold">
               {currentNeighbors.length} números ({neighborRadius} p/ cada lado)
             </span>
