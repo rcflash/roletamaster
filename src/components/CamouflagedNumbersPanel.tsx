@@ -146,7 +146,253 @@ export const CamouflagedNumbersPanel: React.FC<CamouflagedNumbersPanelProps> = (
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      {/* Header Banner com Título e Metodologia */}
+      {/* 1. TOPO: Leitura de Camuflados do Último Giro & Termômetro de Famílias de Cavalos */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Card Esquerdo: Leitura do Último Número & Alerta de Entrada */}
+        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-black">
+                <Crosshair className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">
+                  Leitura de Camuflados do Último Giro
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Decomposição do número sorteado em Terminais e Família de Cavalo
+                </p>
+              </div>
+            </div>
+
+            {alertInfo?.hasAlert ? (
+              <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 animate-pulse">
+                <Zap className="w-3.5 h-3.5" /> ENTRADA ATIVA!
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5">
+                <HelpCircle className="w-3.5 h-3.5" /> EM OBSERVAÇÃO
+              </span>
+            )}
+          </div>
+
+          {/* Informações Centrais do Último Número */}
+          <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-2xl shadow-lg border-2 ${
+                  getNumberColor(lastNum) === 'red'
+                    ? 'bg-rose-600 border-rose-400 text-white shadow-rose-600/30'
+                    : getNumberColor(lastNum) === 'green'
+                    ? 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-600/30'
+                    : 'bg-slate-950 border-slate-600 text-white shadow-slate-950/50'
+                }`}
+              >
+                <span>{lastNum}</span>
+                <span className="text-[9px] uppercase tracking-wider font-bold opacity-80">Último</span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-black text-slate-200">
+                  Terminal Puro: <span className="text-amber-400 text-sm font-black">Terminal {lastTerminal}</span>
+                </div>
+                <div className="text-xs text-slate-400">
+                  Soma dos dígitos: <strong className="text-slate-200">{lastNum < 10 ? lastNum : `${Math.floor(lastNum/10)} + ${lastNum%10} = ${lastNum < 10 ? lastNum : Math.floor(lastNum/10) + (lastNum%10)}`}</strong>
+                </div>
+                <div className="text-xs text-slate-400">
+                  Camuflagens diretas:{' '}
+                  <span className="text-amber-300 font-bold">
+                    [{lastRepresented.map((t) => `T${t}`).join(', ')}]
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center sm:text-right w-full sm:w-auto">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Família de Cavalo</span>
+              <span className="text-base font-black text-amber-400 block">{HORSE_FAMILIES_DATA[lastFamily].name}</span>
+              <span className="text-[11px] text-slate-300 font-medium">Terminais [{HORSE_FAMILIES_DATA[lastFamily].terminals.join(', ')}]</span>
+            </div>
+          </div>
+
+          {/* Caixa de Recomendação de Entrada */}
+          <div
+            className={`rounded-xl p-4 border transition-all ${
+              alertInfo?.hasAlert
+                ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-100'
+                : 'bg-slate-950/60 border-slate-800 text-slate-300'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`p-2 rounded-xl shrink-0 ${
+                  alertInfo?.hasAlert ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                {alertInfo?.hasAlert ? <Zap className="w-5 h-5" /> : <Info className="w-5 h-5" />}
+              </div>
+
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-300">
+                    {alertInfo?.hasAlert ? '🚨 RECOMENDAÇÃO DE ENTRADA ATIVA' : '⏳ STATUS OPERACIONAL'}
+                  </h4>
+                  {alertInfo && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300">
+                      Assertividade Estimada: {alertInfo.confidencePct}%
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs font-bold leading-relaxed">
+                  {alertInfo?.reason || 'Aguardando giros adicionais para detecção de padrão de cavalos.'}
+                </p>
+
+                {/* Números da Aposta */}
+                {alertInfo && (
+                  <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                    <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                      <span>Casas a Cobrir ({alertInfo.betNumbersCount} números):</span>
+                      <span className="text-amber-400 font-mono">
+                        Custo: R$ {alertInfo.estimatedCost.toFixed(2)} (R$ {chipValue.toFixed(2)} / casa)
+                      </span>
+                    </div>
+
+                    {/* Grid de Números a Apostar */}
+                    <div className="flex flex-wrap gap-1.5 py-1">
+                      {alertInfo.betNumbers.map((num) => {
+                        const c = getNumberColor(num);
+                        let bg = 'bg-slate-950 border-slate-700 text-white';
+                        if (c === 'red') bg = 'bg-rose-600/90 border-rose-500 text-white';
+                        else if (c === 'green') bg = 'bg-emerald-600 border-emerald-400 text-white';
+                        return (
+                          <div
+                            key={num}
+                            className={`px-2 py-1 rounded-lg text-xs font-black border shadow-xs flex items-center justify-center min-w-[32px] ${bg} ${
+                              num === lastNum ? 'ring-2 ring-amber-400 scale-105' : ''
+                            }`}
+                            title={`Número ${num} (Terminal ${getTerminalOfNumber(num)})`}
+                          >
+                            {num}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Retorno e Lucro Projetado */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px]">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Retorno no Acerto:</span>
+                        <span className="font-black text-slate-100">
+                          {config.currency} {alertInfo.expectedGrossReturn.toFixed(2)} (36x)
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Lucro Líquido:</span>
+                        <span className="font-black text-emerald-400">
+                          +{config.currency} {alertInfo.expectedNetProfit.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <span className="text-slate-400 block text-[10px]">Família do Alvo:</span>
+                        <span className="font-black text-amber-300">{alertInfo.activeFamily}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card Direito: Termômetro das 3 Famílias de Cavalos */}
+        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4 flex flex-col justify-between">
+          <div className="border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-black">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">
+                  Termômetro de Famílias de Cavalos
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Distribuição de frequência nos últimos {recentSpins30.length} giros
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* As 3 Barras das Famílias */}
+          <div className="space-y-3">
+            {(['1-4-7', '2-5-8', '0-3-6-9'] as const).map((famId) => {
+              const fam = HORSE_FAMILIES_DATA[famId];
+              const count = familyCounts[famId];
+              const total = recentSpins30.length || 1;
+              const pct = Math.round((count / total) * 100);
+              const isCurrent = lastFamily === famId;
+
+              return (
+                <div
+                  key={famId}
+                  className={`p-3 rounded-xl border transition-all ${
+                    isCurrent
+                      ? 'bg-amber-950/20 border-amber-500/40 shadow-md'
+                      : 'bg-slate-950/60 border-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-xs text-slate-200">{fam.name}</span>
+                      {isCurrent && (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-amber-500 text-slate-950">
+                          ATIVA 🔥
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs font-mono font-bold text-amber-400">
+                      {count} hits ({pct}%)
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        pct >= 40
+                          ? 'bg-gradient-to-r from-amber-500 to-emerald-400'
+                          : pct >= 25
+                          ? 'bg-gradient-to-r from-indigo-500 to-amber-400'
+                          : 'bg-slate-600'
+                      }`}
+                      style={{ width: `${Math.min(100, pct)}%` }}
+                    />
+                  </div>
+
+                  {/* Exemplo e Terminais */}
+                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                    <span>Terminais: [{fam.terminals.join(', ')}]</span>
+                    <span className="italic text-slate-500">Ex: {fam.examples[0]}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Dica da Imagem Oficial */}
+          <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 text-[11px] text-slate-300 space-y-1">
+            <div className="font-bold text-amber-400 flex items-center gap-1">
+              <Info className="w-3.5 h-3.5" /> Padrão de Mesa (Cavalos):
+            </div>
+            <p className="text-slate-400 text-[10px] leading-tight">
+              São jogadas onde são marcados todos os números com o mesmo dígito final ou soma de dígitos correlata, 
+              fechando ciclos de rotação e repetição camuflada.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. BLOCO NOVO MÓDULO OFICIAL: Metodologia, Ficha, Modo & Sub-navegação */}
       <div className="bg-gradient-to-r from-slate-900 via-amber-950/40 to-slate-900 border border-amber-500/30 rounded-2xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         
@@ -258,7 +504,7 @@ export const CamouflagedNumbersPanel: React.FC<CamouflagedNumbersPanelProps> = (
         </div>
       </div>
 
-      {/* KPI Cards de Desempenho Rápido */}
+      {/* 3. KPI Cards de Desempenho Rápido */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 shadow-md">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Greens 🟢</span>
@@ -311,254 +557,9 @@ export const CamouflagedNumbersPanel: React.FC<CamouflagedNumbersPanelProps> = (
         </div>
       </div>
 
-      {/* VIEW 1: RADAR EM TEMPO REAL & ALERTAS */}
+      {/* VIEW 1: RADAR EM TEMPO REAL & HISTÓRICO DE GIROS */}
       {activeSubTab === 'radar' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Card Esquerdo: Leitura do Último Número & Alerta Ativo */}
-            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-black">
-                    <Crosshair className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">
-                      Leitura de Camuflados do Último Giro
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Decomposição do número sorteado em Terminais e Família de Cavalo
-                    </p>
-                  </div>
-                </div>
-
-                {alertInfo?.hasAlert ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 animate-pulse">
-                    <Zap className="w-3.5 h-3.5" /> ENTRADA ATIVA!
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5">
-                    <HelpCircle className="w-3.5 h-3.5" /> EM OBSERVAÇÃO
-                  </span>
-                )}
-              </div>
-
-              {/* Informações Centrais do Último Número */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-2xl shadow-lg border-2 ${
-                      getNumberColor(lastNum) === 'red'
-                        ? 'bg-rose-600 border-rose-400 text-white shadow-rose-600/30'
-                        : getNumberColor(lastNum) === 'green'
-                        ? 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-600/30'
-                        : 'bg-slate-950 border-slate-600 text-white shadow-slate-950/50'
-                    }`}
-                  >
-                    <span>{lastNum}</span>
-                    <span className="text-[9px] uppercase tracking-wider font-bold opacity-80">Último</span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-xs font-black text-slate-200">
-                      Terminal Puro: <span className="text-amber-400 text-sm font-black">Terminal {lastTerminal}</span>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Soma dos dígitos: <strong className="text-slate-200">{lastNum < 10 ? lastNum : `${Math.floor(lastNum/10)} + ${lastNum%10} = ${lastNum < 10 ? lastNum : Math.floor(lastNum/10) + (lastNum%10)}`}</strong>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Camuflagens diretas:{' '}
-                      <span className="text-amber-300 font-bold">
-                        [{lastRepresented.map((t) => `T${t}`).join(', ')}]
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center sm:text-right w-full sm:w-auto">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Família de Cavalo</span>
-                  <span className="text-base font-black text-amber-400 block">{HORSE_FAMILIES_DATA[lastFamily].name}</span>
-                  <span className="text-[11px] text-slate-300 font-medium">Terminais [{HORSE_FAMILIES_DATA[lastFamily].terminals.join(', ')}]</span>
-                </div>
-              </div>
-
-              {/* Caixa de Recomendação de Entrada */}
-              <div
-                className={`rounded-xl p-4 border transition-all ${
-                  alertInfo?.hasAlert
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-100'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`p-2 rounded-xl shrink-0 ${
-                      alertInfo?.hasAlert ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {alertInfo?.hasAlert ? <Zap className="w-5 h-5" /> : <Info className="w-5 h-5" />}
-                  </div>
-
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center justify-between flex-wrap gap-1">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-amber-300">
-                        {alertInfo?.hasAlert ? '🚨 RECOMENDAÇÃO DE ENTRADA ATIVA' : '⏳ STATUS OPERACIONAL'}
-                      </h4>
-                      {alertInfo && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300">
-                          Assertividade Estimada: {alertInfo.confidencePct}%
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-xs font-bold leading-relaxed">
-                      {alertInfo?.reason || 'Aguardando giros adicionais para detecção de padrão de cavalos.'}
-                    </p>
-
-                    {/* Números da Aposta */}
-                    {alertInfo && (
-                      <div className="pt-2 border-t border-slate-800/80 space-y-2">
-                        <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
-                          <span>Casas a Cobrir ({alertInfo.betNumbersCount} números):</span>
-                          <span className="text-amber-400 font-mono">
-                            Custo: R$ {alertInfo.estimatedCost.toFixed(2)} (R$ {chipValue.toFixed(2)} / casa)
-                          </span>
-                        </div>
-
-                        {/* Grid de Números a Apostar */}
-                        <div className="flex flex-wrap gap-1.5 py-1">
-                          {alertInfo.betNumbers.map((num) => {
-                            const c = getNumberColor(num);
-                            let bg = 'bg-slate-950 border-slate-700 text-white';
-                            if (c === 'red') bg = 'bg-rose-600/90 border-rose-500 text-white';
-                            else if (c === 'green') bg = 'bg-emerald-600 border-emerald-400 text-white';
-                            return (
-                              <div
-                                key={num}
-                                className={`px-2 py-1 rounded-lg text-xs font-black border shadow-xs flex items-center justify-center min-w-[32px] ${bg} ${
-                                  num === lastNum ? 'ring-2 ring-amber-400 scale-105' : ''
-                                }`}
-                                title={`Número ${num} (Terminal ${getTerminalOfNumber(num)})`}
-                              >
-                                {num}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Retorno e Lucro Projetado */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px]">
-                          <div>
-                            <span className="text-slate-400 block text-[10px]">Retorno no Acerto:</span>
-                            <span className="font-black text-slate-100">
-                              {config.currency} {alertInfo.expectedGrossReturn.toFixed(2)} (36x)
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 block text-[10px]">Lucro Líquido:</span>
-                            <span className="font-black text-emerald-400">
-                              +{config.currency} {alertInfo.expectedNetProfit.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                            <span className="text-slate-400 block text-[10px]">Família do Alvo:</span>
-                            <span className="font-black text-amber-300">{alertInfo.activeFamily}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Direito: Termômetro das 3 Famílias de Cavalos */}
-            <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4 flex flex-col justify-between">
-              <div className="border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-black">
-                    <Layers className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">
-                      Termômetro de Famílias de Cavalos
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Distribuição de frequência nos últimos {recentSpins30.length} giros
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* As 3 Barras das Famílias */}
-              <div className="space-y-3">
-                {(['1-4-7', '2-5-8', '0-3-6-9'] as const).map((famId) => {
-                  const fam = HORSE_FAMILIES_DATA[famId];
-                  const count = familyCounts[famId];
-                  const total = recentSpins30.length || 1;
-                  const pct = Math.round((count / total) * 100);
-                  const isCurrent = lastFamily === famId;
-
-                  return (
-                    <div
-                      key={famId}
-                      className={`p-3 rounded-xl border transition-all ${
-                        isCurrent
-                          ? 'bg-amber-950/20 border-amber-500/40 shadow-md'
-                          : 'bg-slate-950/60 border-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-xs text-slate-200">{fam.name}</span>
-                          {isCurrent && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-amber-500 text-slate-950">
-                              ATIVA 🔥
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs font-mono font-bold text-amber-400">
-                          {count} hits ({pct}%)
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-2">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            pct >= 40
-                              ? 'bg-gradient-to-r from-amber-500 to-emerald-400'
-                              : pct >= 25
-                              ? 'bg-gradient-to-r from-indigo-500 to-amber-400'
-                              : 'bg-slate-600'
-                          }`}
-                          style={{ width: `${Math.min(100, pct)}%` }}
-                        />
-                      </div>
-
-                      {/* Exemplo e Terminais */}
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Terminais: [{fam.terminals.join(', ')}]</span>
-                        <span className="italic text-slate-500">Ex: {fam.examples[0]}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Dica da Imagem Oficial */}
-              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 text-[11px] text-slate-300 space-y-1">
-                <div className="font-bold text-amber-400 flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5" /> Padrão de Mesa (Cavalos):
-                </div>
-                <p className="text-slate-400 text-[10px] leading-tight">
-                  São jogadas onde são marcados todos os números com o mesmo dígito final ou soma de dígitos correlata, 
-                  fechando ciclos de rotação e repetição camuflada.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Sequência Recente de Giros & Placar de Greens/Reds */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-wrap gap-2">
