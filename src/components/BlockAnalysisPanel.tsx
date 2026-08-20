@@ -31,8 +31,9 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
-import { getNumberColor, getNumberDozen, calculateZeroStats } from '../lib/roulette';
+import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert } from '../lib/roulette';
 import { WheelNeighborsAlertCard } from './WheelNeighborsAlertCard';
+import { ZeroMonitorBlock } from './ZeroMonitorBlock';
 
 interface BlockAnalysisPanelProps {
   spins: SpinRecord[];
@@ -110,12 +111,6 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   const [blockSortOrder, setBlockSortOrder] = useState<'desc' | 'asc'>('desc'); // Default 'desc': newest blocks first (#52 -> #1)
   const [expandedBlockId, setExpandedBlockId] = useState<number | null>(null); // Expand latest block by default
   const [targetGainUnits, setTargetGainUnits] = useState<number>(2.0);
-
-  // Manual Zero Delay & History configuration modal state
-  const [isZeroModalOpen, setIsZeroModalOpen] = useState<boolean>(false);
-  const [tempInitialDelay, setTempInitialDelay] = useState<number>(strategy?.initialZeroDelay ?? 0);
-  const [tempManualHist1, setTempManualHist1] = useState<string | number>(strategy?.manualZeroHistory?.[0] ?? '');
-  const [tempManualHist2, setTempManualHist2] = useState<string | number>(strategy?.manualZeroHistory?.[1] ?? '');
 
   const unitBet = config.defaultSpinCost || 37.50;
   const currency = config.currency || 'R$';
@@ -618,6 +613,12 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     );
   }, [sortedSpins, strategy?.initialZeroDelay, strategy?.manualZeroHistory]);
 
+  // Wheel Neighbors Alert calculation
+  const wheelAlert = useMemo(() => {
+    const radius = selectedStrategy === 'wheelNeighbors' ? vizinhosCount : (strategy?.neighborRadius || 2);
+    return calculateNeighborsAlert(sortedSpins, radius);
+  }, [sortedSpins, selectedStrategy, vizinhosCount, strategy?.neighborRadius]);
+
   const totalNeighborNums = 2 * vizinhosCount + 1;
   const coveragePct = ((totalNeighborNums / 37) * 100).toFixed(1);
 
@@ -738,13 +739,19 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 <Clock className="w-3.5 h-3.5 text-amber-400" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider">
                     Bloco #{activeBlock.blockNumber} Em Andamento
                   </span>
                   <span className="px-3 py-1 rounded-xl bg-amber-500/30 border border-amber-400/50 text-amber-300 text-sm sm:text-lg font-black tracking-wide shadow-md font-mono">
                     Giro {activeBlock.spins.length} / {blockSize}
                   </span>
+                  {wheelAlert?.hasAlert && (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide border-2 border-amber-300 shadow-lg animate-pulse drop-shadow-[0_0_12px_rgba(251,191,36,0.9)] flex items-center gap-1.5 shrink-0">
+                      <Flame className="w-4 h-4 fill-slate-950 text-slate-950" />
+                      ALERTA DE ENTRADA
+                    </span>
+                  )}
                 </div>
                 <p className="text-[10px] text-slate-300">
                   Faltam <strong>{blockSize - activeBlock.spins.length} giros</strong> para concluir o ciclo e dar reset.
@@ -808,6 +815,20 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         </div>
       )}
 
+      {/* Alerta de Vizinhos do Cilindro */}
+      <WheelNeighborsAlertCard
+        spins={spins}
+        strategy={strategy}
+        onUpdateStrategy={onUpdateStrategy}
+      />
+
+      {/* Standalone Dedicated Block for Number Zero (0) Monitoring & Delay (Abaixo de Alerta de Vizinhos do Cilindro) */}
+      <ZeroMonitorBlock
+        spins={spins}
+        strategy={strategy}
+        onUpdateStrategy={onUpdateStrategy}
+      />
+
       {/* Visual Block Timeline Grid (Visual Map of all blocks) */}
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 flex-wrap gap-1.5">
@@ -819,20 +840,6 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 text-[9px] font-bold border border-amber-500/20">
               {blockSortOrder === 'desc' ? 'Recentes Primeiro ⬇' : 'Antigos Primeiro ⬆'}
             </span>
-            <span className={`px-2 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 shadow-xs ${
-              zeroStats.isOverdue
-                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 animate-pulse'
-                : 'bg-slate-950 text-emerald-400 border-slate-700'
-            }`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              Zero (0): <strong className="font-mono">{zeroStats.spinsSinceZero} {zeroStats.spinsSinceZero === 1 ? 'giro' : 'giros'}</strong> s/ sair
-              {zeroStats.initialZeroDelay > 0 && (
-                <span className="text-amber-400/90 font-mono text-[8px] bg-amber-500/10 px-1 rounded border border-amber-500/20">
-                  +{zeroStats.initialZeroDelay} inicial
-                </span>
-              )}
-              {zeroStats.isOverdue && <span className="text-amber-400 font-black ml-0.5">🔥 ATRASADO</span>}
-            </span>
           </div>
           <span className="text-[10px] text-slate-400">
             Clique no bloco para expandir os detalhes dos {blockSize} giros
@@ -841,8 +848,8 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
         {/* Detailed Green / Red Sequence & Streaks Summary for CURRENT BLOCK ONLY */}
         <div className="bg-slate-950/90 border border-slate-800/80 rounded-xl p-3 space-y-2.5 shadow-inner">
-          {/* Row 1: Streaks & Total Summary Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+          {/* Row 1: Streaks & Total Summary Badges (5 Cards Grid) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
             {/* Sequência Atual */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sequência Atual Total</span>
@@ -891,92 +898,6 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 <span className="text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
                   🟥 Max {globalStreakStats.maxRedStreak}x
                 </span>
-              </div>
-            </div>
-
-            {/* Sem Sair o Zero (0) - Com ajuste manual de atraso e histórico das últimas 2 saídas */}
-            <div className={`p-2.5 rounded-lg border flex flex-col justify-between transition-all relative ${
-              zeroStats.isOverdue
-                ? 'bg-emerald-950/40 border-emerald-500/60 shadow-md ring-1 ring-emerald-500/30'
-                : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-            }`}>
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex items-center gap-1 min-w-0">
-                  <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[9px] font-black flex items-center justify-center shrink-0 shadow-xs">
-                    0
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
-                    Sem Sair Zero (0)
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setTempInitialDelay(strategy?.initialZeroDelay ?? 0);
-                    setTempManualHist1(strategy?.manualZeroHistory?.[0] ?? '');
-                    setTempManualHist2(strategy?.manualZeroHistory?.[1] ?? '');
-                    setIsZeroModalOpen(true);
-                  }}
-                  className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[9px] font-black flex items-center gap-0.5 transition-all border border-slate-700 hover:border-amber-400 shrink-0"
-                  title="Ajustar atraso inicial manual e histórico do zero"
-                >
-                  <Edit3 className="w-2.5 h-2.5" />
-                  <span>Ajustar</span>
-                </button>
-              </div>
-
-              <div className="mt-1">
-                <div className="flex items-baseline gap-1 font-mono">
-                  <span className={`text-base font-black leading-none ${
-                    zeroStats.isOverdue
-                      ? 'text-emerald-400 animate-pulse'
-                      : zeroStats.spinsSinceZero >= 20
-                      ? 'text-amber-300'
-                      : 'text-slate-100'
-                  }`}>
-                    {zeroStats.spinsSinceZero}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-semibold">
-                    {zeroStats.spinsSinceZero === 1 ? 'giro sem 0' : 'giros sem 0'}
-                  </span>
-                </div>
-
-                <div className="text-[9px] text-slate-400 mt-0.5 flex items-center justify-between font-mono">
-                  <span className="truncate" title={zeroStats.compositionText}>
-                    {zeroStats.compositionText}
-                  </span>
-                  <span className="text-emerald-400 font-bold ml-1 shrink-0">
-                    {zeroStats.totalZeros}x sessão
-                  </span>
-                </div>
-
-                {/* Histórico das Últimas 2 Saídas do Zero */}
-                <div className="mt-1 pt-1 border-t border-slate-800/80 space-y-0.5">
-                  <div className="text-[8px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                    <span>Últimas 2 Saídas:</span>
-                    {zeroStats.initialZeroDelay > 0 && (
-                      <span className="text-amber-400/90 font-mono text-[8px]">Offset: +{zeroStats.initialZeroDelay}g</span>
-                    )}
-                  </div>
-                  {zeroStats.lastTwoZeroHits.length > 0 ? (
-                    <div className="space-y-0.5">
-                      {zeroStats.lastTwoZeroHits.slice(0, 2).map((hit) => (
-                        <div key={hit.id} className="text-[8.5px] font-mono flex items-center justify-between text-slate-300">
-                          <span className="text-slate-400 truncate flex items-center gap-1">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0"></span>
-                            {hit.label}:
-                          </span>
-                          <span className="text-emerald-300 font-bold shrink-0 ml-1">
-                            {hit.interval}g s/ 0
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[8.5px] text-slate-500 italic">
-                      Aguardando saída na sessão
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -1480,175 +1401,6 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
           })}
         </div>
       </div>
-
-      {/* Modal: Ajuste Manual do Atraso e Histórico do Zero (0) */}
-      {isZeroModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
-                  0
-                </span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">
-                    Configurar Atraso e Histórico do Zero
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Defina o atraso inicial antes de começar a lançar e o histórico anterior
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsZeroModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800 transition-colors"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs text-slate-300">
-              {/* Campo 1: Atraso Inicial Manual (Offset) */}
-              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block flex items-center justify-between">
-                  <span>Giros sem sair o zero antes da sessão (Atraso Inicial)</span>
-                  <span className="text-[10px] text-slate-500 lowercase font-normal">ex: 20 giros</span>
-                </label>
-                <p className="text-[11px] text-slate-400">
-                  Quando você zera a base e conta na mesa que o zero já estava sem sair há <strong>X rodadas</strong>, digite aqui. O sistema começará a contar a partir deste número somando os novos lançamentos.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setTempInitialDelay((prev) => Math.max(0, prev - 5))}
-                    className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 flex items-center gap-1"
-                  >
-                    <Minus className="w-3 h-3" /> 5
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTempInitialDelay((prev) => Math.max(0, prev - 1))}
-                    className="px-2 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 flex items-center gap-1"
-                  >
-                    <Minus className="w-3 h-3" /> 1
-                  </button>
-                  <input
-                    type="number"
-                    min="0"
-                    max="500"
-                    value={tempInitialDelay}
-                    onChange={(e) => setTempInitialDelay(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-center font-mono font-black text-amber-300 text-base focus:border-amber-400 focus:outline-hidden"
-                    placeholder="0"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setTempInitialDelay((prev) => prev + 1)}
-                    className="px-2 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> 1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTempInitialDelay((prev) => prev + 5)}
-                    className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> 5
-                  </button>
-                </div>
-              </div>
-
-              {/* Campo 2: Histórico Manual das Últimas 2 Saídas do Zero */}
-              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
-                <label className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider block">
-                  Histórico Manual das 2 Últimas Saídas do Zero (Opcional)
-                </label>
-                <p className="text-[11px] text-slate-400">
-                  Preencha com quantos giros demorou para sair o zero nas 2 últimas vezes que você viu no histórico da mesa:
-                </p>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-bold block mb-1">Última saída (1ª vez):</span>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Ex: 18"
-                        value={tempManualHist1}
-                        onChange={(e) => setTempManualHist1(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-center font-mono font-bold text-slate-100 text-sm focus:border-emerald-400 focus:outline-hidden"
-                      />
-                      <span className="absolute right-2 top-2 text-[10px] text-slate-500 font-mono">giros</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-bold block mb-1">Penúltima saída (2ª vez):</span>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Ex: 34"
-                        value={tempManualHist2}
-                        onChange={(e) => setTempManualHist2(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-center font-mono font-bold text-slate-100 text-sm focus:border-emerald-400 focus:outline-hidden"
-                      />
-                      <span className="absolute right-2 top-2 text-[10px] text-slate-500 font-mono">giros</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botões de Ação */}
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTempInitialDelay(0);
-                    setTempManualHist1('');
-                    setTempManualHist2('');
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Limpar
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsZeroModalOpen(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const hist: number[] = [];
-                      if (tempManualHist1 !== '' && !isNaN(Number(tempManualHist1))) {
-                        hist.push(Number(tempManualHist1));
-                      }
-                      if (tempManualHist2 !== '' && !isNaN(Number(tempManualHist2))) {
-                        hist.push(Number(tempManualHist2));
-                      }
-
-                      onUpdateStrategy?.({
-                        initialZeroDelay: Number(tempInitialDelay) || 0,
-                        manualZeroHistory: hist
-                      });
-                      setIsZeroModalOpen(false);
-                    }}
-                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Salvar Configurações
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

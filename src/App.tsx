@@ -32,6 +32,7 @@ export type DashboardBlockId =
   | 'monitoramento'
   | 'quick_input'
   | 'wheel_alert'
+  | 'zero_monitor'
   | 'camouflaged_alert'
   | 'smart_bot'
   | 'temperatures'
@@ -47,6 +48,7 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'monitoramento',
   'quick_input',
   'wheel_alert',
+  'zero_monitor',
   'smart_bot',
   'temperatures',
   'hot_cold',
@@ -62,6 +64,7 @@ const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'monitoramento',
   'quick_input',
   'wheel_alert',
+  'zero_monitor',
   'smart_bot',
   'temperatures',
   'hot_cold',
@@ -75,6 +78,7 @@ const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   coleta_dados: 'Coleta de Dados da Mesa (Aquecimento de 100 Giros)',
   diagnostico_mesa: 'Diagnóstico de Padrão da Mesa',
   monitoramento: 'Monitoramento Giro a Giro Ativo',
+  zero_monitor: 'Monitoramento Dedicado do Número Zero (0) & Atraso',
   quick_input: 'Lançamento Rápido de Números',
   wheel_alert: 'Alerta de Vizinhos do Cilindro',
   camouflaged_alert: 'Alerta de Números Camuflados & Cavalos',
@@ -131,6 +135,7 @@ import { BlockAnalysisPanel } from './components/BlockAnalysisPanel';
 import { SavedSessionsPanel } from './components/SavedSessionsPanel';
 import { CamouflagedNumbersPanel } from './components/CamouflagedNumbersPanel';
 import { CamouflagedAlertCard } from './components/CamouflagedAlertCard';
+import { ZeroMonitorBlock } from './components/ZeroMonitorBlock';
 
 export default function App() {
   // LocalStorage Persistence Keys
@@ -176,7 +181,7 @@ export default function App() {
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
 
   const [blockOrder, setBlockOrder] = useState<DashboardBlockId[]>(() => {
-    const saved = localStorage.getItem('roleta_master_block_order_v12');
+    const saved = localStorage.getItem('roleta_master_block_order_v14');
     if (saved) {
       try {
         const parsed: DashboardBlockId[] = JSON.parse(saved);
@@ -191,7 +196,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('roleta_master_block_order_v12', JSON.stringify(blockOrder));
+    localStorage.setItem('roleta_master_block_order_v14', JSON.stringify(blockOrder));
   }, [blockOrder]);
 
   const handleMoveBlock = (id: DashboardBlockId, direction: 'up' | 'down') => {
@@ -667,6 +672,14 @@ export default function App() {
         );
       case 'monitoramento':
         return <MonitoramentoGiroCard spins={spins} />;
+      case 'zero_monitor':
+        return (
+          <ZeroMonitorBlock
+            spins={spins}
+            strategy={strategy}
+            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+          />
+        );
       case 'kpis':
         return (
           <BankrollCards
