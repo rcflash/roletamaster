@@ -89,6 +89,9 @@ export interface StrategyConfig {
   straightNumberBets: { [num: number]: number };
   colorRedBet: number;
   colorBlackBet: number;
+  initialZeroDelay?: number;
+  manualZeroHistory?: number[];
+  disabledStrategies?: string[];
 }
 
 export interface TempItem {

@@ -1571,3 +1571,124 @@ export function analyzeWarmupTable(
   };
 }
 
+export interface ZeroHitHistoryItem {
+  id: string;
+  source: 'session' | 'manual';
+  giro?: number;
+  interval: number;
+  label: string;
+  details: string;
+}
+
+export interface ZeroStatsResult {
+  spinsSinceZero: number;
+  initialZeroDelay: number;
+  totalZeros: number;
+  lastZeroGiro: number | null;
+  isOverdue: boolean;
+  isHighAlert: boolean;
+  compositionText: string;
+  lastTwoZeroHits: ZeroHitHistoryItem[];
+}
+
+export function calculateZeroStats(
+  spins: SpinRecord[],
+  initialZeroDelay: number = 0,
+  manualZeroHistory: number[] = []
+): ZeroStatsResult {
+  const sorted = [...spins].sort((a, b) => a.giro - b.giro);
+  const totalSpins = sorted.length;
+  const initialOffset = Math.max(0, Number(initialZeroDelay) || 0);
+
+  interface SessionZeroHit {
+    giro: number;
+    intervalBeforeHit: number;
+  }
+  const sessionZeroHits: SessionZeroHit[] = [];
+  let prevZeroGiro = 0;
+
+  for (let i = 0; i < totalSpins; i++) {
+    const s = sorted[i];
+    if (s.numero === 0) {
+      let interval = 0;
+      if (sessionZeroHits.length === 0) {
+        interval = initialOffset + s.giro;
+      } else {
+        interval = s.giro - prevZeroGiro;
+      }
+      sessionZeroHits.push({
+        giro: s.giro,
+        intervalBeforeHit: interval,
+      });
+      prevZeroGiro = s.giro;
+    }
+  }
+
+  let spinsSinceZero = 0;
+  let lastZeroGiro: number | null = null;
+  let compositionText = '';
+
+  if (sessionZeroHits.length === 0) {
+    spinsSinceZero = initialOffset + totalSpins;
+    if (initialOffset > 0 && totalSpins > 0) {
+      compositionText = `${initialOffset} inicial + ${totalSpins} lançados`;
+    } else if (initialOffset > 0) {
+      compositionText = `${initialOffset} inicial da mesa`;
+    } else {
+      compositionText = `${totalSpins} giros na sessão`;
+    }
+  } else {
+    const latestHit = sessionZeroHits[sessionZeroHits.length - 1];
+    lastZeroGiro = latestHit.giro;
+    spinsSinceZero = totalSpins - latestHit.giro;
+    if (spinsSinceZero === 0) {
+      compositionText = `Acabou de sair no Giro #${latestHit.giro}!`;
+    } else {
+      compositionText = `${spinsSinceZero} giros desde o Giro #${latestHit.giro}`;
+    }
+  }
+
+  const lastTwoZeroHits: ZeroHitHistoryItem[] = [];
+
+  for (let i = sessionZeroHits.length - 1; i >= 0 && lastTwoZeroHits.length < 2; i--) {
+    const hit = sessionZeroHits[i];
+    const isLatest = lastTwoZeroHits.length === 0;
+    lastTwoZeroHits.push({
+      id: `session-zero-${hit.giro}`,
+      source: 'session',
+      giro: hit.giro,
+      interval: hit.intervalBeforeHit,
+      label: isLatest ? `1ª Última (G#${hit.giro})` : `2ª Penúltima (G#${hit.giro})`,
+      details: `Ficou ${hit.intervalBeforeHit} giros sem 0`,
+    });
+  }
+
+  const validManual = (manualZeroHistory || [])
+    .map(Number)
+    .filter((n) => !isNaN(n) && n > 0);
+  let manualIdx = 0;
+  while (lastTwoZeroHits.length < 2 && manualIdx < validManual.length) {
+    const intervalVal = validManual[manualIdx];
+    const isLatest = lastTwoZeroHits.length === 0;
+    lastTwoZeroHits.push({
+      id: `manual-zero-${manualIdx}`,
+      source: 'manual',
+      interval: intervalVal,
+      label: isLatest ? '1ª Última (Mesa Real)' : '2ª Penúltima (Mesa Real)',
+      details: `Ficou ${intervalVal} giros sem 0`,
+    });
+    manualIdx++;
+  }
+
+  return {
+    spinsSinceZero,
+    initialZeroDelay: initialOffset,
+    totalZeros: sessionZeroHits.length,
+    lastZeroGiro,
+    isOverdue: spinsSinceZero >= 37,
+    isHighAlert: spinsSinceZero >= 50,
+    compositionText,
+    lastTwoZeroHits,
+  };
+}
+
