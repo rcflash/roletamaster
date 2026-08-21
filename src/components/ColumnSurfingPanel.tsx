@@ -51,38 +51,52 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
   onUpdateStrategy,
   onLoadVideoSpins
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'radar' | 'video_sync' | 'board' | 'backtest' | 'guide'>('radar');
+  const [activeSubTab, setActiveSubTab] = useState<'radar' | 'yield_calc' | 'video_sync' | 'board' | 'backtest' | 'guide'>('radar');
   const [selectedVideoMoment, setSelectedVideoMoment] = useState<number>(1); // Index 1: Análise das 2 últimas linhas
-  const [normalBet, setNormalBet] = useState<number>(5.00);
-  const [quireraBet, setQuireraBet] = useState<number>(1.00);
+  const [normalBetPerCol, setNormalBetPerCol] = useState<number>(15.00); // R$ 15,00 por coluna (Total R$ 30,00)
+  const [quireraBetPerCol, setQuireraBetPerCol] = useState<number>(5.00); // R$ 5,00 por coluna (Total R$ 10,00)
   const [useQuireraAfterWins, setUseQuireraAfterWins] = useState<number>(3);
   const [coverZero, setCoverZero] = useState<boolean>(true);
+  const [zeroBetAmount, setZeroBetAmount] = useState<number>(2.50);
   const [manualDominantCols, setManualDominantCols] = useState<['col1' | 'col2' | 'col3', 'col1' | 'col2' | 'col3'] | null>(null);
 
-  // Estatísticas das Colunas
+  // Análise das 2 Últimas Linhas da Mesa (24 giros = 2x12 números)
   const stats24 = useMemo(() => calculateColumnStats(spins, 24), [spins]);
   const stats50 = useMemo(() => calculateColumnStats(spins, 50), [spins]);
 
-  // Alerta em Tempo Real
+  // Alerta em Tempo Real baseado nos últimos 24 giros (2 últimas linhas)
   const alert = useMemo(() => {
-    return calculateColumnSurfingAlert(spins, 20, 65, manualDominantCols || undefined);
+    return calculateColumnSurfingAlert(spins, 24, 65, manualDominantCols || undefined);
   }, [spins, manualDominantCols]);
 
-  // Backtest
+  // Backtest com aposta de R$ 30,00 (R$ 15,00 por coluna)
   const backtest = useMemo(() => {
     return runColumnSurfingBacktest(
       spins,
-      config.initialBankroll || 100,
-      normalBet,
-      quireraBet,
+      config.initialBankroll || 300,
+      normalBetPerCol,
+      quireraBetPerCol,
       useQuireraAfterWins,
       coverZero,
-      coverZero ? Math.max(0.50, quireraBet / 2) : 0
+      coverZero ? zeroBetAmount : 0
     );
-  }, [spins, config.initialBankroll, normalBet, quireraBet, useQuireraAfterWins, coverZero]);
+  }, [spins, config.initialBankroll, normalBetPerCol, quireraBetPerCol, useQuireraAfterWins, coverZero, zeroBetAmount]);
 
-  // Últimos 18 giros formatados para visualização de colunas
-  const recentSpins18 = useMemo(() => spins.slice(-18).reverse(), [spins]);
+  // Separação das 2 Últimas Linhas da Mesa (exatamente 24 números em 2 blocos de 12)
+  const recent24Spins = useMemo(() => spins.slice(-24).reverse(), [spins]);
+  const linha1Spins = useMemo(() => recent24Spins.slice(0, 12), [recent24Spins]); // Mais recentes (1 a 12)
+  const linha2Spins = useMemo(() => recent24Spins.slice(12, 24), [recent24Spins]); // Anteriores (13 a 24)
+
+  // Cálculos Financeiros de Rendimento (Base: R$ 30,00 = 2x R$ 15,00)
+  const totalNormalBet = normalBetPerCol * 2 + (coverZero ? zeroBetAmount : 0);
+  const grossReturnGreen = normalBetPerCol * 3; // 3:1 na coluna vencedora
+  const netProfitGreen = grossReturnGreen - totalNormalBet;
+  const yieldPctGreen = totalNormalBet > 0 ? (netProfitGreen / totalNormalBet) * 100 : 50;
+
+  // Rendimento na Quirera
+  const totalQuireraBet = quireraBetPerCol * 2 + (coverZero ? Math.max(0.50, zeroBetAmount / 2) : 0);
+  const grossReturnQuirera = quireraBetPerCol * 3;
+  const netProfitQuirera = grossReturnQuirera - totalQuireraBet;
 
   return (
     <div className="space-y-4">
@@ -103,11 +117,14 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
                   Método Bastião (JJ)
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black uppercase tracking-wider">
-                  24 Números (64.8%)
+                  2 Linhas = 24 Números (64.8%)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[10px] font-black uppercase tracking-wider">
+                  Aposta R$ 30 (2x R$ 15)
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Surfe na tendência das 2 colunas dominantes identificadas no histórico recente (sem repetição da coluna fraca) + Gestão de Quirera.
+                Surfe na tendência das 2 colunas dominantes nas <strong>2 últimas linhas da mesa (últimos 24 números)</strong> + Gestão de Lucro & Rendimento.
               </p>
             </div>
           </div>
@@ -124,11 +141,11 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
           )}
         </div>
 
-        {/* Sub-Tabs */}
-        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-800/80 overflow-x-auto pb-1">
+        {/* Sub-Tabs sem barra de rolagem (flex-wrap com espaçamento fluido) */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-4 pt-3 border-t border-slate-800/80">
           <button
             onClick={() => setActiveSubTab('radar')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               activeSubTab === 'radar'
                 ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/30'
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
@@ -138,8 +155,19 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
             <span>Radar & Alerta ao Vivo</span>
           </button>
           <button
+            onClick={() => setActiveSubTab('yield_calc')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              activeSubTab === 'yield_calc'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30'
+                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Cálculo de Rendimento (R$ 30)</span>
+          </button>
+          <button
             onClick={() => setActiveSubTab('video_sync')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               activeSubTab === 'video_sync'
                 ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/30'
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
@@ -150,7 +178,7 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('board')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               activeSubTab === 'board'
                 ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/30'
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
@@ -161,18 +189,18 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('backtest')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               activeSubTab === 'backtest'
                 ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/30'
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Backtest & Lucro com Quirera</span>
+            <span>Backtest & Quirera</span>
           </button>
           <button
             onClick={() => setActiveSubTab('guide')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               activeSubTab === 'guide'
                 ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/30'
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
@@ -290,7 +318,7 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
                       <span
                         key={num}
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white ${
-                          getNumberColor(num) === 'red' ? 'bg-rose-600' : 'bg-slate-800 border border-slate-600'
+                          getNumberColor(num) === 'red' ? 'bg-rose-600' : 'bg-slate-950 border border-slate-600'
                         }`}
                       >
                         {num}
@@ -300,6 +328,241 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
                     <span className="text-[11px] text-slate-500 italic">Nenhum no momento</span>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD DE RENDIMENTO FINANCEIRO DA ENTRADA (R$ 30,00 - R$ 15 EM CADA COLUNA) */}
+          <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-indigo-950/40 border border-emerald-500/30 rounded-xl p-4 sm:p-4.5 space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-100 uppercase tracking-tight flex items-center gap-2">
+                    Cálculo de Rendimento da Aposta
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-black">
+                      R$ {(normalBetPerCol * 2).toFixed(2)} / Giro
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Aposta calculada em <strong>2 colunas</strong> (R$ {normalBetPerCol.toFixed(2)} cada) com cobertura de 24 números (64.8% da roleta).
+                  </p>
+                </div>
+              </div>
+
+              {/* Botões Rápidos de Aposta */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Aposta Total:</span>
+                {[
+                  { total: 10, perCol: 5 },
+                  { total: 20, perCol: 10 },
+                  { total: 30, perCol: 15 },
+                  { total: 50, perCol: 25 },
+                  { total: 100, perCol: 50 }
+                ].map((item) => (
+                  <button
+                    key={item.total}
+                    onClick={() => setNormalBetPerCol(item.perCol)}
+                    className={`px-2 py-1 rounded text-[10px] font-black font-mono transition-all ${
+                      normalBetPerCol === item.perCol
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm ring-1 ring-emerald-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                    }`}
+                  >
+                    R$ {item.total} {item.total === 30 ? '(Padrão)' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800 text-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Aposta por Coluna</span>
+                <span className="text-base sm:text-lg font-black font-mono text-cyan-300 mt-0.5 block">
+                  R$ {normalBetPerCol.toFixed(2)}
+                </span>
+                <span className="text-[9px] text-slate-500 font-mono">Em cada uma das 2</span>
+              </div>
+
+              <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800 text-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Retorno Bruto (3:1)</span>
+                <span className="text-base sm:text-lg font-black font-mono text-slate-100 mt-0.5 block">
+                  R$ {grossReturnGreen.toFixed(2)}
+                </span>
+                <span className="text-[9px] text-slate-500 font-mono">3x a coluna premiada</span>
+              </div>
+
+              <div className="bg-slate-950/70 rounded-lg p-2.5 border border-emerald-500/30 text-center bg-emerald-950/20">
+                <span className="text-[10px] font-bold text-emerald-300 uppercase block">Lucro Líquido / Green</span>
+                <span className="text-base sm:text-lg font-black font-mono text-emerald-400 mt-0.5 block">
+                  +R$ {netProfitGreen.toFixed(2)}
+                </span>
+                <span className="text-[9px] text-emerald-300/80 font-bold font-mono">
+                  +{yieldPctGreen.toFixed(1)}% Rendimento
+                </span>
+              </div>
+
+              <div className="bg-slate-950/70 rounded-lg p-2.5 border border-rose-900/40 text-center">
+                <span className="text-[10px] font-bold text-rose-400 uppercase block">Perda no Red</span>
+                <span className="text-base sm:text-lg font-black font-mono text-rose-400 mt-0.5 block">
+                  -R$ {totalNormalBet.toFixed(2)}
+                </span>
+                <span className="text-[9px] text-slate-500 font-mono">1 Red = 2 Greens</span>
+              </div>
+            </div>
+          </div>
+
+          {/* PAINEL DAS 2 ÚLTIMAS LINHAS DA MESA (24 NÚMEROS = 2x12 NÚMEROS) */}
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-4 sm:p-5 space-y-3.5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+              <div>
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-cyan-400" />
+                  As 2 Últimas Linhas da Mesa (24 Giros Recentes)
+                </span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  O algoritmo analisa exatamente as <strong>2 últimas linhas de 12 pedras</strong> da tela do cassino ({Math.min(24, spins.length)} giros carregados).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 border border-cyan-400/40 font-bold">
+                  1ª Col: {stats24.col1Count} ({stats24.col1Pct.toFixed(0)}%)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 border border-cyan-400/40 font-bold">
+                  2ª Col: {stats24.col2Count} ({stats24.col2Pct.toFixed(0)}%)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 border border-cyan-400/40 font-bold">
+                  3ª Col: {stats24.col3Count} ({stats24.col3Pct.toFixed(0)}%)
+                </span>
+              </div>
+            </div>
+
+            {/* LINHA 1: Os 12 giros mais recentes (Linha superior do terminal) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase text-cyan-400 flex items-center gap-1">
+                  <span>▲ Linha 1 (Mais Recente — 12 últimos giros)</span>
+                </span>
+                <span className="text-[10px] text-slate-400">Esquerda = Mais recente</span>
+              </div>
+
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                {Array.from({ length: 12 }).map((_, idx) => {
+                  const spin = linha1Spins[idx];
+                  if (!spin) {
+                    return (
+                      <div key={idx} className="h-14 rounded-lg bg-slate-950/40 border border-slate-800/60 flex items-center justify-center text-[10px] text-slate-600 font-mono">
+                        --
+                      </div>
+                    );
+                  }
+                  const col = getNumberColumn(spin.numero);
+                  const isDominant = alert.dominantCols.includes(col as any);
+                  const isWeak = col === alert.weakCol;
+                  const isZero = spin.numero === 0;
+
+                  return (
+                    <div
+                      key={spin.id || idx}
+                      className={`p-1.5 rounded-lg border flex flex-col items-center justify-between transition-all ${
+                        isDominant
+                          ? 'bg-indigo-950/50 border-indigo-500/60 shadow-sm ring-1 ring-indigo-500/30'
+                          : isWeak
+                          ? 'bg-rose-950/40 border-rose-500/50'
+                          : 'bg-emerald-950/40 border-emerald-500/50'
+                      }`}
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shadow-sm ${
+                          isZero
+                            ? 'bg-emerald-600'
+                            : getNumberColor(spin.numero) === 'red'
+                            ? 'bg-rose-600'
+                            : 'bg-slate-950 border border-slate-700'
+                        }`}
+                      >
+                        {spin.numero}
+                      </span>
+                      <span
+                        className={`text-[8px] font-black uppercase mt-1 leading-none ${
+                          isDominant
+                            ? 'text-cyan-300'
+                            : isWeak
+                            ? 'text-rose-400'
+                            : 'text-emerald-400'
+                        }`}
+                      >
+                        {col === 'col1' ? '1ª Col' : col === 'col2' ? '2ª Col' : col === 'col3' ? '3ª Col' : 'Zero'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* LINHA 2: Os 12 giros anteriores (Linha inferior do terminal) */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-800/60">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase text-indigo-300 flex items-center gap-1">
+                  <span>▼ Linha 2 (Anterior — Giros 13 a 24)</span>
+                </span>
+                <span className="text-[10px] text-slate-400">Totalizando as 2 linhas</span>
+              </div>
+
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                {Array.from({ length: 12 }).map((_, idx) => {
+                  const spin = linha2Spins[idx];
+                  if (!spin) {
+                    return (
+                      <div key={idx} className="h-14 rounded-lg bg-slate-950/40 border border-slate-800/60 flex items-center justify-center text-[10px] text-slate-600 font-mono">
+                        --
+                      </div>
+                    );
+                  }
+                  const col = getNumberColumn(spin.numero);
+                  const isDominant = alert.dominantCols.includes(col as any);
+                  const isWeak = col === alert.weakCol;
+                  const isZero = spin.numero === 0;
+
+                  return (
+                    <div
+                      key={spin.id || idx}
+                      className={`p-1.5 rounded-lg border flex flex-col items-center justify-between transition-all opacity-85 ${
+                        isDominant
+                          ? 'bg-indigo-950/30 border-indigo-500/40'
+                          : isWeak
+                          ? 'bg-rose-950/30 border-rose-500/40'
+                          : 'bg-emerald-950/30 border-emerald-500/40'
+                      }`}
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shadow-sm ${
+                          isZero
+                            ? 'bg-emerald-600'
+                            : getNumberColor(spin.numero) === 'red'
+                            ? 'bg-rose-600'
+                            : 'bg-slate-950 border border-slate-700'
+                        }`}
+                      >
+                        {spin.numero}
+                      </span>
+                      <span
+                        className={`text-[8px] font-black uppercase mt-1 leading-none ${
+                          isDominant
+                            ? 'text-cyan-400'
+                            : isWeak
+                            ? 'text-rose-400'
+                            : 'text-emerald-400'
+                        }`}
+                      >
+                        {col === 'col1' ? '1ª Col' : col === 'col2' ? '2ª Col' : col === 'col3' ? '3ª Col' : 'Zero'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -385,65 +648,131 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
               );
             })}
           </div>
+        </div>
+      )}
 
-          {/* Histórico Recente de Giros com Identificação de Colunas */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                Histórico Recente Giro a Giro (Últimas 2 Linhas da Mesa)
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">
-                Recentes à esquerda &larr; Antigos à direita
-              </span>
+      {/* SUB-TAB: CÁLCULO DE RENDIMENTO & METAS FINANCEIRAS */}
+      {activeSubTab === 'yield_calc' && (
+        <div className="space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-100 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  Calculadora de Rendimento & Projeção de Metas (R$ 30,00)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Entendendo a matemática dos lucros: apostando R$ 15,00 em cada uma das 2 colunas dominantes (Total R$ 30,00 por entrada).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-xs font-black">
+                  +50.0% Lucro Líquido / Green
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {recentSpins18.map((spin, idx) => {
-                const col = getNumberColumn(spin.numero);
-                const isDominant = alert.dominantCols.includes(col as any);
-                const isWeak = col === alert.weakCol;
-                const isZero = spin.numero === 0;
+            {/* Comparativo de Estrutura de Apostas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Entrada Padrão */}
+              <div className="bg-slate-950/80 rounded-xl p-4 border border-indigo-500/40 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-xs font-black uppercase text-cyan-300">
+                    1. Entrada Padrão (Surfe Normal)
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 text-[10px] font-black">
+                    24 Números
+                  </span>
+                </div>
 
-                return (
-                  <div
-                    key={spin.id || idx}
-                    className={`flex flex-col items-center p-1.5 rounded-lg border min-w-[48px] shrink-0 transition-all ${
-                      isDominant
-                        ? 'bg-indigo-950/40 border-indigo-500/50'
-                        : isWeak
-                        ? 'bg-rose-950/40 border-rose-500/50'
-                        : 'bg-emerald-950/40 border-emerald-500/50'
-                    }`}
-                  >
-                    <span
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm ${
-                        isZero
-                          ? 'bg-emerald-600'
-                          : getNumberColor(spin.numero) === 'red'
-                          ? 'bg-rose-600'
-                          : 'bg-slate-950 border border-slate-700'
-                      }`}
-                    >
-                      {spin.numero}
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span>Aposta na Coluna Dominante A:</span>
+                    <strong className="font-mono text-slate-100">R$ {normalBetPerCol.toFixed(2)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span>Aposta na Coluna Dominante B:</span>
+                    <strong className="font-mono text-slate-100">R$ {normalBetPerCol.toFixed(2)}</strong>
+                  </div>
+                  {coverZero && (
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span>Proteção no Zero (Opcional):</span>
+                      <strong className="font-mono text-slate-100">R$ {zeroBetAmount.toFixed(2)}</strong>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between font-bold text-slate-200">
+                    <span>Custo Total do Giro:</span>
+                    <strong className="font-mono text-amber-300 text-sm">R$ {totalNormalBet.toFixed(2)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-emerald-400 font-bold">
+                    <span>Retorno no Green (3:1):</span>
+                    <strong className="font-mono text-emerald-300 text-sm">R$ {grossReturnGreen.toFixed(2)} (+R$ {netProfitGreen.toFixed(2)} líquido)</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Entrada com Quirera */}
+              <div className="bg-slate-950/80 rounded-xl p-4 border border-amber-500/40 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-xs font-black uppercase text-amber-300">
+                    2. Entrada com Modo Quirera (Após {useQuireraAfterWins} Greens)
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-black">
+                    Blindagem de Lucro
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span>Aposta Quirera Coluna A:</span>
+                    <strong className="font-mono text-slate-100">R$ {quireraBetPerCol.toFixed(2)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span>Aposta Quirera Coluna B:</span>
+                    <strong className="font-mono text-slate-100">R$ {quireraBetPerCol.toFixed(2)}</strong>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between font-bold text-slate-200">
+                    <span>Custo Total com Quirera:</span>
+                    <strong className="font-mono text-amber-300 text-sm">R$ {totalQuireraBet.toFixed(2)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-emerald-400 font-bold">
+                    <span>Retorno no Green com Quirera:</span>
+                    <strong className="font-mono text-emerald-300 text-sm">R$ {grossReturnQuirera.toFixed(2)} (+R$ {netProfitQuirera.toFixed(2)} líquido)</strong>
+                  </div>
+                  <p className="text-[11px] text-amber-300/80 italic mt-1">
+                    * Se o Red vier na quebra da onda, você perde apenas R$ {totalQuireraBet.toFixed(2)} em vez de R$ {totalNormalBet.toFixed(2)}, segurando todo o lucro anterior no bolso!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabela de Projeção de Metas Financeiras */}
+            <div className="space-y-2 pt-2">
+              <span className="text-xs font-black uppercase text-slate-200 block">
+                Tabela de Projeção de Metas de Lucro com R$ {(normalBetPerCol * 2).toFixed(2)} / Giro:
+              </span>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                {[
+                  { greens: 1, label: '1º Green', profit: netProfitGreen * 1 },
+                  { greens: 2, label: '2 Greens (Meta Curta)', profit: netProfitGreen * 2 },
+                  { greens: 3, label: '3 Greens (Início Quirera)', profit: netProfitGreen * 3 },
+                  { greens: 5, label: '5 Greens (Excelente)', profit: netProfitGreen * 5 },
+                  { greens: 8, label: '8 Greens (Meta Diária)', profit: netProfitGreen * 8 },
+                  { greens: 10, label: '10 Greens (Dobrou Banca)', profit: netProfitGreen * 10 }
+                ].map((tier) => (
+                  <div key={tier.greens} className="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5 text-center">
+                    <span className="text-[10px] font-bold text-slate-400 block">{tier.label}</span>
+                    <span className="text-base font-black font-mono text-emerald-400 mt-1 block">
+                      +R$ {tier.profit.toFixed(2)}
                     </span>
-                    <span
-                      className={`text-[9px] font-black uppercase mt-1 ${
-                        isDominant
-                          ? 'text-cyan-400'
-                          : isWeak
-                          ? 'text-rose-400'
-                          : 'text-emerald-400'
-                      }`}
-                    >
-                      {col === 'col1' ? '1ª Col' : col === 'col2' ? '2ª Col' : col === 'col3' ? '3ª Col' : 'Zero'}
-                    </span>
-                    <span className="text-[8px] text-slate-500 font-mono">
-                      #{spin.giro || spins.length - idx}
+                    <span className="text-[9px] text-slate-500 font-mono">
+                      +{(tier.greens * yieldPctGreen).toFixed(0)}% s/ aposta
                     </span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -703,21 +1032,21 @@ export const ColumnSurfingPanel: React.FC<ColumnSurfingPanelProps> = ({
                 <input
                   type="number"
                   step="0.50"
-                  value={normalBet}
-                  onChange={(e) => setNormalBet(Math.max(0.50, parseFloat(e.target.value) || 0.50))}
+                  value={normalBetPerCol}
+                  onChange={(e) => setNormalBetPerCol(Math.max(0.50, parseFloat(e.target.value) || 0.50))}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 font-mono font-bold"
                 />
               </div>
 
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                  Aposta Quirera (R$)
+                  Aposta Quirera por Coluna (R$)
                 </label>
                 <input
                   type="number"
                   step="0.50"
-                  value={quireraBet}
-                  onChange={(e) => setQuireraBet(Math.max(0.20, parseFloat(e.target.value) || 0.20))}
+                  value={quireraBetPerCol}
+                  onChange={(e) => setQuireraBetPerCol(Math.max(0.20, parseFloat(e.target.value) || 0.20))}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 font-mono font-bold"
                 />
               </div>

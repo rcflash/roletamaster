@@ -279,7 +279,7 @@ export function calculateColumnStats(spins: SpinRecord[], windowSize: number = 2
  */
 export function calculateColumnSurfingAlert(
   spins: SpinRecord[],
-  windowSize: number = 20,
+  windowSize: number = 24, // 24 giros = exatamente 2 últimas linhas da mesa de roleta (12 números por linha)
   minDominancePct: number = 65, // % somada das 2 colunas dominantes no histórico recente
   customDominantCols?: ['col1' | 'col2' | 'col3', 'col1' | 'col2' | 'col3']
 ): ColumnSurfingAlert {
@@ -456,12 +456,12 @@ export function evaluateColumnSurfingPayout(
  */
 export function runColumnSurfingBacktest(
   spins: SpinRecord[],
-  initialBankroll: number = 100,
-  normalBet: number = 5.00,
-  quireraBet: number = 1.00,
+  initialBankroll: number = 300,
+  normalBet: number = 15.00, // R$ 15,00 por coluna (Total R$ 30,00 por giro)
+  quireraBet: number = 5.00,  // R$ 5,00 por coluna na Quirera (Total R$ 10,00 por giro)
   useQuireraAfterWins: number = 3,
   coverZero: boolean = true,
-  zeroBet: number = 0.50
+  zeroBet: number = 2.50
 ) {
   let bankroll = initialBankroll;
   let totalBets = 0;
@@ -490,7 +490,7 @@ export function runColumnSurfingBacktest(
     if (idx < 5) return; // Aquecimento
 
     const historyBefore = spins.slice(0, idx);
-    const alert = calculateColumnSurfingAlert(historyBefore, 20);
+    const alert = calculateColumnSurfingAlert(historyBefore, 24);
 
     const isQuirera = currentGreenStreak >= useQuireraAfterWins;
     const currentBetUnit = isQuirera ? quireraBet : normalBet;
