@@ -33,6 +33,7 @@ import {
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
 import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert } from '../lib/roulette';
 import { ZeroMonitorBlock } from './ZeroMonitorBlock';
+import { WheelNeighborsAlertCard } from './WheelNeighborsAlertCard';
 
 interface BlockAnalysisPanelProps {
   spins: SpinRecord[];
@@ -645,6 +646,13 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
   return (
     <div className="space-y-2">
+      {/* Alerta de Vizinhos do Cilindro */}
+      <WheelNeighborsAlertCard
+        spins={spins}
+        strategy={strategy}
+        onUpdateStrategy={onUpdateStrategy}
+      />
+
       {/* Aggregate Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
         {/* Total Blocks */}

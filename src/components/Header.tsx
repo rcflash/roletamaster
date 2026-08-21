@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   maxRedStreak,
 }) => {
   return (
-    <header className="bg-slate-900 border-b border-slate-800 text-slate-100 sticky top-0 z-40 shadow-md backdrop-blur-md bg-opacity-95">
+    <header className="bg-slate-900 border-b border-slate-800 text-slate-100 shadow-md">
       <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 h-auto sm:h-12 py-2 sm:py-0 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
         {/* Top bar row on mobile / Left group on desktop */}
         <div className="flex items-center justify-between w-full sm:w-auto gap-3">

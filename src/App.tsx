@@ -45,14 +45,15 @@ export type DashboardBlockId =
   | 'contabilizacao';
 
 const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
-  'coleta_dados',
-  'diagnostico_mesa',
-  'monitoramento',
   'quick_input',
   'wheel_alert',
   'zero_monitor',
   'column_alert',
+  'camouflaged_alert',
   'smart_bot',
+  'coleta_dados',
+  'diagnostico_mesa',
+  'monitoramento',
   'temperatures',
   'hot_cold',
   'history',
@@ -62,14 +63,15 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
 ];
 
 const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
-  'coleta_dados',
-  'diagnostico_mesa',
-  'monitoramento',
   'quick_input',
   'wheel_alert',
   'zero_monitor',
   'column_alert',
+  'camouflaged_alert',
   'smart_bot',
+  'coleta_dados',
+  'diagnostico_mesa',
+  'monitoramento',
   'temperatures',
   'hot_cold',
   'history',
@@ -188,11 +190,11 @@ export default function App() {
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
 
   const [blockOrder, setBlockOrder] = useState<DashboardBlockId[]>(() => {
-    const saved = localStorage.getItem('roleta_master_block_order_v14');
+    const saved = localStorage.getItem('roleta_master_block_order_v16');
     if (saved) {
       try {
         const parsed: DashboardBlockId[] = JSON.parse(saved);
-        if (parsed.length === DEFAULT_BLOCK_ORDER.length && parsed.includes('coleta_dados') && parsed.includes('diagnostico_mesa')) {
+        if (parsed.length === DEFAULT_BLOCK_ORDER.length && parsed.includes('quick_input') && parsed.includes('wheel_alert')) {
           return parsed;
         }
       } catch (e) {
@@ -203,7 +205,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('roleta_master_block_order_v14', JSON.stringify(blockOrder));
+    localStorage.setItem('roleta_master_block_order_v16', JSON.stringify(blockOrder));
   }, [blockOrder]);
 
   const handleMoveBlock = (id: DashboardBlockId, direction: 'up' | 'down') => {
