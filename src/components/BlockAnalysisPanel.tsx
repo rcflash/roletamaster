@@ -32,7 +32,6 @@ import {
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
 import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert } from '../lib/roulette';
-import { WheelNeighborsAlertCard } from './WheelNeighborsAlertCard';
 import { ZeroMonitorBlock } from './ZeroMonitorBlock';
 
 interface BlockAnalysisPanelProps {
@@ -815,20 +814,6 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         </div>
       )}
 
-      {/* Alerta de Vizinhos do Cilindro */}
-      <WheelNeighborsAlertCard
-        spins={spins}
-        strategy={strategy}
-        onUpdateStrategy={onUpdateStrategy}
-      />
-
-      {/* Standalone Dedicated Block for Number Zero (0) Monitoring & Delay (Abaixo de Alerta de Vizinhos do Cilindro) */}
-      <ZeroMonitorBlock
-        spins={spins}
-        strategy={strategy}
-        onUpdateStrategy={onUpdateStrategy}
-      />
-
       {/* Visual Block Timeline Grid (Visual Map of all blocks) */}
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 flex-wrap gap-1.5">
@@ -1088,8 +1073,8 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         </div>
       </div>
 
-      {/* Wheel Neighbors Alert Card */}
-      <WheelNeighborsAlertCard
+      {/* Standalone Dedicated Block for Number Zero (0) Monitoring & Delay (Diretamente Abaixo do Mapa Sequencial dos Blocos) */}
+      <ZeroMonitorBlock
         spins={spins}
         strategy={strategy}
         onUpdateStrategy={onUpdateStrategy}
