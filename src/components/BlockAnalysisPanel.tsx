@@ -730,91 +730,6 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         </div>
       </div>
 
-      {/* Active Block Banner (In-Progress) */}
-      {activeBlock && (
-        <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/40 rounded-lg py-2 px-3 shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 animate-pulse">
-                <Clock className="w-3.5 h-3.5 text-amber-400" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider">
-                    Bloco #{activeBlock.blockNumber} Em Andamento
-                  </span>
-                  <span className="px-3 py-1 rounded-xl bg-amber-500/30 border border-amber-400/50 text-amber-300 text-sm sm:text-lg font-black tracking-wide shadow-md font-mono">
-                    Giro {activeBlock.spins.length} / {blockSize}
-                  </span>
-                  {wheelAlert?.hasAlert && (
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide border-2 border-amber-300 shadow-lg animate-pulse drop-shadow-[0_0_12px_rgba(251,191,36,0.9)] flex items-center gap-1.5 shrink-0">
-                      <Flame className="w-4 h-4 fill-slate-950 text-slate-950" />
-                      ALERTA DE ENTRADA
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] text-slate-300">
-                  Faltam <strong>{blockSize - activeBlock.spins.length} giros</strong> para concluir o ciclo e dar reset.
-                </p>
-              </div>
-            </div>
-
-            {/* Active Block Partial Results */}
-            <div className="flex items-center gap-2.5 bg-slate-950/90 py-1.5 px-3 rounded-lg border border-slate-800/80 shrink-0 flex-wrap">
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase block">Giros</span>
-                <div className="flex items-center gap-0.5 mt-0.5 max-w-[220px] sm:max-w-none overflow-x-auto pb-0.5">
-                  {[...activeBlock.spins].reverse().map((s, idx) => {
-                    const c = (s.color || '').toLowerCase();
-                    const colorClass = c === 'red' ? 'bg-rose-600 border-rose-500' : c === 'black' ? 'bg-slate-900 border-slate-700' : 'bg-emerald-600 border-emerald-500';
-                    return (
-                      <span
-                        key={idx}
-                        className={`w-5 h-5 rounded border ${colorClass} text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs shrink-0`}
-                        title={`Giro ${s.giro}: Número ${s.numero}`}
-                      >
-                        {s.numero}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="h-7 w-px bg-slate-800/80 hidden sm:block" />
-
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase block">Greens / Reds</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-500/40 text-[11px] font-black font-mono flex items-center gap-1 shadow-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    {activeBlock[selectedStrategy].wins} Greens
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-rose-950/90 text-rose-400 border border-rose-500/40 text-[11px] font-black font-mono flex items-center gap-1 shadow-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                    {activeBlock[selectedStrategy].losses} Reds
-                  </span>
-                </div>
-              </div>
-
-              <div className="h-7 w-px bg-slate-800/80 hidden sm:block" />
-
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase block">Saldo Parcial ({selectedStrategy.toUpperCase()})</span>
-                <div className={`text-xs sm:text-sm font-black font-mono leading-tight mt-0.5 ${activeBlock[selectedStrategy].profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {activeBlock[selectedStrategy].profit >= 0 ? '+' : ''}
-                  {activeBlock[selectedStrategy].profit.toFixed(1)}u ({currency} {(activeBlock[selectedStrategy].profit * getStrategyBetCost(selectedStrategy)).toFixed(2)})
-                </div>
-                {selectedStrategy === 'wheelNeighbors' && (
-                  <span className="text-[8px] font-bold text-amber-400 block mt-0.5">
-                    Aposta/Giro: {currency} {getStrategyBetCost('wheelNeighbors').toFixed(2)} ({2 * vizinhosCount + 1}n × {currency} {(strategy?.neighborChipValue || 2.50).toFixed(2)})
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Visual Block Timeline Grid (Visual Map of all blocks) */}
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 flex-wrap gap-1.5">
@@ -1073,6 +988,91 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
           })}
         </div>
       </div>
+
+      {/* Active Block Banner (In-Progress) - Alerta de Entrada */}
+      {activeBlock && (
+        <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/40 rounded-lg py-2 px-3 shadow-md">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 animate-pulse">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider">
+                    Bloco #{activeBlock.blockNumber} Em Andamento
+                  </span>
+                  <span className="px-3 py-1 rounded-xl bg-amber-500/30 border border-amber-400/50 text-amber-300 text-sm sm:text-lg font-black tracking-wide shadow-md font-mono">
+                    Giro {activeBlock.spins.length} / {blockSize}
+                  </span>
+                  {wheelAlert?.hasAlert && (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide border-2 border-amber-300 shadow-lg animate-pulse drop-shadow-[0_0_12px_rgba(251,191,36,0.9)] flex items-center gap-1.5 shrink-0">
+                      <Flame className="w-4 h-4 fill-slate-950 text-slate-950" />
+                      ALERTA DE ENTRADA
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-300">
+                  Faltam <strong>{blockSize - activeBlock.spins.length} giros</strong> para concluir o ciclo e dar reset.
+                </p>
+              </div>
+            </div>
+
+            {/* Active Block Partial Results */}
+            <div className="flex items-center gap-2.5 bg-slate-950/90 py-1.5 px-3 rounded-lg border border-slate-800/80 shrink-0 flex-wrap">
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Giros</span>
+                <div className="flex items-center gap-0.5 mt-0.5 max-w-[220px] sm:max-w-none overflow-x-auto pb-0.5">
+                  {[...activeBlock.spins].reverse().map((s, idx) => {
+                    const c = (s.color || '').toLowerCase();
+                    const colorClass = c === 'red' ? 'bg-rose-600 border-rose-500' : c === 'black' ? 'bg-slate-900 border-slate-700' : 'bg-emerald-600 border-emerald-500';
+                    return (
+                      <span
+                        key={idx}
+                        className={`w-5 h-5 rounded border ${colorClass} text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs shrink-0`}
+                        title={`Giro ${s.giro}: Número ${s.numero}`}
+                      >
+                        {s.numero}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="h-7 w-px bg-slate-800/80 hidden sm:block" />
+
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Greens / Reds</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-500/40 text-[11px] font-black font-mono flex items-center gap-1 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    {activeBlock[selectedStrategy].wins} Greens
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-rose-950/90 text-rose-400 border border-rose-500/40 text-[11px] font-black font-mono flex items-center gap-1 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                    {activeBlock[selectedStrategy].losses} Reds
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-7 w-px bg-slate-800/80 hidden sm:block" />
+
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Saldo Parcial ({selectedStrategy.toUpperCase()})</span>
+                <div className={`text-xs sm:text-sm font-black font-mono leading-tight mt-0.5 ${activeBlock[selectedStrategy].profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {activeBlock[selectedStrategy].profit >= 0 ? '+' : ''}
+                  {activeBlock[selectedStrategy].profit.toFixed(1)}u ({currency} {(activeBlock[selectedStrategy].profit * getStrategyBetCost(selectedStrategy)).toFixed(2)})
+                </div>
+                {selectedStrategy === 'wheelNeighbors' && (
+                  <span className="text-[8px] font-bold text-amber-400 block mt-0.5">
+                    Aposta/Giro: {currency} {getStrategyBetCost('wheelNeighbors').toFixed(2)} ({2 * vizinhosCount + 1}n × {currency} {(strategy?.neighborChipValue || 2.50).toFixed(2)})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alerta de Vizinhos do Cilindro (Posicionado Diretamente Abaixo do Mapa Sequencial dos Blocos) */}
       <WheelNeighborsAlertCard
