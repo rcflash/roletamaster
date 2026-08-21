@@ -18,6 +18,7 @@ import {
   FolderArchive,
   Dices,
   Eye,
+  Waves,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -34,6 +35,7 @@ export type DashboardBlockId =
   | 'wheel_alert'
   | 'zero_monitor'
   | 'camouflaged_alert'
+  | 'column_alert'
   | 'smart_bot'
   | 'temperatures'
   | 'hot_cold'
@@ -49,6 +51,7 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'quick_input',
   'wheel_alert',
   'zero_monitor',
+  'column_alert',
   'smart_bot',
   'temperatures',
   'hot_cold',
@@ -65,6 +68,7 @@ const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'quick_input',
   'wheel_alert',
   'zero_monitor',
+  'column_alert',
   'smart_bot',
   'temperatures',
   'hot_cold',
@@ -82,6 +86,7 @@ const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   quick_input: 'Lançamento Rápido de Números',
   wheel_alert: 'Alerta de Vizinhos do Cilindro',
   camouflaged_alert: 'Alerta de Números Camuflados & Cavalos',
+  column_alert: 'Alerta de Surfe de Colunas (Método Bastião)',
   smart_bot: 'Bot Inteligente de Recomendação',
   temperatures: 'Termômetro de Dúzias, Colunas, Cores & Zero',
   hot_cold: 'Top 5 Números Quentes & Frios',
@@ -135,6 +140,8 @@ import { BlockAnalysisPanel } from './components/BlockAnalysisPanel';
 import { SavedSessionsPanel } from './components/SavedSessionsPanel';
 import { CamouflagedNumbersPanel } from './components/CamouflagedNumbersPanel';
 import { CamouflagedAlertCard } from './components/CamouflagedAlertCard';
+import { ColumnSurfingPanel } from './components/ColumnSurfingPanel';
+import { ColumnSurfingAlertCard } from './components/ColumnSurfingAlertCard';
 import { ZeroMonitorBlock } from './components/ZeroMonitorBlock';
 
 export default function App() {
@@ -175,7 +182,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks' | 'sessions' | 'camouflaged'>('blocks');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks' | 'sessions' | 'camouflaged' | 'column_surfing'>('blocks');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -580,6 +587,15 @@ export default function App() {
     setShowResetDemoConfirm(false);
   };
 
+  // Carregar Giros do Vídeo da Estratégia de Colunas
+  const handleLoadVideoSpins = (videoSpins: { num: number; note: string }[]) => {
+    if (config.soundEnabled) {
+      soundEffects.playWinFanfare();
+    }
+    const numbers = videoSpins.map((v) => v.num);
+    handleBatchAddSpins(numbers);
+  };
+
   // Export CSV
   const handleExportCSV = () => {
     let csv = 'GIRO,NÚMERO,MULTIPLICADOR,COR,DÚZIA,COLUNA,PAR_IMPAR,GANHO,PERDA,RESULTADO,SALDO,BOT_NIVEL,SUGESTAO,STATUS\n';
@@ -737,6 +753,15 @@ export default function App() {
             onNavigateToPanel={() => setActiveTab('camouflaged')}
           />
         );
+      case 'column_alert':
+        return (
+          <ColumnSurfingAlertCard
+            spins={spins}
+            strategy={strategy}
+            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+            onNavigateToPanel={() => setActiveTab('column_surfing')}
+          />
+        );
       case 'smart_bot':
         return (
           <ActiveStrategyPanel
@@ -833,6 +858,17 @@ export default function App() {
             >
               <Dices className="w-3.5 h-3.5 text-amber-400" />
               <span>Números Camuflados</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('column_surfing')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'column_surfing'
+                  ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Waves className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Surfe de Colunas</span>
             </button>
             <button
               onClick={() => setActiveTab('dashboard')}
@@ -1138,6 +1174,28 @@ export default function App() {
               config={config}
               strategy={strategy}
               onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+            />
+          </div>
+        )}
+
+        {/* Tab: Surfe de Colunas (Método Bastião) */}
+        {activeTab === 'column_surfing' && (
+          <div className="space-y-4">
+            <QuickSpinInput
+              onAddSpin={handleAddSpin}
+              onBatchAddSpins={handleBatchAddSpins}
+              onUndoLastSpin={handleUndoLastSpin}
+              onClearAllSpins={handleClearAllSpins}
+              totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
+              showWarmupBanner={false}
+            />
+            <ColumnSurfingPanel
+              spins={spins}
+              config={config}
+              strategy={strategy}
+              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+              onLoadVideoSpins={handleLoadVideoSpins}
             />
           </div>
         )}
