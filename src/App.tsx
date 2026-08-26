@@ -19,6 +19,7 @@ import {
   Dices,
   Eye,
   Waves,
+  Sparkles,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -36,6 +37,7 @@ export type DashboardBlockId =
   | 'zero_monitor'
   | 'camouflaged_alert'
   | 'column_alert'
+  | 'horse_alert'
   | 'smart_bot'
   | 'temperatures'
   | 'hot_cold'
@@ -48,6 +50,7 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'quick_input',
   'wheel_alert',
   'zero_monitor',
+  'horse_alert',
   'column_alert',
   'camouflaged_alert',
   'smart_bot',
@@ -66,6 +69,7 @@ const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'quick_input',
   'wheel_alert',
   'zero_monitor',
+  'horse_alert',
   'column_alert',
   'camouflaged_alert',
   'smart_bot',
@@ -87,6 +91,7 @@ const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   zero_monitor: 'Monitoramento Dedicado do Número Zero (0) & Atraso',
   quick_input: 'Lançamento Rápido de Números',
   wheel_alert: 'Alerta de Vizinhos do Cilindro',
+  horse_alert: 'Alerta de Cavalos & Crescente de Ímpares (Bastião)',
   camouflaged_alert: 'Alerta de Números Camuflados & Cavalos',
   column_alert: 'Alerta de Surfe de Colunas (Método Bastião)',
   smart_bot: 'Bot Inteligente de Recomendação',
@@ -144,6 +149,8 @@ import { CamouflagedNumbersPanel } from './components/CamouflagedNumbersPanel';
 import { CamouflagedAlertCard } from './components/CamouflagedAlertCard';
 import { ColumnSurfingPanel } from './components/ColumnSurfingPanel';
 import { ColumnSurfingAlertCard } from './components/ColumnSurfingAlertCard';
+import { HorseCyclesPanel } from './components/HorseCyclesPanel';
+import { HorseCyclesAlertCard } from './components/HorseCyclesAlertCard';
 import { ZeroMonitorBlock } from './components/ZeroMonitorBlock';
 
 export default function App() {
@@ -184,7 +191,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks' | 'sessions' | 'camouflaged' | 'column_surfing'>('blocks');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks' | 'sessions' | 'camouflaged' | 'column_surfing' | 'horse_cycles'>('blocks');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -764,6 +771,14 @@ export default function App() {
             onNavigateToPanel={() => setActiveTab('column_surfing')}
           />
         );
+      case 'horse_alert':
+        return (
+          <HorseCyclesAlertCard
+            spins={spins}
+            neighborRadius={1}
+            onOpenFullPanel={() => setActiveTab('horse_cycles')}
+          />
+        );
       case 'smart_bot':
         return (
           <ActiveStrategyPanel
@@ -871,6 +886,17 @@ export default function App() {
             >
               <Waves className="w-3.5 h-3.5 text-cyan-400" />
               <span>Surfe de Colunas</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('horse_cycles')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'horse_cycles'
+                  ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              <span>Cavalos & Ímpares (Bastião)</span>
             </button>
             <button
               onClick={() => setActiveTab('dashboard')}
@@ -1193,6 +1219,28 @@ export default function App() {
               showWarmupBanner={false}
             />
             <ColumnSurfingPanel
+              spins={spins}
+              config={config}
+              strategy={strategy}
+              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+              onLoadVideoSpins={handleLoadVideoSpins}
+            />
+          </div>
+        )}
+
+        {/* Tab: Cavalos de Terminais & Crescente de Ímpares (Método Bastião) */}
+        {activeTab === 'horse_cycles' && (
+          <div className="space-y-4">
+            <QuickSpinInput
+              onAddSpin={handleAddSpin}
+              onBatchAddSpins={handleBatchAddSpins}
+              onUndoLastSpin={handleUndoLastSpin}
+              onClearAllSpins={handleClearAllSpins}
+              totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
+              showWarmupBanner={false}
+            />
+            <HorseCyclesPanel
               spins={spins}
               config={config}
               strategy={strategy}

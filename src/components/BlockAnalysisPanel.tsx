@@ -972,8 +972,24 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   </span>
                 </div>
 
-                <div className="mt-1 font-mono text-[10px] font-bold">
-                  G{block.startIndex}-{block.endIndex}
+                <div className="mt-1 font-mono text-[10px] font-bold flex items-center justify-between">
+                  <span>G{block.startIndex}-{block.endIndex}</span>
+                  {!block.isComplete && (
+                    <span className="text-[8px] text-amber-400 font-normal">({block.spins.length}/{blockSize})</span>
+                  )}
+                </div>
+
+                {/* Placar de Greens e Reds do Bloco */}
+                <div className="mt-1 flex items-center justify-between bg-slate-950/80 px-1 py-0.5 rounded border border-slate-800/80 text-[8.5px] font-mono font-bold">
+                  <span className="text-emerald-400 flex items-center gap-0.5" title={`${data.wins} Greens no Bloco #${block.blockNumber}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0"></span>
+                    {data.wins}G
+                  </span>
+                  <span className="text-slate-600 font-normal">/</span>
+                  <span className="text-rose-400 flex items-center gap-0.5" title={`${data.losses} Reds no Bloco #${block.blockNumber}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0"></span>
+                    {data.losses}R
+                  </span>
                 </div>
 
                 {/* Target Hit indicator */}
