@@ -979,15 +979,33 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   )}
                 </div>
 
-                {/* Placar de Greens e Reds do Bloco */}
-                <div className="mt-1 flex items-center justify-between bg-slate-950/80 px-1 py-0.5 rounded border border-slate-800/80 text-[8.5px] font-mono font-bold">
-                  <span className="text-emerald-400 flex items-center gap-0.5" title={`${data.wins} Greens no Bloco #${block.blockNumber}`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0"></span>
+                {/* Placar de Greens e Reds do Bloco (Maior piscando) */}
+                <div className="mt-1 flex items-center justify-between bg-slate-950/90 px-1 py-0.5 rounded border border-slate-800/80 text-[8.5px] font-mono font-bold gap-1">
+                  <span
+                    className={`flex items-center gap-0.5 transition-all ${
+                      data.wins > data.losses
+                        ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-1 py-0.5 rounded shadow-sm shadow-emerald-500/30 ring-1 ring-emerald-400/40'
+                        : data.losses > data.wins
+                        ? 'text-emerald-500/60'
+                        : 'text-emerald-400'
+                    }`}
+                    title={`${data.wins} Greens no Bloco #${block.blockNumber}${data.wins > data.losses ? ' (Maior - Dominante)' : ''}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0 ${data.wins > data.losses ? 'animate-ping' : ''}`}></span>
                     {data.wins}G
                   </span>
                   <span className="text-slate-600 font-normal">/</span>
-                  <span className="text-rose-400 flex items-center gap-0.5" title={`${data.losses} Reds no Bloco #${block.blockNumber}`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0"></span>
+                  <span
+                    className={`flex items-center gap-0.5 transition-all ${
+                      data.losses > data.wins
+                        ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-1 py-0.5 rounded shadow-sm shadow-rose-500/30 ring-1 ring-rose-400/40'
+                        : data.wins > data.losses
+                        ? 'text-rose-500/60'
+                        : 'text-rose-400'
+                    }`}
+                    title={`${data.losses} Reds no Bloco #${block.blockNumber}${data.losses > data.wins ? ' (Maior - Dominante)' : ''}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0 ${data.losses > data.wins ? 'animate-ping' : ''}`}></span>
                     {data.losses}R
                   </span>
                 </div>
