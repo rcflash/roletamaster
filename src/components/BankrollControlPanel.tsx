@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Wallet,
   Target,
@@ -21,9 +21,26 @@ import {
   Minus,
   Sparkles,
   TrendingUp,
-  History
+  History,
+  Download,
+  Upload,
+  HardDrive,
+  Zap,
+  ShieldCheck,
+  FileJson,
+  Check,
+  FileSpreadsheet,
+  Copy,
+  ExternalLink,
+  Table,
+  Loader2,
+  Cloud,
+  LogOut
 } from 'lucide-react';
 import { BankrollConfig, SpinRecord, DailySessionRecord, StrategyConfig } from '../types';
+import { initAuth, googleSignIn, googleLogout, getAccessToken } from '../services/googleAuth';
+import { createGoogleBankrollSheet, syncSessionToGoogleSheet } from '../services/googleSheetsService';
+import type { User } from 'firebase/auth';
 
 interface BankrollControlPanelProps {
   config: BankrollConfig;
@@ -38,6 +55,17 @@ interface BankrollControlPanelProps {
 }
 
 const STORAGE_KEY_SESSIONS = 'roleta_master_daily_sessions_v1';
+const STORAGE_KEY_SNAPSHOTS = 'roleta_master_backup_snapshots_v1';
+
+interface BackupSnapshot {
+  id: string;
+  timestamp: number;
+  dateFormatted: string;
+  bankroll: number;
+  sessionsCount: number;
+  dailySessions: DailySessionRecord[];
+  config: BankrollConfig;
+}
 
 export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   config,
@@ -130,7 +158,169 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const [resetSpinsAlso, setResetSpinsAlso] = useState<boolean>(true);
   const [resetSuccessMsg, setResetSuccessMsg] = useState<boolean>(false);
 
-  // Save sessions to localStorage on change
+  // Backup & Quick Restoration State
+  const [customRestoreInput, setCustomRestoreInput] = useState<string>('1596.80');
+  const [quickRestoreMsg, setQuickRestoreMsg] = useState<string | null>(null);
+  const [showBackupModal, setShowBackupModal] = useState<boolean>(false);
+  const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState<boolean>(false);
+  const [copiedSheetsMsg, setCopiedSheetsMsg] = useState<string | null>(null);
+  const [importErrorMsg, setImportErrorMsg] = useState<string | null>(null);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Google Workspace Integration State
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
+  const [createdSheetUrl, setCreatedSheetUrl] = useState<string | null>(() => {
+    return localStorage.getItem('google_sheet_url') || null;
+  });
+  const [createdSheetId, setCreatedSheetId] = useState<string | null>(() => {
+    return localStorage.getItem('google_sheet_id') || null;
+  });
+  const [googleSyncMsg, setGoogleSyncMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setGoogleUser(user);
+        setGoogleToken(token);
+      },
+      () => {
+        setGoogleUser(null);
+        setGoogleToken(null);
+      }
+    );
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setGoogleSyncMsg(null);
+    try {
+      const res = await googleSignIn();
+      if (res) {
+        setGoogleUser(res.user);
+        setGoogleToken(res.accessToken);
+        setGoogleSyncMsg(`✅ Conectado com sucesso como ${res.user.displayName || res.user.email}!`);
+      }
+    } catch (e: any) {
+      console.error(e);
+      setGoogleSyncMsg(`❌ Erro ao conectar Google: ${e.message || 'Permissão negada'}`);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleLogout = async () => {
+    await googleLogout();
+    setGoogleUser(null);
+    setGoogleToken(null);
+    setGoogleSyncMsg('Desconectado do Google.');
+  };
+
+  const handleCreateRealGoogleSheet = async () => {
+    setIsGoogleLoading(true);
+    setGoogleSyncMsg(null);
+    try {
+      let token = googleToken || (await getAccessToken());
+      if (!token) {
+        const loginRes = await googleSignIn();
+        if (!loginRes) throw new Error('Não foi possível autenticar no Google');
+        token = loginRes.accessToken;
+        setGoogleUser(loginRes.user);
+        setGoogleToken(token);
+      }
+
+      setGoogleSyncMsg('⏳ Criando planilha oficial no seu Google Drive com fórmulas...');
+      const res = await createGoogleBankrollSheet(token, dailySessions, config);
+      setCreatedSheetUrl(res.spreadsheetUrl);
+      setCreatedSheetId(res.spreadsheetId);
+      localStorage.setItem('google_sheet_url', res.spreadsheetUrl);
+      localStorage.setItem('google_sheet_id', res.spreadsheetId);
+      setGoogleSyncMsg('🎉 Planilha criada e sincronizada com sucesso no seu Google Drive!');
+    } catch (e: any) {
+      console.error(e);
+      setGoogleSyncMsg(`❌ Falha ao criar planilha: ${e.message || 'Erro inesperado'}`);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleSyncLatestSessionToSheet = async () => {
+    if (!createdSheetId) {
+      setGoogleSyncMsg('Crie a planilha primeiro para sincronizar.');
+      return;
+    }
+    if (dailySessions.length === 0) {
+      setGoogleSyncMsg('Nenhuma sessão registrada para sincronizar.');
+      return;
+    }
+    setIsGoogleLoading(true);
+    try {
+      let token = googleToken || (await getAccessToken());
+      if (!token) {
+        const loginRes = await googleSignIn();
+        if (!loginRes) throw new Error('Autenticação necessária');
+        token = loginRes.accessToken;
+        setGoogleUser(loginRes.user);
+        setGoogleToken(token);
+      }
+      setGoogleSyncMsg('⏳ Sincronizando última sessão...');
+      await syncSessionToGoogleSheet(token, createdSheetId, dailySessions[0]);
+      setGoogleSyncMsg('✅ Última sessão adicionada à sua planilha no Google Sheets!');
+    } catch (e: any) {
+      console.error(e);
+      setGoogleSyncMsg(`❌ Erro de sincronização: ${e.message}`);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  // Snapshots storage state
+  const [snapshots, setSnapshots] = useState<BackupSnapshot[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SNAPSHOTS);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
+  });
+
+  // Save snapshots to localStorage
+  const saveSnapshots = (updated: BackupSnapshot[]) => {
+    setSnapshots(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY_SNAPSHOTS, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Auto-record snapshot periodically or upon meaningful state changes
+  const createSnapshot = (customNote?: string) => {
+    const currentBank = dailySessions.length > 0 ? dailySessions[0].finalBankroll : config.initialBankroll;
+    const now = Date.now();
+    const newSnapshot: BackupSnapshot = {
+      id: `snapshot-${now}`,
+      timestamp: now,
+      dateFormatted: new Date().toLocaleString('pt-BR'),
+      bankroll: currentBank,
+      sessionsCount: dailySessions.length,
+      dailySessions: JSON.parse(JSON.stringify(dailySessions)),
+      config: JSON.parse(JSON.stringify(config)),
+    };
+
+    // Keep up to 20 most recent snapshots
+    const filtered = snapshots.filter((s) => now - s.timestamp > 1000 * 60); // avoid exact duplicate within 1 min
+    const updated = [newSnapshot, ...filtered].slice(0, 20);
+    saveSnapshots(updated);
+  };
+
+  // Save sessions to localStorage on change & trigger snapshot check
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(dailySessions));
@@ -138,6 +328,264 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
       console.error(e);
     }
   }, [dailySessions]);
+
+  // Quick 1-Click Restore for R$ 1.596,80
+  const handleQuickRestore1596 = () => {
+    handleApplyCustomBankroll(1596.80, '⚡ Recomposição oficial de saldo de banca: R$ 1.596,80.');
+  };
+
+  // Apply custom bankroll balance directly
+  const handleApplyCustomBankroll = (targetBalance: number, note?: string) => {
+    if (isNaN(targetBalance) || targetBalance <= 0) return;
+
+    // Update bankroll config
+    onUpdateConfig({
+      ...config,
+      initialBankroll: targetBalance,
+    });
+    setEditingBankroll(targetBalance.toString());
+    setManualInitialBankroll(targetBalance.toString());
+
+    // Create a benchmark session record for today if desired
+    const todayBR = new Date().toLocaleDateString('pt-BR');
+    const existingToday = dailySessions.find((s) => s.date === todayBR);
+
+    let updatedSessions: DailySessionRecord[];
+    if (existingToday) {
+      updatedSessions = dailySessions.map((s) =>
+        s.id === existingToday.id
+          ? {
+              ...s,
+              initialBankroll: targetBalance,
+              finalBankroll: targetBalance,
+              netProfit: 0,
+              roiPct: 0,
+              notes: note || `Saldo ajustado/restaurado para R$ ${targetBalance.toFixed(2)}.`,
+            }
+          : s
+      );
+    } else {
+      const recoverySession: DailySessionRecord = {
+        id: `session-restore-${Date.now()}`,
+        date: todayBR,
+        initialBankroll: targetBalance,
+        finalBankroll: targetBalance,
+        netProfit: 0,
+        roiPct: 0,
+        totalSpins: 0,
+        winCount: 0,
+        lossCount: 0,
+        greenCount: 0,
+        redCount: 0,
+        valuePerGreen: strategy?.customWinReturn || 90.0,
+        valuePerRed: config.defaultSpinCost || 37.50,
+        goalMet: false,
+        stopLossHit: false,
+        notes: note || `⚡ Saldo de banca restaurado para R$ ${targetBalance.toFixed(2)}.`,
+      };
+      updatedSessions = [recoverySession, ...dailySessions];
+    }
+
+    updateSessions(updatedSessions);
+
+    // Save snapshot
+    const now = Date.now();
+    const snap: BackupSnapshot = {
+      id: `snapshot-${now}`,
+      timestamp: now,
+      dateFormatted: new Date().toLocaleString('pt-BR'),
+      bankroll: targetBalance,
+      sessionsCount: updatedSessions.length,
+      dailySessions: updatedSessions,
+      config: { ...config, initialBankroll: targetBalance },
+    };
+    saveSnapshots([snap, ...snapshots].slice(0, 20));
+
+    setQuickRestoreMsg(`✅ Saldo restaurado com sucesso para R$ ${targetBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}!`);
+    setTimeout(() => setQuickRestoreMsg(null), 6000);
+  };
+
+  // Download Full JSON Backup
+  const handleDownloadBackupJson = () => {
+    const currentBank = dailySessions.length > 0 ? dailySessions[0].finalBankroll : config.initialBankroll;
+    const backupData = {
+      version: '1.0',
+      type: 'ROLETA_MASTER_BANKROLL_BACKUP',
+      exportDate: new Date().toISOString(),
+      exportDateBR: new Date().toLocaleString('pt-BR'),
+      currentBalance: currentBank,
+      config,
+      dailySessions,
+      spinsCount: spins.length,
+      spins,
+      strategy,
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_banca_roleta_${new Date().toISOString().split('T')[0]}_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    setImportSuccessMsg('📥 Arquivo de backup JSON baixado com sucesso!');
+    setTimeout(() => setImportSuccessMsg(null), 4000);
+  };
+
+  // Import JSON Backup File
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+
+        if (parsed.config) {
+          onUpdateConfig(parsed.config);
+        }
+
+        if (parsed.dailySessions && Array.isArray(parsed.dailySessions)) {
+          updateSessions(parsed.dailySessions);
+        }
+
+        // Take snapshot
+        const now = Date.now();
+        const snap: BackupSnapshot = {
+          id: `snapshot-import-${now}`,
+          timestamp: now,
+          dateFormatted: new Date().toLocaleString('pt-BR'),
+          bankroll: parsed.currentBalance || (parsed.config ? parsed.config.initialBankroll : 100),
+          sessionsCount: parsed.dailySessions ? parsed.dailySessions.length : 0,
+          dailySessions: parsed.dailySessions || [],
+          config: parsed.config || config,
+        };
+        saveSnapshots([snap, ...snapshots].slice(0, 20));
+
+        setImportSuccessMsg('✅ Backup importado e restaurado com sucesso!');
+        setImportErrorMsg(null);
+        setTimeout(() => {
+          setImportSuccessMsg(null);
+          setShowBackupModal(false);
+        }, 3000);
+      } catch (err: any) {
+        setImportErrorMsg('❌ Erro ao ler o arquivo JSON de backup: Formato inválido.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Restore specific snapshot
+  const handleRestoreSnapshot = (snap: BackupSnapshot) => {
+    if (snap.config) {
+      onUpdateConfig(snap.config);
+    }
+    if (snap.dailySessions) {
+      updateSessions(snap.dailySessions);
+    }
+    setImportSuccessMsg(`✅ Restaurado para o ponto de ${snap.dateFormatted} (Saldo: R$ ${snap.bankroll.toFixed(2)})!`);
+    setTimeout(() => {
+      setImportSuccessMsg(null);
+      setShowBackupModal(false);
+    }, 3000);
+  };
+
+  // Google Sheets / Excel: Export CSV with UTF-8 BOM
+  const handleExportGoogleSheetsCsv = () => {
+    const headers = [
+      'Data',
+      'Banca Inicial (R$)',
+      'Greens',
+      'Reds',
+      'Valor Green (R$)',
+      'Valor Red (R$)',
+      'Lucro Líquido (R$)',
+      'Banca Final (R$)',
+      'ROI (%)',
+      'Meta Batida',
+      'Stop Loss Atingido',
+      'Observações'
+    ];
+
+    const rows = dailySessions.map((s) => [
+      `"${s.date}"`,
+      s.initialBankroll.toFixed(2).replace('.', ','),
+      s.greenCount || 0,
+      s.redCount || 0,
+      (s.valuePerGreen || 90).toFixed(2).replace('.', ','),
+      (s.valuePerRed || 37.5).toFixed(2).replace('.', ','),
+      s.netProfit.toFixed(2).replace('.', ','),
+      s.finalBankroll.toFixed(2).replace('.', ','),
+      s.roiPct.toFixed(2).replace('.', ',') + '%',
+      s.goalMet ? 'SIM' : 'NÃO',
+      s.stopLossHit ? 'SIM' : 'NÃO',
+      `"${(s.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gestao_banca_google_sheets_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    setImportSuccessMsg('📊 Planilha CSV para Google Sheets / Excel gerada e baixada com sucesso!');
+    setTimeout(() => setImportSuccessMsg(null), 4000);
+  };
+
+  // Google Sheets: Copy Tab-Delimited text to clipboard for instant Ctrl+V into Google Sheets
+  const handleCopyForGoogleSheets = () => {
+    const headers = [
+      'Data',
+      'Banca Inicial',
+      'Greens',
+      'Reds',
+      'Valor Green',
+      'Valor Red',
+      'Lucro Líquido',
+      'Banca Final',
+      'ROI %',
+      'Meta Batida',
+      'Stop Loss',
+      'Observações'
+    ];
+
+    const rows = dailySessions.map((s) => [
+      s.date,
+      s.initialBankroll.toFixed(2).replace('.', ','),
+      s.greenCount || 0,
+      s.redCount || 0,
+      (s.valuePerGreen || 90).toFixed(2).replace('.', ','),
+      (s.valuePerRed || 37.5).toFixed(2).replace('.', ','),
+      s.netProfit.toFixed(2).replace('.', ','),
+      s.finalBankroll.toFixed(2).replace('.', ','),
+      s.roiPct.toFixed(2).replace('.', ',') + '%',
+      s.goalMet ? 'SIM' : 'NÃO',
+      s.stopLossHit ? 'SIM' : 'NÃO',
+      s.notes || ''
+    ]);
+
+    const tsvContent = [headers.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n');
+    navigator.clipboard.writeText(tsvContent).then(() => {
+      setCopiedSheetsMsg('📋 Dados copiados com sucesso! Abra o Google Sheets e pressione Ctrl+V.');
+      setTimeout(() => setCopiedSheetsMsg(null), 5000);
+    }).catch(() => {
+      setCopiedSheetsMsg('⚠️ Não foi possível copiar direto. Baixe o arquivo CSV.');
+      setTimeout(() => setCopiedSheetsMsg(null), 4000);
+    });
+  };
+
+  // Open sheets.new directly
+  const handleOpenSheetsNew = () => {
+    window.open('https://sheets.new', '_blank');
+  };
 
   // Current session calculations from automatic spins
   const totalSpins = spins.length;
@@ -442,6 +890,128 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* 🛡️ CENTRAL DE RECUPERAÇÃO RÁPIDA & BACKUP DE BANCA */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/60 border-2 border-emerald-500/40 rounded-3xl p-6 shadow-2xl space-y-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/30">
+              <ShieldCheck className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">Segurança & Continuidade</span>
+                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-500/30">
+                  Auto-Backup Ativo
+                </span>
+              </div>
+              <h3 className="text-xl font-black text-slate-100 flex items-center gap-2">
+                🛡️ Restauração Rápida & Backup da Banca
+              </h3>
+            </div>
+          </div>
+
+          {/* Ações Rápidas de Backup e Restauração */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setShowGoogleSheetsModal(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all"
+              title="Abrir ferramentas e modelo para Google Sheets e Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <span>📊 Planilha Google Sheets</span>
+            </button>
+
+            <button
+              onClick={handleDownloadBackupJson}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all shadow-sm"
+              title="Baixar arquivo JSON completo com todas as sessões e configurações"
+            >
+              <Download className="w-4 h-4 text-indigo-400" />
+              <span>Baixar Backup (.json)</span>
+            </button>
+
+            <button
+              onClick={() => setShowBackupModal(true)}
+              className="px-3.5 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 border border-indigo-500/40 transition-all shadow-sm"
+              title="Carregar arquivo de backup ou ver histórico de pontos de restauração automática"
+            >
+              <HardDrive className="w-4 h-4 text-amber-400" />
+              <span>Restaurar / Snapshots ({snapshots.length})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Notificação de Sucesso */}
+        {quickRestoreMsg && (
+          <div className="p-3.5 bg-emerald-950/80 border border-emerald-500/50 rounded-2xl text-emerald-300 text-xs font-bold flex items-center gap-2 animate-bounce">
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span>{quickRestoreMsg}</span>
+          </div>
+        )}
+
+        {importSuccessMsg && (
+          <div className="p-3.5 bg-indigo-950/80 border border-indigo-500/50 rounded-2xl text-indigo-300 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+            <Check className="w-4 h-4 text-indigo-400" />
+            <span>{importSuccessMsg}</span>
+          </div>
+        )}
+
+        {/* Resgate Rápido: Botão 1-Clique R$ 1.596,80 e Input Personalizado */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1">
+          {/* Botão Rápido de Resgate */}
+          <div className="md:col-span-6 bg-emerald-950/40 border border-emerald-500/40 p-3.5 rounded-2xl flex items-center justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block">Recuperação Imediata</span>
+              <div className="text-sm font-black text-slate-100">Restaurar Saldo de R$ 1.596,80</div>
+              <span className="text-[11px] text-slate-400">Recompõe seu saldo oficial de manhã com 1 clique</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleQuickRestore1596}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 shrink-0 transform hover:scale-105"
+            >
+              <Zap className="w-4 h-4 fill-slate-950" />
+              <span>Restaurar R$ 1.596,80</span>
+            </button>
+          </div>
+
+          {/* Ajuste Livre de Saldo */}
+          <div className="md:col-span-6 bg-slate-950/80 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Definir Outro Saldo Atual</span>
+              <div className="relative mt-1">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0.01"
+                  value={customRestoreInput}
+                  onChange={(e) => setCustomRestoreInput(e.target.value)}
+                  placeholder="1596.80"
+                  className="w-full pl-8 pr-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono font-bold text-emerald-300 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const val = parseFloat(customRestoreInput.replace(',', '.'));
+                if (!isNaN(val) && val > 0) {
+                  handleApplyCustomBankroll(val);
+                }
+              }}
+              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700 transition-all shrink-0 mt-3"
+            >
+              Aplicar Saldo
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* LANÇAMENTO AUTOMÁTICO DIÁRIO APENAS INFORMANDO GREENS E REDS */}
       <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
@@ -1391,6 +1961,368 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
           </div>
         </form>
       </div>
+
+      {/* BACKUP & RESTAURAÇÃO MODAL */}
+      {showBackupModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-400 border border-indigo-500/30">
+                  <HardDrive className="w-6 h-6 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-100">Central de Backup & Restauração</h3>
+                  <p className="text-xs text-indigo-400 font-bold">Importe arquivos ou restaure pontos automáticos</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowBackupModal(false);
+                  setImportErrorMsg(null);
+                }}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {importErrorMsg && (
+              <div className="p-3 bg-rose-950/80 border border-rose-500/40 rounded-xl text-rose-300 text-xs font-bold">
+                {importErrorMsg}
+              </div>
+            )}
+
+            {importSuccessMsg && (
+              <div className="p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold">
+                {importSuccessMsg}
+              </div>
+            )}
+
+            {/* SEÇÃO 1: IMPORTAR ARQUIVO JSON */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+                  <FileJson className="w-4 h-4" /> Importar Arquivo de Backup (.json)
+                </span>
+                <span className="text-[10px] text-slate-500">Do computador ou celular</span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Selecione um arquivo de backup previamente exportado para recuperar todas as sessões e bancas.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="backup-file-input"
+                />
+                <label
+                  htmlFor="backup-file-input"
+                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl cursor-pointer flex items-center gap-2 transition-all shadow-md"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Selecionar Arquivo JSON</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleDownloadBackupJson}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-700 transition-all"
+                >
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <span>Baixar Backup Agora</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SEÇÃO 2: SNAPSHOTS AUTOMÁTICOS */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                  <History className="w-4 h-4" /> Pontos de Restauração Automática ({snapshots.length})
+                </span>
+                <span className="text-[10px] text-emerald-400">Salvos no Navegador</span>
+              </div>
+              <p className="text-xs text-slate-400">
+                O sistema salva snapshots automáticos das suas sessões. Clique em "Restaurar" para voltar ao estado de qualquer ponto salvo:
+              </p>
+
+              {snapshots.length === 0 ? (
+                <div className="text-center py-6 text-xs text-slate-500">
+                  Nenhum snapshot automático registrado ainda. Eles são criados conforme você opera.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {snapshots.map((snap) => (
+                    <div
+                      key={snap.id}
+                      className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-indigo-500/40 flex items-center justify-between gap-3 transition-all"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-200">{snap.dateFormatted}</div>
+                        <div className="text-[11px] text-emerald-400 font-mono font-bold">
+                          Banca: R$ {snap.bankroll.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({snap.sessionsCount} lançamentos)
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreSnapshot(snap)}
+                        className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white rounded-lg text-xs font-bold border border-emerald-500/30 transition-all flex items-center gap-1 shrink-0"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Restaurar</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBackupModal(false);
+                  setImportErrorMsg(null);
+                }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GOOGLE SHEETS MODAL */}
+      {showGoogleSheetsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/30">
+                  <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-100 flex items-center gap-2">
+                    Planilha Google Sheets da Gestão de Banca
+                  </h3>
+                  <p className="text-xs text-emerald-400 font-bold">
+                    Tenha sua planilha oficial no Google para nunca perder seu histórico
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowGoogleSheetsModal(false);
+                  setCopiedSheetsMsg(null);
+                }}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {copiedSheetsMsg && (
+              <div className="p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 animate-bounce">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>{copiedSheetsMsg}</span>
+              </div>
+            )}
+
+            {googleSyncMsg && (
+              <div className="p-3 bg-slate-950 border border-indigo-500/40 rounded-xl text-indigo-300 text-xs font-bold flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>{googleSyncMsg}</span>
+              </div>
+            )}
+
+            {/* SEÇÃO 1: CRIAR DIRETAMENTE NO SEU GOOGLE DRIVE / GOOGLE SHEETS COM AUTOMAÇÃO */}
+            <div className="p-4 bg-gradient-to-br from-emerald-950/40 to-slate-950 rounded-2xl border border-emerald-500/40 space-y-3.5 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-emerald-500/20 text-emerald-300 rounded-lg">
+                    <Cloud className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span className="text-xs font-black uppercase text-emerald-300 tracking-wider">
+                      Criação Automática no seu Google Drive
+                    </span>
+                    <p className="text-[11px] text-slate-400">
+                      Gera uma planilha oficial com abas, fórmulas automáticas e proteção
+                    </p>
+                  </div>
+                </div>
+
+                {googleUser ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800">
+                      👤 {googleUser.displayName || googleUser.email}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleGoogleLogout}
+                      className="p-1.5 text-slate-400 hover:text-rose-400 bg-slate-900 rounded-lg border border-slate-800"
+                      title="Desconectar conta Google"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={isGoogleLoading}
+                    className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow"
+                  >
+                    {isGoogleLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>Conectar Google</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCreateRealGoogleSheet}
+                  disabled={isGoogleLoading}
+                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
+                >
+                  {isGoogleLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+                  )}
+                  <span>{createdSheetId ? 'Recriar / Atualizar Planilha no Google' : 'Criar Minha Planilha no Google Drive'}</span>
+                </button>
+
+                {createdSheetUrl && (
+                  <a
+                    href={createdSheetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4 text-indigo-200" />
+                    <span>Abrir Minha Planilha no Google Sheets</span>
+                  </a>
+                )}
+
+                {createdSheetId && dailySessions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSyncLatestSessionToSheet}
+                    disabled={isGoogleLoading}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-slate-700 transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Sincronizar Última Sessão</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* OPÇÃO 2: COPIAR E COLAR COM 1 CLIQUE */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+                  <Copy className="w-4 h-4" /> Opção Manual Rápida (Copiar e Colar)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                  <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 bg-emerald-500/20 text-emerald-300 rounded-full flex items-center justify-center text-[11px] font-black">1</span>
+                    Copiar Dados do Sistema
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Copia todas as {dailySessions.length} sessões formatadas em colunas perfeitamente alinhadas.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopyForGoogleSheets}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar Tabela (Ctrl+C)</span>
+                  </button>
+                </div>
+
+                <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                  <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 bg-indigo-500/20 text-indigo-300 rounded-full flex items-center justify-center text-[11px] font-black">2</span>
+                    Abrir Google Sheets
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Abre uma nova planilha em branco no seu Google Drive. Basta clicar na célula A1 e apertar <strong>Ctrl + V</strong>!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleOpenSheetsNew}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Criar no Google Sheets</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* OPÇÃO 3: BAIXAR ARQUIVO .CSV PARA IMPORTAR */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+                  <Download className="w-4 h-4" /> Baixar Planilha CSV (Google Sheets & Excel)
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Gera um arquivo <strong>.CSV com codificação UTF-8</strong>. Você pode fazer upload no Google Drive ou abrir no Excel com 2 cliques.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleExportGoogleSheetsCsv}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 hover:text-white font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-700 transition-all"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Baixar gestao_banca_google_sheets.csv</span>
+              </button>
+            </div>
+
+            {/* ESTRUTURA E FÓRMULAS DA PLANILHA */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                <Table className="w-4 h-4" /> Estrutura de Colunas & Fórmulas da Planilha
+              </span>
+
+              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-[11px] font-mono space-y-1.5 text-slate-300">
+                <div className="text-emerald-400 font-bold">Colunas Criadas:</div>
+                <div>A: <strong>Data</strong> | B: <strong>Banca Inicial</strong> | C: <strong>Greens</strong> | D: <strong>Reds</strong></div>
+                <div>E: <strong>Valor Green (R$ 90)</strong> | F: <strong>Valor Red (R$ 37,50)</strong></div>
+                <div>G: <strong>Lucro Líquido</strong> <span className="text-indigo-400">= (C2 * E2) - (D2 * F2)</span></div>
+                <div>H: <strong>Banca Final</strong> <span className="text-indigo-400">= B2 + G2</span></div>
+                <div>I: <strong>ROI %</strong> <span className="text-indigo-400">= G2 / B2</span></div>
+                <div>J: <strong>Meta Batida (SIM/NÃO)</strong> | K: <strong>Observações</strong></div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowGoogleSheetsModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CONFIRMATION MODAL FOR RESET GERAL DE BANCA */}
       {showResetModal && (
