@@ -866,6 +866,17 @@ export default function App() {
               <span>Análise por Blocos (12 Giros)</span>
             </button>
             <button
+              onClick={() => setActiveTab('bankroll')}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'bankroll'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Gestão de Banca & ROI</span>
+            </button>
+            <button
               onClick={() => setActiveTab('camouflaged')}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                 activeTab === 'camouflaged'
@@ -918,17 +929,6 @@ export default function App() {
             >
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
               <span>Estratégias & Backtest</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('bankroll')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'bankroll'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Gestão de Banca & ROI</span>
             </button>
             <button
               onClick={() => setActiveTab('sessions')}

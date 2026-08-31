@@ -38,8 +38,8 @@ import {
   LogOut
 } from 'lucide-react';
 import { BankrollConfig, SpinRecord, DailySessionRecord, StrategyConfig } from '../types';
-import { initAuth, googleSignIn, googleLogout, getAccessToken } from '../services/googleAuth';
-import { createGoogleBankrollSheet, syncSessionToGoogleSheet } from '../services/googleSheetsService';
+import { initAuth, googleSignIn, googleLogout, getAccessToken, getStoredUserInfo, StoredUserInfo, clearGoogleSession } from '../services/googleAuth';
+import { createGoogleBankrollSheet, syncSessionToGoogleSheet, syncAllSessionsToGoogleSheet } from '../services/googleSheetsService';
 import type { User } from 'firebase/auth';
 
 interface BankrollControlPanelProps {
@@ -169,8 +169,8 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Google Workspace Integration State
-  const [googleUser, setGoogleUser] = useState<User | null>(null);
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [googleUser, setGoogleUser] = useState<User | StoredUserInfo | null>(() => getStoredUserInfo());
+  const [googleToken, setGoogleToken] = useState<string | null>(() => localStorage.getItem('google_sheets_access_token'));
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
   const [createdSheetUrl, setCreatedSheetUrl] = useState<string | null>(() => {
     return localStorage.getItem('google_sheet_url') || null;
@@ -178,17 +178,27 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const [createdSheetId, setCreatedSheetId] = useState<string | null>(() => {
     return localStorage.getItem('google_sheet_id') || null;
   });
+  const [manualSheetInput, setManualSheetInput] = useState<string>('');
   const [googleSyncMsg, setGoogleSyncMsg] = useState<string | null>(null);
+  const [unauthorizedDomainError, setUnauthorizedDomainError] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = initAuth(
       (user, token) => {
         setGoogleUser(user);
-        setGoogleToken(token);
+        if (token) setGoogleToken(token);
       },
       () => {
-        setGoogleUser(null);
-        setGoogleToken(null);
+        // Keep stored user if we still have token
+        const storedT = localStorage.getItem('google_sheets_access_token');
+        const storedU = getStoredUserInfo();
+        if (!storedT) {
+          setGoogleUser(null);
+          setGoogleToken(null);
+        } else if (storedU) {
+          setGoogleUser(storedU);
+          setGoogleToken(storedT);
+        }
       }
     );
     return () => {
@@ -199,16 +209,27 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     setGoogleSyncMsg(null);
+    setUnauthorizedDomainError(false);
     try {
       const res = await googleSignIn();
       if (res) {
         setGoogleUser(res.user);
         setGoogleToken(res.accessToken);
-        setGoogleSyncMsg(`✅ Conectado com sucesso como ${res.user.displayName || res.user.email}!`);
+        setGoogleSyncMsg(`✅ Conectado com sucesso com ${res.user.displayName || res.user.email}!`);
+        // If sheet is already created, sync immediately
+        const sheetId = createdSheetId || localStorage.getItem('google_sheet_id');
+        if (sheetId) {
+          await syncAllSessionsToGoogleSheet(res.accessToken, sheetId, dailySessions, config);
+          setGoogleSyncMsg(`✅ Conectado e planilha sincronizada com sucesso!`);
+        }
       }
     } catch (e: any) {
       console.error(e);
-      setGoogleSyncMsg(`❌ Erro ao conectar Google: ${e.message || 'Permissão negada'}`);
+      if (e?.code === 'auth/unauthorized-domain' || e?.message?.includes('unauthorized-domain')) {
+        setUnauthorizedDomainError(true);
+      } else {
+        setGoogleSyncMsg(`❌ Erro ao conectar Google: ${e.message || 'Permissão negada'}`);
+      }
     } finally {
       setIsGoogleLoading(false);
     }
@@ -218,12 +239,33 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
     await googleLogout();
     setGoogleUser(null);
     setGoogleToken(null);
-    setGoogleSyncMsg('Desconectado do Google.');
+    setGoogleSyncMsg('Desconectado da conta Google.');
+  };
+
+  const handleLinkManualSpreadsheet = async () => {
+    if (!manualSheetInput.trim()) return;
+    let input = manualSheetInput.trim();
+    let sheetId = input;
+    
+    // Extract ID from URL if full URL is pasted
+    const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (match && match[1]) {
+      sheetId = match[1];
+    }
+
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+    setCreatedSheetId(sheetId);
+    setCreatedSheetUrl(sheetUrl);
+    localStorage.setItem('google_sheet_id', sheetId);
+    localStorage.setItem('google_sheet_url', sheetUrl);
+    setManualSheetInput('');
+    setGoogleSyncMsg(`🔗 Planilha vinculada com sucesso! Clique em 'Sincronizar Todas as Sessões' para atualizar os dados.`);
   };
 
   const handleCreateRealGoogleSheet = async () => {
     setIsGoogleLoading(true);
     setGoogleSyncMsg(null);
+    setUnauthorizedDomainError(false);
     try {
       let token = googleToken || (await getAccessToken());
       if (!token) {
@@ -234,7 +276,7 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         setGoogleToken(token);
       }
 
-      setGoogleSyncMsg('⏳ Criando planilha oficial no seu Google Drive com fórmulas...');
+      setGoogleSyncMsg('⏳ Criando planilha oficial no seu Google Drive com abas e fórmulas...');
       const res = await createGoogleBankrollSheet(token, dailySessions, config);
       setCreatedSheetUrl(res.spreadsheetUrl);
       setCreatedSheetId(res.spreadsheetId);
@@ -243,39 +285,76 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
       setGoogleSyncMsg('🎉 Planilha criada e sincronizada com sucesso no seu Google Drive!');
     } catch (e: any) {
       console.error(e);
-      setGoogleSyncMsg(`❌ Falha ao criar planilha: ${e.message || 'Erro inesperado'}`);
+      if (e?.code === 'auth/unauthorized-domain' || e?.message?.includes('unauthorized-domain')) {
+        setUnauthorizedDomainError(true);
+      } else {
+        setGoogleSyncMsg(`❌ Falha ao criar planilha: ${e.message || 'Erro inesperado'}`);
+      }
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
-  const handleSyncLatestSessionToSheet = async () => {
-    if (!createdSheetId) {
-      setGoogleSyncMsg('Crie a planilha primeiro para sincronizar.');
+  const handleSyncAllSessionsNow = async () => {
+    const sheetId = createdSheetId || localStorage.getItem('google_sheet_id');
+    if (!sheetId) {
+      setGoogleSyncMsg('⚠️ Nenhuma planilha vinculada. Crie uma nova ou vincule o link da sua planilha.');
       return;
     }
-    if (dailySessions.length === 0) {
-      setGoogleSyncMsg('Nenhuma sessão registrada para sincronizar.');
-      return;
-    }
+
     setIsGoogleLoading(true);
     try {
       let token = googleToken || (await getAccessToken());
       if (!token) {
         const loginRes = await googleSignIn();
-        if (!loginRes) throw new Error('Autenticação necessária');
+        if (!loginRes) throw new Error('Autenticação no Google necessária');
         token = loginRes.accessToken;
         setGoogleUser(loginRes.user);
         setGoogleToken(token);
       }
-      setGoogleSyncMsg('⏳ Sincronizando última sessão...');
-      await syncSessionToGoogleSheet(token, createdSheetId, dailySessions[0]);
-      setGoogleSyncMsg('✅ Última sessão adicionada à sua planilha no Google Sheets!');
+
+      setGoogleSyncMsg('⏳ Sincronizando todas as sessões com o Google Sheets...');
+      await syncAllSessionsToGoogleSheet(token, sheetId, dailySessions, config);
+      setGoogleSyncMsg(`🎉 Sucesso! Todas as ${dailySessions.length} sessões foram sincronizadas na sua planilha.`);
     } catch (e: any) {
       console.error(e);
-      setGoogleSyncMsg(`❌ Erro de sincronização: ${e.message}`);
+      if (e?.code === 'auth/unauthorized-domain' || e?.message?.includes('unauthorized-domain')) {
+        setUnauthorizedDomainError(true);
+      } else {
+        setGoogleSyncMsg(`❌ Erro ao sincronizar: ${e.message || 'Falha de conexão'}`);
+      }
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const autoRecordSessionToSheet = async (record: DailySessionRecord, updatedList?: DailySessionRecord[]) => {
+    const sheetId = createdSheetId || localStorage.getItem('google_sheet_id');
+    if (!sheetId) {
+      setGoogleSyncMsg(`💡 Planilha Google não configurada. Clique em 'Conectar Planilha Google' para salvar na nuvem.`);
+      return;
+    }
+
+    try {
+      const token = googleToken || (await getAccessToken());
+      if (!token) {
+        setGoogleSyncMsg(`⚠️ Sessão salva localmente! Para sincronizar online no Google Sheets, clique em 'Conectar Google'.`);
+        return;
+      }
+
+      const sessionsToSync = updatedList || [record, ...dailySessions];
+      await syncAllSessionsToGoogleSheet(token, sheetId, sessionsToSync, config);
+      setGoogleSyncMsg(`☁️ Sessão (${record.date}) e planilha Google Sheets sincronizadas com sucesso!`);
+      setTimeout(() => setGoogleSyncMsg(null), 6000);
+    } catch (e: any) {
+      console.warn('Auto-sync to Google Sheet error:', e);
+      if (e?.message?.includes('expirada') || e?.message?.includes('401')) {
+        setGoogleToken(null);
+        clearGoogleSession();
+        setGoogleSyncMsg(`⚠️ Sessão salva localmente. Faça login novamente no Google para manter a gravação online.`);
+      } else {
+        setGoogleSyncMsg(`⚠️ Sessão salva localmente. Erro ao sincronizar com Google Sheets: ${e.message}`);
+      }
     }
   };
 
@@ -729,6 +808,10 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
           : s
       );
       updateSessions(updated);
+      const editedRecord = updated.find((s) => s.id === editingSessionId);
+      if (editedRecord) {
+        autoRecordSessionToSheet(editedRecord, updated);
+      }
       setEditingSessionId(null);
     } else {
       // Add new record
@@ -751,7 +834,9 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
         notes: manualNotes || `Lançamento de ${manualGreenCount} Greens e ${manualRedCount} Reds.`,
       };
 
-      updateSessions([newRecord, ...dailySessions]);
+      const updated = [newRecord, ...dailySessions];
+      updateSessions(updated);
+      autoRecordSessionToSheet(newRecord, updated);
     }
 
     setSaveSuccessMsg(true);
@@ -819,20 +904,29 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
       notes: manualNotes || 'Sessão gravada automaticamente pelos giros da roleta.',
     };
 
+    let updated: DailySessionRecord[];
     if (existingIdx >= 0) {
-      const updated = [...dailySessions];
+      updated = [...dailySessions];
       updated[existingIdx] = newRecord;
       updateSessions(updated);
     } else {
-      updateSessions([newRecord, ...dailySessions]);
+      updated = [newRecord, ...dailySessions];
+      updateSessions(updated);
     }
 
+    autoRecordSessionToSheet(newRecord, updated);
     setSaveSuccessMsg(true);
     setTimeout(() => setSaveSuccessMsg(false), 3000);
   };
 
   const handleDeleteSession = (id: string) => {
-    updateSessions(dailySessions.filter((s) => s.id !== id));
+    const updated = dailySessions.filter((s) => s.id !== id);
+    updateSessions(updated);
+    const sheetId = createdSheetId || localStorage.getItem('google_sheet_id');
+    const token = googleToken || localStorage.getItem('google_sheets_access_token');
+    if (sheetId && token) {
+      syncAllSessionsToGoogleSheet(token, sheetId, updated, config).catch((e) => console.warn(e));
+    }
   };
 
   // Reset ALL bankroll sessions and optionally clear table spins
@@ -1027,14 +1121,46 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
             </div>
           </div>
 
-          {editingSessionId && (
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleCancelEditSession}
-              className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1"
+              type="button"
+              onClick={() => setShowGoogleSheetsModal(true)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border shadow-sm ${
+                createdSheetId && googleToken
+                  ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/80 shadow-emerald-500/10'
+                  : createdSheetId
+                  ? 'bg-amber-950/60 text-amber-300 border-amber-500/50 hover:bg-amber-900/70'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
+              title="Clique para abrir as opções da Planilha Google Sheets"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Cancelar Edição
+              <FileSpreadsheet
+                className={`w-3.5 h-3.5 ${
+                  createdSheetId && googleToken
+                    ? 'text-emerald-400'
+                    : createdSheetId
+                    ? 'text-amber-400'
+                    : 'text-slate-400'
+                }`}
+              />
+              <span>
+                {createdSheetId && googleToken
+                  ? '🟢 Google Sheets: Sincronização ATIVA'
+                  : createdSheetId
+                  ? '🟡 Google Sheets: Conectar para Gravar'
+                  : '📊 Conectar Planilha Google'}
+              </span>
             </button>
-          )}
+
+            {editingSessionId && (
+              <button
+                onClick={handleCancelEditSession}
+                className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Cancelar Edição
+              </button>
+            )}
+          </div>
         </div>
 
         <form onSubmit={handleSaveManualSession} className="space-y-6">
@@ -2150,18 +2276,19 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                   </span>
                   <div>
                     <span className="text-xs font-black uppercase text-emerald-300 tracking-wider">
-                      Criação Automática no seu Google Drive
+                      Integração Oficial Google Drive & Sheets
                     </span>
                     <p className="text-[11px] text-slate-400">
-                      Gera uma planilha oficial com abas, fórmulas automáticas e proteção
+                      Gera e sincroniza sua planilha com abas, fórmulas automáticas e proteção
                     </p>
                   </div>
                 </div>
 
                 {googleUser ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800">
-                      👤 {googleUser.displayName || googleUser.email}
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>{googleUser.displayName || googleUser.email || 'Conectado'}</span>
                     </span>
                     <button
                       type="button"
@@ -2177,14 +2304,15 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                     type="button"
                     onClick={handleGoogleLogin}
                     disabled={isGoogleLoading}
-                    className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow"
+                    className="px-3.5 py-1.5 bg-white text-slate-900 hover:bg-slate-100 font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow"
                   >
-                    {isGoogleLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    <span>Conectar Google</span>
+                    {isGoogleLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>Conectar Conta Google</span>
                   </button>
                 )}
               </div>
 
+              {/* Botões de Ação da Planilha */}
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 <button
                   type="button"
@@ -2197,32 +2325,65 @@ export const BankrollControlPanel: React.FC<BankrollControlPanelProps> = ({
                   ) : (
                     <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
                   )}
-                  <span>{createdSheetId ? 'Recriar / Atualizar Planilha no Google' : 'Criar Minha Planilha no Google Drive'}</span>
+                  <span>{createdSheetId ? 'Recriar Planilha do Zero' : 'Criar Nova Planilha no Google Drive'}</span>
                 </button>
+
+                {createdSheetId && (
+                  <button
+                    type="button"
+                    onClick={handleSyncAllSessionsNow}
+                    disabled={isGoogleLoading}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
+                  >
+                    {isGoogleLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    ) : (
+                      <RotateCcw className="w-4 h-4 text-indigo-200" />
+                    )}
+                    <span>Sincronizar Todas as {dailySessions.length} Sessões Agora</span>
+                  </button>
+                )}
 
                 {createdSheetUrl && (
                   <a
                     href={createdSheetUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md transition-all"
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs rounded-xl flex items-center gap-2 border border-emerald-500/40 shadow-md transition-all"
                   >
-                    <ExternalLink className="w-4 h-4 text-indigo-200" />
-                    <span>Abrir Minha Planilha no Google Sheets</span>
+                    <ExternalLink className="w-4 h-4 text-emerald-400" />
+                    <span>Abrir Minha Planilha no Google</span>
                   </a>
                 )}
+              </div>
 
-                {createdSheetId && dailySessions.length > 0 && (
+              {/* Vincular planilha existente */}
+              <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                <label className="text-[11px] text-slate-400 font-bold flex items-center justify-between">
+                  <span>Já possui uma planilha e quer vincular o link dela?</span>
+                  {createdSheetId && (
+                    <span className="font-mono text-[10px] text-slate-500 truncate max-w-[200px]">
+                      ID atual: {createdSheetId}
+                    </span>
+                  )}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualSheetInput}
+                    onChange={(e) => setManualSheetInput(e.target.value)}
+                    placeholder="Cole o link ou ID da planilha (ex: https://docs.google.com/spreadsheets/d/...)"
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  />
                   <button
                     type="button"
-                    onClick={handleSyncLatestSessionToSheet}
-                    disabled={isGoogleLoading}
-                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-slate-700 transition-all disabled:opacity-50"
+                    onClick={handleLinkManualSpreadsheet}
+                    disabled={!manualSheetInput.trim()}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all shrink-0"
                   >
-                    <Save className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Sincronizar Última Sessão</span>
+                    Vincular
                   </button>
-                )}
+                </div>
               </div>
             </div>
 
