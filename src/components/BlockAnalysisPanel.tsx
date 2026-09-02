@@ -808,11 +808,31 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 Placar Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize}g)
               </span>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
-                <span className="text-emerald-400 font-bold">
+                <span
+                  className={`flex items-center gap-1 transition-all ${
+                    currentBlockStreakStats.totalWins > currentBlockStreakStats.totalLosses
+                      ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-1.5 py-0.5 rounded shadow-xs shadow-emerald-500/30 ring-1 ring-emerald-400/40'
+                      : currentBlockStreakStats.totalLosses > currentBlockStreakStats.totalWins
+                      ? 'text-emerald-500/60 font-semibold'
+                      : 'text-emerald-400 font-bold'
+                  }`}
+                  title={`${currentBlockStreakStats.totalWins} Greens no Bloco${currentBlockStreakStats.totalWins > currentBlockStreakStats.totalLosses ? ' (Maior - Dominante)' : ''}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0 ${currentBlockStreakStats.totalWins > currentBlockStreakStats.totalLosses ? 'animate-ping' : ''}`}></span>
                   {currentBlockStreakStats.totalWins} {currentBlockStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
                 </span>
-                <span className="text-slate-600">/</span>
-                <span className="text-rose-400 font-bold">
+                <span className="text-slate-600 font-normal">/</span>
+                <span
+                  className={`flex items-center gap-1 transition-all ${
+                    currentBlockStreakStats.totalLosses > currentBlockStreakStats.totalWins
+                      ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-1.5 py-0.5 rounded shadow-xs shadow-rose-500/30 ring-1 ring-rose-400/40'
+                      : currentBlockStreakStats.totalWins > currentBlockStreakStats.totalLosses
+                      ? 'text-rose-500/60 font-semibold'
+                      : 'text-rose-400 font-bold'
+                  }`}
+                  title={`${currentBlockStreakStats.totalLosses} Reds no Bloco${currentBlockStreakStats.totalLosses > currentBlockStreakStats.totalWins ? ' (Maior - Dominante)' : ''}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0 ${currentBlockStreakStats.totalLosses > currentBlockStreakStats.totalWins ? 'animate-ping' : ''}`}></span>
                   {currentBlockStreakStats.totalLosses} {currentBlockStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
                 </span>
                 {currentBlockOutcomes.length > 0 && (
@@ -829,19 +849,67 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 Total Geral ({globalStreakStats.totalSpins} Giros)
               </span>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
-                <span className="text-emerald-400 font-bold">
+                {/* Greens Total - Pisca se for maior */}
+                <span
+                  className={`flex items-center gap-1 transition-all ${
+                    globalStreakStats.totalWins > globalStreakStats.totalLosses
+                      ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-1.5 py-0.5 rounded shadow-sm shadow-emerald-500/30 ring-1 ring-emerald-400/40'
+                      : globalStreakStats.totalLosses > globalStreakStats.totalWins
+                      ? 'text-emerald-500/60 font-semibold'
+                      : 'text-emerald-400 font-bold'
+                  }`}
+                  title={`${globalStreakStats.totalWins} Greens no Total${globalStreakStats.totalWins > globalStreakStats.totalLosses ? ' (Maior - Dominante)' : ''}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-ping' : ''}`}></span>
                   {globalStreakStats.totalWins} {globalStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
                 </span>
-                <span className="text-slate-600">/</span>
-                <span className="text-rose-400 font-bold">
+
+                <span className="text-slate-600 font-normal">/</span>
+
+                {/* Reds Total - Pisca se for maior */}
+                <span
+                  className={`flex items-center gap-1 transition-all ${
+                    globalStreakStats.totalLosses > globalStreakStats.totalWins
+                      ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-1.5 py-0.5 rounded shadow-sm shadow-rose-500/30 ring-1 ring-rose-400/40'
+                      : globalStreakStats.totalWins > globalStreakStats.totalLosses
+                      ? 'text-rose-500/60 font-semibold'
+                      : 'text-rose-400 font-bold'
+                  }`}
+                  title={`${globalStreakStats.totalLosses} Reds no Total${globalStreakStats.totalLosses > globalStreakStats.totalWins ? ' (Maior - Dominante)' : ''}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-ping' : ''}`}></span>
                   {globalStreakStats.totalLosses} {globalStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
                 </span>
+
                 {globalStreakStats.totalSpins > 0 && (
                   <span className="text-amber-400 font-black ml-auto">
                     ({globalStreakStats.winRatePct.toFixed(0)}%)
                   </span>
                 )}
               </div>
+
+              {/* Projeção Próxima Rodada (Se Green vai para quanto / Se Red vai para quanto) */}
+              {globalStreakStats.totalSpins > 0 && (
+                <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
+                  <span className="text-slate-400 text-[8.5px] uppercase font-bold tracking-tight">Próx:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5"
+                      title={`Se a próxima rodada for Green (${globalStreakStats.totalWins + 1}G / ${globalStreakStats.totalSpins + 1}g), a taxa de acerto total irá para ${(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}
+                    >
+                      <span>G ➔</span>
+                      <span>{(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%</span>
+                    </span>
+                    <span
+                      className="text-rose-400 bg-rose-950/70 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold flex items-center gap-0.5"
+                      title={`Se a próxima rodada for Red (${globalStreakStats.totalWins}G / ${globalStreakStats.totalSpins + 1}g), a taxa de acerto total irá para ${((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}
+                    >
+                      <span>R ➔</span>
+                      <span>{((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%</span>
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -855,12 +923,12 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 </span>
                 {/* Numeric summary badge for current block: e.g. "3 Greens / 1 Red" */}
                 <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700/80 text-xs font-black font-mono flex items-center gap-1.5 shadow-xs" title="Placar do Bloco Atual">
-                  <span className="text-emerald-400 flex items-center gap-1">
+                  <span className={`text-emerald-400 flex items-center gap-1 ${currentBlockStreakStats.totalWins > currentBlockStreakStats.totalLosses ? 'animate-pulse font-black' : ''}`}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                     {currentBlockStreakStats.totalWins} {currentBlockStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
                   </span>
                   <span className="text-slate-600 font-normal">/</span>
-                  <span className="text-rose-400 flex items-center gap-1">
+                  <span className={`text-rose-400 flex items-center gap-1 ${currentBlockStreakStats.totalLosses > currentBlockStreakStats.totalWins ? 'animate-pulse font-black' : ''}`}>
                     <span className="w-2 h-2 rounded-full bg-rose-400"></span>
                     {currentBlockStreakStats.totalLosses} {currentBlockStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
                   </span>
@@ -869,18 +937,29 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 {/* Total Geral Summary Badge across ALL spins */}
                 <span className="px-2.5 py-0.5 rounded-md bg-amber-950/40 border border-amber-500/40 text-xs font-black font-mono flex items-center gap-1.5 shadow-xs" title="Placar Total Geral de Todos os Giros do Histórico">
                   <span className="text-amber-400 font-bold uppercase text-[10px]">Total Geral ({globalStreakStats.totalSpins}g):</span>
-                  <span className="text-emerald-400 flex items-center gap-1">
+                  <span className={`text-emerald-400 flex items-center gap-1 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-pulse font-black' : ''}`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                     {globalStreakStats.totalWins} {globalStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
                   </span>
                   <span className="text-slate-600 font-normal">/</span>
-                  <span className="text-rose-400 flex items-center gap-1">
+                  <span className={`text-rose-400 flex items-center gap-1 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-pulse font-black' : ''}`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
                     {globalStreakStats.totalLosses} {globalStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
                   </span>
                   {globalStreakStats.totalSpins > 0 && (
                     <span className="text-amber-300 font-bold ml-0.5 text-[10px]">
                       ({globalStreakStats.winRatePct.toFixed(0)}%)
+                    </span>
+                  )}
+                  {globalStreakStats.totalSpins > 0 && (
+                    <span className="text-[9px] text-slate-400 font-normal border-l border-amber-500/30 pl-1.5 flex items-center gap-1">
+                      <span className="text-emerald-300 font-bold" title={`Se próximo for Green: ${(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}>
+                        G➔{(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                      </span>
+                      <span className="text-slate-600">|</span>
+                      <span className="text-rose-300 font-bold" title={`Se próximo for Red: ${((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}>
+                        R➔{((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                      </span>
                     </span>
                   )}
                 </span>
