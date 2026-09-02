@@ -851,34 +851,34 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
                 {/* Greens Total - Pisca se for maior */}
                 <span
-                  className={`flex items-center gap-1 transition-all ${
+                  className={`flex items-center gap-1.5 transition-all ${
                     globalStreakStats.totalWins > globalStreakStats.totalLosses
-                      ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-1.5 py-0.5 rounded shadow-sm shadow-emerald-500/30 ring-1 ring-emerald-400/40'
+                      ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-2 py-0.5 rounded shadow-sm shadow-emerald-500/30 ring-1 ring-emerald-400/40 text-sm'
                       : globalStreakStats.totalLosses > globalStreakStats.totalWins
                       ? 'text-emerald-500/60 font-semibold'
                       : 'text-emerald-400 font-bold'
                   }`}
                   title={`${globalStreakStats.totalWins} Greens no Total${globalStreakStats.totalWins > globalStreakStats.totalLosses ? ' (Maior - Dominante)' : ''}`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-ping' : ''}`}></span>
-                  {globalStreakStats.totalWins} {globalStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
+                  <span className={`w-2 h-2 rounded-full bg-emerald-400 inline-block shrink-0 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-ping' : ''}`}></span>
+                  <span className="text-sm font-black">{globalStreakStats.totalWins}</span>
                 </span>
 
                 <span className="text-slate-600 font-normal">/</span>
 
                 {/* Reds Total - Pisca se for maior */}
                 <span
-                  className={`flex items-center gap-1 transition-all ${
+                  className={`flex items-center gap-1.5 transition-all ${
                     globalStreakStats.totalLosses > globalStreakStats.totalWins
-                      ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-1.5 py-0.5 rounded shadow-sm shadow-rose-500/30 ring-1 ring-rose-400/40'
+                      ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-2 py-0.5 rounded shadow-sm shadow-rose-500/30 ring-1 ring-rose-400/40 text-sm'
                       : globalStreakStats.totalWins > globalStreakStats.totalLosses
                       ? 'text-rose-500/60 font-semibold'
                       : 'text-rose-400 font-bold'
                   }`}
                   title={`${globalStreakStats.totalLosses} Reds no Total${globalStreakStats.totalLosses > globalStreakStats.totalWins ? ' (Maior - Dominante)' : ''}`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-ping' : ''}`}></span>
-                  {globalStreakStats.totalLosses} {globalStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
+                  <span className={`w-2 h-2 rounded-full bg-rose-400 inline-block shrink-0 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-ping' : ''}`}></span>
+                  <span className="text-sm font-black">{globalStreakStats.totalLosses}</span>
                 </span>
 
                 {globalStreakStats.totalSpins > 0 && (
@@ -939,12 +939,12 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   <span className="text-amber-400 font-bold uppercase text-[10px]">Total Geral ({globalStreakStats.totalSpins}g):</span>
                   <span className={`text-emerald-400 flex items-center gap-1 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-pulse font-black' : ''}`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    {globalStreakStats.totalWins} {globalStreakStats.totalWins === 1 ? 'Green' : 'Greens'}
+                    {globalStreakStats.totalWins}
                   </span>
                   <span className="text-slate-600 font-normal">/</span>
                   <span className={`text-rose-400 flex items-center gap-1 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-pulse font-black' : ''}`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                    {globalStreakStats.totalLosses} {globalStreakStats.totalLosses === 1 ? 'Red' : 'Reds'}
+                    {globalStreakStats.totalLosses}
                   </span>
                   {globalStreakStats.totalSpins > 0 && (
                     <span className="text-amber-300 font-bold ml-0.5 text-[10px]">
