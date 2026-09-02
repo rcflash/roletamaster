@@ -1131,18 +1131,20 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30">
-                <Layers className="w-5 h-5" />
+                <Target className="w-5 h-5" />
               </span>
               <h2 className="text-lg font-black text-slate-100 tracking-tight">
-                Análise Sequencial por Blocos ({blockSize} Giros)
+                🎯 Números Vizinhos — Estratégia Principal (Ciclos de 12 Giros)
               </h2>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black border border-amber-500/40 uppercase">
+                Base Central de Lançamentos
+              </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
-                Modo Reset a Cada {blockSize} Giros
+                Reset a Cada {blockSize} Giros
               </span>
             </div>
             <p className="text-xs text-slate-400 max-w-3xl">
-              Divide todo o histórico de lançamentos da mesa em ciclos independentes de <strong>{blockSize} giros</strong>.
-              Permite observar onde a banca atinge seu pico de lucro (Stop Gain) antes que a probabilidade matemática converja para zero.
+              Estratégia principal de cobertura de <strong>Números Vizinhos no Cilindro</strong> dividida em blocos de <strong>{blockSize} giros</strong>. Todos os números cadastrados aqui alimentam automaticamente todas as outras estratégias e backtests do sistema.
             </p>
           </div>
         </div>

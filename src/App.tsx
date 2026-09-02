@@ -20,6 +20,8 @@ import {
   Eye,
   Waves,
   Sparkles,
+  Flame,
+  Target,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -151,7 +153,12 @@ import { ColumnSurfingPanel } from './components/ColumnSurfingPanel';
 import { ColumnSurfingAlertCard } from './components/ColumnSurfingAlertCard';
 import { HorseCyclesPanel } from './components/HorseCyclesPanel';
 import { HorseCyclesAlertCard } from './components/HorseCyclesAlertCard';
+import { BastiaoScalesPanel } from './components/BastiaoScalesPanel';
+import { BastiaoScalesAlertCard } from './components/BastiaoScalesAlertCard';
 import { ZeroMonitorBlock } from './components/ZeroMonitorBlock';
+import { StrategiesLivePerformancePanel } from './components/StrategiesLivePerformancePanel';
+import { StrategiesHubPanel, SubStrategyId } from './components/StrategiesHubPanel';
+import { ClosedCyclePanel } from './components/ClosedCyclePanel';
 
 export default function App() {
   // LocalStorage Persistence Keys
@@ -191,7 +198,8 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'bankroll' | 'analytics' | 'board' | 'strategies' | 'blocks' | 'sessions' | 'camouflaged' | 'column_surfing' | 'horse_cycles'>('blocks');
+  const [activeTab, setActiveTab] = useState<'vizinhos' | 'ciclo_ausentes' | 'bankroll' | 'performance' | 'strategies_hub' | 'board' | 'analytics' | 'sessions' | 'dashboard'>('vizinhos');
+  const [hubSubStrategy, setHubSubStrategy] = useState<SubStrategyId>('bastiao_scales');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -227,6 +235,29 @@ export default function App() {
       next[newIdx] = temp;
       return next;
     });
+  };
+
+  const handleSelectStrategyFromPerformance = (stratId: string) => {
+    if (stratId === 'vizinhos_cilindro') {
+      setActiveTab('vizinhos');
+    } else if (stratId === 'cold_cycle') {
+      setActiveTab('ciclo_ausentes');
+    } else if (stratId === 'bastiao_scales') {
+      setHubSubStrategy('bastiao_scales');
+      setActiveTab('strategies_hub');
+    } else if (stratId === 'horse_cycles') {
+      setHubSubStrategy('horse_cycles');
+      setActiveTab('strategies_hub');
+    } else if (stratId === 'camouflaged') {
+      setHubSubStrategy('camouflaged');
+      setActiveTab('strategies_hub');
+    } else if (stratId === 'column_surfing') {
+      setHubSubStrategy('column_surfing');
+      setActiveTab('strategies_hub');
+    } else {
+      setHubSubStrategy('backtest_lab');
+      setActiveTab('strategies_hub');
+    }
   };
 
   // Save to LocalStorage
@@ -755,12 +786,18 @@ export default function App() {
         );
       case 'camouflaged_alert':
         return (
-          <CamouflagedAlertCard
-            spins={spins}
-            strategy={strategy}
-            onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
-            onNavigateToPanel={() => setActiveTab('camouflaged')}
-          />
+          <div className="space-y-3">
+            <BastiaoScalesAlertCard
+              spins={spins}
+              onOpenPanel={() => setActiveTab('bastiao_scales')}
+            />
+            <CamouflagedAlertCard
+              spins={spins}
+              strategy={strategy}
+              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
+              onNavigateToPanel={() => setActiveTab('camouflaged')}
+            />
+          </div>
         );
       case 'column_alert':
         return (
@@ -853,113 +890,119 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-3 space-y-3">
         {/* Navigation Tabs */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-2 gap-1.5 flex-wrap">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* 1º MENU: NÚMEROS VIZINHOS (ESTRATÉGIA PRINCIPAL) */}
             <button
-              onClick={() => setActiveTab('blocks')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'blocks'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              onClick={() => setActiveTab('vizinhos')}
+              className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'vizinhos'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 ring-1 ring-amber-300'
+                  : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
               }`}
             >
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Análise por Blocos (12 Giros)</span>
+              <Target className="w-3.5 h-3.5 text-amber-500" />
+              <span>🎯 Números Vizinhos</span>
             </button>
+
+            {/* NOVO MENU EXCLUSIVO AO LADO DE VIZINHOS: CICLO DE FECHAMENTO (AUSENTES) */}
+            <button
+              onClick={() => setActiveTab('ciclo_ausentes')}
+              className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'ciclo_ausentes'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md shadow-amber-500/30 ring-1 ring-amber-300 font-black'
+                  : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span>🔄 Ciclo de Fechamento (Ausentes)</span>
+            </button>
+
+            {/* 2º MENU: GESTÃO DE BANCA & ROI */}
             <button
               onClick={() => setActiveTab('bankroll')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                 activeTab === 'bankroll'
                   ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
               <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Gestão de Banca & ROI</span>
+              <span>💰 Gestão de Banca & ROI</span>
             </button>
+
+            {/* 3º MENU: NOVO PLACAR LUCRO/RED DAS ESTRATÉGIAS */}
             <button
-              onClick={() => setActiveTab('camouflaged')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'camouflaged'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <Dices className="w-3.5 h-3.5 text-amber-400" />
-              <span>Números Camuflados</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('column_surfing')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'column_surfing'
-                  ? 'bg-indigo-500 text-slate-950 shadow-md shadow-indigo-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <Waves className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Surfe de Colunas</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('horse_cycles')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'horse_cycles'
-                  ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-              <span>Cavalos & Ímpares (Bastião)</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              Painel Principal
-            </button>
-            <button
-              onClick={() => setActiveTab('strategies')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                activeTab === 'strategies'
+              onClick={() => setActiveTab('performance')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'performance'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span>Estratégias & Backtest</span>
+              <span>📊 Placar Lucro/Red</span>
             </button>
+
+            {/* 4º MENU: CENTRAL DE ESTRATÉGIAS (MENU COM SELEÇÃO INDIVIDUAL) */}
+            <button
+              onClick={() => setActiveTab('strategies_hub')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'strategies_hub'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-extrabold'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <span>⚡ Central de Estratégias</span>
+            </button>
+
+            {/* 5º MENU: MESA & RACETRACK */}
+            <button
+              onClick={() => setActiveTab('board')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
+                activeTab === 'board'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              🎲 Mesa & Racetrack
+            </button>
+
+            {/* 6º MENU: GRÁFICOS & ESTATÍSTICAS */}
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
+                activeTab === 'analytics'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              📈 Gráficos & Estatísticas
+            </button>
+
+            {/* 7º MENU: SESSÕES SALVAS */}
             <button
               onClick={() => setActiveTab('sessions')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                 activeTab === 'sessions'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
               <FolderArchive className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Sessões Salvas</span>
+              <span>📁 Histórico & Sessões</span>
             </button>
+
+            {/* 8º MENU: PAINEL MULTI-BLOCOS */}
             <button
-              onClick={() => setActiveTab('board')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
-                activeTab === 'board'
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
+                activeTab === 'dashboard'
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
-              Mesa & Mapa de Calor
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
-                activeTab === 'analytics'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              Gráficos & Análise
+              ⚙️ Multi-Blocos
             </button>
           </div>
 
@@ -1128,44 +1171,28 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 4: Strategy Suggestions & Backtest */}
-        {activeTab === 'strategies' && (
+        {/* Tab: Placar de Lucro & Red das Estratégias */}
+        {activeTab === 'performance' && (
           <div className="space-y-6">
-            <StrategyBacktestPanel
+            <QuickSpinInput
+              onAddSpin={handleAddSpin}
+              onBatchAddSpins={handleBatchAddSpins}
+              onUndoLastSpin={handleUndoLastSpin}
+              onClearAllSpins={handleClearAllSpins}
+              totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
+              showWarmupBanner={false}
+            />
+            <StrategiesLivePerformancePanel
               spins={spins}
               config={config}
-              disabledStrategies={strategy.disabledStrategies || []}
-              onToggleStrategy={(id) => {
-                setStrategy((prev) => {
-                  const currentDisabled = prev.disabledStrategies || [];
-                  const updated = currentDisabled.includes(id)
-                    ? currentDisabled.filter((s) => s !== id)
-                    : [...currentDisabled, id];
-                  return { ...prev, disabledStrategies: updated };
-                });
-              }}
-              onToggleAllStrategies={(enable) => {
-                setStrategy((prev) => ({
-                  ...prev,
-                  disabledStrategies: enable
-                    ? []
-                    : [
-                        'romanosky', 'two_dozens', 'neighbors', 'cold_cycle', 'james_bond',
-                        'voisins', 'dalembert', 'guga_tv', 'terminal_chart', 'simples',
-                        'dirty_done_cheap', 'hopscotch_pro_max', 'split_on_corners', 'martingale'
-                      ]
-                }));
-              }}
-              onApplyStrategy={(strategyName) => {
-                setStrategy((prev) => ({ ...prev, activeStrategy: strategyName }));
-                setActiveTab('dashboard');
-              }}
+              onSelectStrategy={handleSelectStrategyFromPerformance}
             />
           </div>
         )}
 
-        {/* Tab: Block Analysis (10-Spin Cycles) */}
-        {activeTab === 'blocks' && (
+        {/* Tab 1: Números Vizinhos (Estratégia Principal - Alimentador Central de Giros) */}
+        {activeTab === 'vizinhos' && (
           <div className="space-y-6">
             <QuickSpinInput
               onAddSpin={handleAddSpin}
@@ -1185,9 +1212,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab: Números Camuflados & Cavalos */}
-        {activeTab === 'camouflaged' && (
-          <div className="space-y-4">
+        {/* Tab: Ciclo de Fechamento (Aposta em Ausentes) */}
+        {activeTab === 'ciclo_ausentes' && (
+          <div className="space-y-6">
             <QuickSpinInput
               onAddSpin={handleAddSpin}
               onBatchAddSpins={handleBatchAddSpins}
@@ -1197,18 +1224,16 @@ export default function App() {
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
             />
-            <CamouflagedNumbersPanel
+            <ClosedCyclePanel
               spins={spins}
               config={config}
-              strategy={strategy}
-              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
             />
           </div>
         )}
 
-        {/* Tab: Surfe de Colunas (Método Bastião) */}
-        {activeTab === 'column_surfing' && (
-          <div className="space-y-4">
+        {/* Tab: Central de Estratégias (Menu Unificado com Seleção de Cada Método) */}
+        {activeTab === 'strategies_hub' && (
+          <div className="space-y-6">
             <QuickSpinInput
               onAddSpin={handleAddSpin}
               onBatchAddSpins={handleBatchAddSpins}
@@ -1218,34 +1243,12 @@ export default function App() {
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
             />
-            <ColumnSurfingPanel
+            <StrategiesHubPanel
               spins={spins}
               config={config}
               strategy={strategy}
               onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
-              onLoadVideoSpins={handleLoadVideoSpins}
-            />
-          </div>
-        )}
-
-        {/* Tab: Cavalos de Terminais & Crescente de Ímpares (Método Bastião) */}
-        {activeTab === 'horse_cycles' && (
-          <div className="space-y-4">
-            <QuickSpinInput
-              onAddSpin={handleAddSpin}
-              onBatchAddSpins={handleBatchAddSpins}
-              onUndoLastSpin={handleUndoLastSpin}
-              onClearAllSpins={handleClearAllSpins}
-              totalSpins={totalSpins}
-              lastNumber={lastSpin ? lastSpin.numero : null}
-              showWarmupBanner={false}
-            />
-            <HorseCyclesPanel
-              spins={spins}
-              config={config}
-              strategy={strategy}
-              onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
-              onLoadVideoSpins={handleLoadVideoSpins}
+              initialSubStrategy={hubSubStrategy}
             />
           </div>
         )}
