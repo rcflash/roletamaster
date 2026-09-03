@@ -28,7 +28,10 @@ import {
   Check,
   Plus,
   Minus,
-  RotateCcw
+  RotateCcw,
+  Scale,
+  Thermometer,
+  GitCompare
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
 import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert } from '../lib/roulette';
@@ -604,6 +607,97 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     };
   }, [allSpinsOutcomes]);
 
+  // Statistical correlation & cycle analysis between Current Block and Total General
+  const blockComparisonStats = useMemo(() => {
+    const totalSpinsGlobal = globalStreakStats.totalSpins;
+    const globalWinRate = globalStreakStats.winRatePct;
+    const blockSpins = currentBlockOutcomes.length;
+    const blockWins = currentBlockStreakStats.totalWins;
+    const blockLosses = currentBlockStreakStats.totalLosses;
+    const blockWinRate = currentBlockStreakStats.winRatePct;
+
+    // Remaining spins in current block
+    const remainingSpinsInBlock = Math.max(0, blockSize - blockSpins);
+
+    // Delta between Block and Global
+    const delta = blockSpins > 0 && totalSpinsGlobal > 0 ? blockWinRate - globalWinRate : 0;
+
+    // Cycle status determination
+    let cycleStatus: 'OVERHEATED' | 'COLD_RECOVERY' | 'BALANCED' | 'EARLY' = 'EARLY';
+    let cycleTitle = 'Início de Bloco';
+    let cycleDescription = 'Aguardando mais rodadas no bloco para consolidar a tendência estatística.';
+    let cycleColor = 'text-slate-400 bg-slate-800/80 border-slate-700';
+
+    if (blockSpins >= 2) {
+      if (delta >= 15) {
+        cycleStatus = 'OVERHEATED';
+        cycleTitle = 'Bloco Superaquecido (Exaustão)';
+        cycleDescription = `O bloco está ${delta.toFixed(0)}% acima da média histórica geral (${globalWinRate.toFixed(0)}%). Tendência estatística de correção com maior probabilidade de Reds nos próximos giros (Regressão à Média).`;
+        cycleColor = 'text-amber-300 bg-amber-950/70 border-amber-500/50';
+      } else if (delta <= -15) {
+        cycleStatus = 'COLD_RECOVERY';
+        cycleTitle = 'Zona de Compressão (Recuperação)';
+        cycleDescription = `O bloco está ${Math.abs(delta).toFixed(0)}% abaixo da média histórica geral (${globalWinRate.toFixed(0)}%). Pressão estatística favorável para reversão e Greens nos próximos giros para buscar a média da mesa.`;
+        cycleColor = 'text-cyan-300 bg-cyan-950/70 border-cyan-500/50';
+      } else {
+        cycleStatus = 'BALANCED';
+        cycleTitle = 'Bloco Alinhado (Equilíbrio)';
+        cycleDescription = `O bloco atual (${blockWinRate.toFixed(0)}%) está oscilando em harmonia com a média global da roleta (${globalWinRate.toFixed(0)}%).`;
+        cycleColor = 'text-emerald-300 bg-emerald-950/70 border-emerald-500/50';
+      }
+    }
+
+    // Profit & Closure Projections for current block
+    const currentStratData = currentBlock ? currentBlock[selectedStrategy] : null;
+    const currentProfit = currentStratData ? currentStratData.profit : 0;
+    const hitTarget = currentStratData ? currentStratData.hitTarget : false;
+
+    // Projected win rate range at block completion
+    const maxProjectedWinRate = blockSize > 0 ? ((blockWins + remainingSpinsInBlock) / blockSize) * 100 : 0;
+    const minProjectedWinRate = blockSize > 0 ? (blockWins / blockSize) * 100 : 0;
+
+    // Minimum wins needed in remaining spins to reach 50% win rate
+    const targetWins = Math.ceil(blockSize / 2);
+    const winsNeededFor50Pct = Math.max(0, targetWins - blockWins);
+    const canReach50Pct = remainingSpinsInBlock >= winsNeededFor50Pct;
+
+    // Recent blocks sequence comparison (up to last 5 blocks)
+    const recentBlocksOverview = blocks.slice(-5).map((b) => {
+      const bData = b[selectedStrategy];
+      const spinsCount = b.spins.length;
+      const bWinRate = spinsCount > 0 ? (bData.wins / spinsCount) * 100 : 0;
+      const bDelta = totalSpinsGlobal > 0 ? bWinRate - globalWinRate : 0;
+      return {
+        blockNumber: b.blockNumber,
+        isCurrent: b.blockNumber === currentBlock?.blockNumber,
+        wins: bData.wins,
+        losses: bData.losses,
+        totalSpins: spinsCount,
+        winRate: bWinRate,
+        profit: bData.profit,
+        hitTarget: bData.hitTarget,
+        delta: bDelta,
+        status: bDelta >= 15 ? 'HOT' : bDelta <= -15 ? 'COLD' : 'BALANCED',
+      };
+    });
+
+    return {
+      delta,
+      cycleStatus,
+      cycleTitle,
+      cycleDescription,
+      cycleColor,
+      remainingSpinsInBlock,
+      maxProjectedWinRate,
+      minProjectedWinRate,
+      winsNeededFor50Pct,
+      canReach50Pct,
+      currentProfit,
+      hitTarget,
+      recentBlocksOverview,
+    };
+  }, [globalStreakStats, currentBlockOutcomes, currentBlockStreakStats, currentBlock, selectedStrategy, blockSize, blocks]);
+
   // Zero (0) Tracking Statistics with manual initial delay and last 2 hits history
   const zeroStats = useMemo(() => {
     return calculateZeroStats(
@@ -804,9 +898,21 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
             {/* Placar do Bloco Atual */}
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Placar Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize}g)
-              </span>
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>Placar Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize}g)</span>
+                {currentBlockOutcomes.length > 0 && globalStreakStats.totalSpins > 0 && (
+                  <span
+                    className={`text-[8.5px] px-1 py-0.2 rounded font-mono font-bold ${
+                      currentBlockStreakStats.winRatePct >= globalStreakStats.winRatePct
+                        ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-500/40'
+                        : 'text-rose-300 bg-rose-950/60 border border-rose-500/40'
+                    }`}
+                    title={`Relação Bloco vs Total Geral: Bloco atual está a ${(currentBlockStreakStats.winRatePct - globalStreakStats.winRatePct) >= 0 ? '+' : ''}${(currentBlockStreakStats.winRatePct - globalStreakStats.winRatePct).toFixed(0)}% da média histórica geral (${globalStreakStats.winRatePct.toFixed(0)}%).`}
+                  >
+                    Δ {(currentBlockStreakStats.winRatePct - globalStreakStats.winRatePct) >= 0 ? '+' : ''}{(currentBlockStreakStats.winRatePct - globalStreakStats.winRatePct).toFixed(0)}%
+                  </span>
+                )}
+              </div>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
                 <span
                   className={`flex items-center gap-1 transition-all ${
@@ -840,6 +946,27 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                     ({currentBlockStreakStats.winRatePct.toFixed(0)}%)
                   </span>
                 )}
+              </div>
+
+              {/* Projeção Próxima Rodada do Bloco (Se Green vai para quanto / Se Red vai para quanto) */}
+              <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
+                <span className="text-slate-400 text-[8.5px] uppercase font-bold tracking-tight">Próx:</span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5"
+                    title={`Se a próxima rodada do bloco for Green (${currentBlockStreakStats.totalWins + 1}G / ${currentBlockOutcomes.length + 1}g no bloco), a taxa do bloco irá para ${(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(1)}%`}
+                  >
+                    <span>G ➔</span>
+                    <span>{(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</span>
+                  </span>
+                  <span
+                    className="text-rose-400 bg-rose-950/70 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold flex items-center gap-0.5"
+                    title={`Se a próxima rodada do bloco for Red (${currentBlockStreakStats.totalWins}G / ${currentBlockOutcomes.length + 1}g no bloco), a taxa do bloco irá para ${((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(1)}%`}
+                  >
+                    <span>R ➔</span>
+                    <span>{((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</span>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -910,6 +1037,217 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Módulo Comparativo: Ciclo do Bloco vs. Total Geral (Convergência Estatística & Projeções) */}
+          <div className="bg-gradient-to-r from-slate-900/95 via-slate-900/90 to-slate-950/95 border border-slate-800 rounded-xl p-3 shadow-md space-y-3">
+            {/* Header do Módulo com Termômetro de Ciclo */}
+            <div className="flex items-start sm:items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800/80">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                  <Scale className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black uppercase text-slate-100 tracking-wider">
+                      Correlação: Bloco #{currentBlock?.blockNumber || 1} vs. Total Geral
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black font-mono border flex items-center gap-1.5 shadow-2xs ${blockComparisonStats.cycleColor}`}>
+                      {blockComparisonStats.cycleStatus === 'OVERHEATED' && <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />}
+                      {blockComparisonStats.cycleStatus === 'COLD_RECOVERY' && <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />}
+                      {blockComparisonStats.cycleStatus === 'BALANCED' && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
+                      {blockComparisonStats.cycleStatus === 'EARLY' && <Clock className="w-3.5 h-3.5 text-slate-400" />}
+                      <span>{blockComparisonStats.cycleTitle}</span>
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5 max-w-3xl leading-relaxed">
+                    {blockComparisonStats.cycleDescription}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tag de divergência Δ */}
+              {globalStreakStats.totalSpins > 0 && currentBlockOutcomes.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-xs shrink-0">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold">Divergência:</span>
+                  <span
+                    className={`font-black text-xs ${
+                      blockComparisonStats.delta > 0
+                        ? 'text-emerald-300'
+                        : blockComparisonStats.delta < 0
+                        ? 'text-rose-300'
+                        : 'text-slate-300'
+                    }`}
+                  >
+                    {blockComparisonStats.delta >= 0 ? '+' : ''}{blockComparisonStats.delta.toFixed(0)}%
+                  </span>
+                  <span className="text-slate-500 text-[9px]">vs Âncora Geral</span>
+                </div>
+              )}
+            </div>
+
+            {/* Grid dos 3 Cards Analíticos */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+              {/* Card 1: Termômetro & Comparação de Taxas */}
+              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/80 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <Thermometer className="w-3.5 h-3.5 text-amber-400" />
+                    Comparação de Taxas
+                  </span>
+                  <span className="text-slate-500 font-mono text-[9px]">Âncora vs Ciclo</span>
+                </div>
+
+                {/* Duas barras comparativas */}
+                <div className="space-y-1.5">
+                  {/* Bloco Atual */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-mono mb-0.5">
+                      <span className="text-slate-300 font-bold">Bloco Atual #{currentBlock?.blockNumber || 1}</span>
+                      <span className="text-amber-400 font-black">{currentBlockStreakStats.winRatePct.toFixed(0)}% ({currentBlockStreakStats.totalWins}G/{currentBlockStreakStats.totalLosses}R)</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, currentBlockStreakStats.winRatePct))}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Total Geral (Média Âncora) */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-mono mb-0.5">
+                      <span className="text-slate-400 font-medium">Total Geral (Histórico)</span>
+                      <span className="text-slate-300 font-bold">{globalStreakStats.winRatePct.toFixed(0)}% ({globalStreakStats.totalWins}G/{globalStreakStats.totalLosses}R)</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
+                      <div
+                        className="bg-amber-400/80 h-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, globalStreakStats.winRatePct))}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-[9.5px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between font-mono">
+                  <span>Próximo Giro:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-400 font-bold">G ➔ {(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</span>
+                    <span className="text-slate-600">|</span>
+                    <span className="text-rose-400 font-bold">R ➔ {((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Projeção de Fechamento do Bloco (12 Giros) */}
+              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/80 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <Target className="w-3.5 h-3.5 text-emerald-400" />
+                    Projeção de Fechamento ({blockSize}g)
+                  </span>
+                  <span className="text-slate-500 font-mono text-[9px]">
+                    Restam {blockComparisonStats.remainingSpinsInBlock}g
+                  </span>
+                </div>
+
+                <div className="space-y-1 font-mono text-[11px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Saldo Atual Bloco:</span>
+                    <span className={`font-black ${blockComparisonStats.currentProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {blockComparisonStats.currentProfit >= 0 ? '+' : ''}{blockComparisonStats.currentProfit.toFixed(1)}u
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Status da Meta (+2u):</span>
+                    {blockComparisonStats.hitTarget ? (
+                      <span className="text-amber-300 font-black flex items-center gap-1 bg-amber-500/20 px-1.5 py-0.2 rounded border border-amber-500/30 text-[9.5px]">
+                        🎯 Meta Batida!
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 font-semibold text-[10px]">
+                        Em busca (+2.0u)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Para Fechar no Positivo:</span>
+                    {blockComparisonStats.winsNeededFor50Pct === 0 ? (
+                      <span className="text-emerald-400 font-black text-[10px]">
+                        🛡️ Positivo Garantido
+                      </span>
+                    ) : blockComparisonStats.canReach50Pct ? (
+                      <span className="text-amber-300 font-bold text-[10px]">
+                        Precisa de {blockComparisonStats.winsNeededFor50Pct}G em {blockComparisonStats.remainingSpinsInBlock}g
+                      </span>
+                    ) : (
+                      <span className="text-rose-400 font-bold text-[10px]">
+                        Sem giros sufic. p/ 50%
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-[9.5px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between font-mono">
+                  <span>Faixa Projetada:</span>
+                  <span className="text-slate-200 font-bold">
+                    Mín {blockComparisonStats.minProjectedWinRate.toFixed(0)}% ~ Máx {blockComparisonStats.maxProjectedWinRate.toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 3: Alternância e Tendência entre Blocos Anteriores */}
+              <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/80 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <GitCompare className="w-3.5 h-3.5 text-cyan-400" />
+                    Ciclo Recente dos Blocos
+                  </span>
+                  <span className="text-slate-500 font-mono text-[9px]">Oscilação em torno da Média</span>
+                </div>
+
+                {/* Mini régua de blocos recentes */}
+                <div className="grid grid-cols-5 gap-1 pt-0.5">
+                  {blockComparisonStats.recentBlocksOverview.map((rb) => (
+                    <div
+                      key={rb.blockNumber}
+                      className={`p-1 rounded text-center font-mono border transition-all ${
+                        rb.isCurrent
+                          ? 'bg-slate-900 border-amber-500/70 ring-1 ring-amber-400/40 shadow-xs'
+                          : 'bg-slate-900/60 border-slate-800'
+                      }`}
+                      title={`Bloco #${rb.blockNumber}${rb.isCurrent ? ' (Atual)' : ''}: ${rb.wins} Greens / ${rb.losses} Reds (${rb.winRate.toFixed(0)}%). Lucro: ${rb.profit >= 0 ? '+' : ''}${rb.profit.toFixed(1)}u.`}
+                    >
+                      <div className="text-[8.5px] font-bold text-slate-400 flex items-center justify-center gap-0.5">
+                        <span>B{rb.blockNumber}</span>
+                        {rb.isCurrent && <span className="w-1 h-1 rounded-full bg-amber-400"></span>}
+                      </div>
+                      <div className={`text-[10px] font-black leading-tight ${rb.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {rb.winRate.toFixed(0)}%
+                      </div>
+                      <div className="text-[8px] mt-0.5">
+                        {rb.status === 'HOT' ? (
+                          <span className="text-amber-400 font-bold" title="Bloco acima da média">🔥</span>
+                        ) : rb.status === 'COLD' ? (
+                          <span className="text-cyan-400 font-bold" title="Bloco abaixo da média">❄️</span>
+                        ) : (
+                          <span className="text-emerald-400 font-bold" title="Bloco equilibrado">⚖️</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-[9.5px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between font-mono">
+                  <span className="text-[9px] text-slate-500">Média Geral Âncora:</span>
+                  <span className="text-amber-300 font-bold text-[10px]">
+                    {globalStreakStats.winRatePct.toFixed(0)}% ({globalStreakStats.totalSpins} giros)
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
