@@ -1193,7 +1193,7 @@ export default function App() {
 
         {/* Tab 1: Números Vizinhos (Estratégia Principal - Alimentador Central de Giros) */}
         {activeTab === 'vizinhos' && (
-          <div className="space-y-6">
+          <div className="space-y-2.5">
             <QuickSpinInput
               onAddSpin={handleAddSpin}
               onBatchAddSpins={handleBatchAddSpins}

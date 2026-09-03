@@ -31,7 +31,12 @@ import {
   RotateCcw,
   Scale,
   Thermometer,
-  GitCompare
+  GitCompare,
+  Columns2,
+  Monitor,
+  Maximize2,
+  Minimize2,
+  LayoutGrid
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
 import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert } from '../lib/roulette';
@@ -114,6 +119,45 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   const [blockSortOrder, setBlockSortOrder] = useState<'desc' | 'asc'>('desc'); // Default 'desc': newest blocks first (#52 -> #1)
   const [expandedBlockId, setExpandedBlockId] = useState<number | null>(null); // Expand latest block by default
   const [targetGainUnits, setTargetGainUnits] = useState<number>(2.0);
+
+  // Split-Screen / Meia Tela Mode (cockpit otimizado para meia tela compartilhada com a roleta)
+  const [isSplitScreenMode, setIsSplitScreenMode] = useState<boolean>(() => {
+    return localStorage.getItem('roleta_splitscreen_mode') === 'true';
+  });
+
+  const toggleSplitScreenMode = () => {
+    setIsSplitScreenMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('roleta_splitscreen_mode', String(next));
+      return next;
+    });
+  };
+
+  // Collapse toggle for General KPIs
+  const [isKpiCollapsed, setIsKpiCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('roleta_kpi_collapsed') === 'true';
+  });
+
+  const toggleKpiCollapsed = () => {
+    setIsKpiCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('roleta_kpi_collapsed', String(next));
+      return next;
+    });
+  };
+
+  // Collapse toggle for Correlation details
+  const [isCorrelationDetailsCollapsed, setIsCorrelationDetailsCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('roleta_correlation_collapsed') === 'true';
+  });
+
+  const toggleCorrelationDetails = () => {
+    setIsCorrelationDetailsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('roleta_correlation_collapsed', String(next));
+      return next;
+    });
+  };
 
   const unitBet = config.defaultSpinCost || 37.50;
   const currency = config.currency || 'R$';
@@ -739,106 +783,168 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   const currentSelectValue = selectedStrategy === 'wheelNeighbors' ? `wheelNeighbors_${vizinhosCount}` : selectedStrategy;
 
   return (
-    <div className="space-y-2">
-      {/* Aggregate Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
-        {/* Total Blocks */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Total Blocos</span>
-            <Layers className="w-3 h-3 text-amber-400 shrink-0" />
+    <div className={`space-y-2 ${isSplitScreenMode ? 'text-xs' : ''}`}>
+      {/* Aggregate Metrics Bar (Colapsável / Modo Compacto p/ Meia Tela) */}
+      {isKpiCollapsed ? (
+        <div className="bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2 text-xs flex-wrap font-mono shadow-xs">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1 font-sans">
+              <Layers className="w-3 h-3 text-amber-400 shrink-0" />
+              Sessão: <strong className="text-slate-200">{aggregateStats.totalBlocks} blocos ({spins.length}g)</strong>
+            </span>
+            <span className="text-slate-700">•</span>
+            <span className="text-[10px] text-slate-400 font-sans">
+              Verde: <strong className="text-emerald-400 font-mono">{aggregateStats.greenPct.toFixed(1)}% ({aggregateStats.greenBlocks}/{aggregateStats.totalBlocks})</strong>
+            </span>
+            <span className="text-slate-700">•</span>
+            <span className="text-[10px] text-slate-400 font-sans">
+              Meta (+2u): <strong className="text-amber-300 font-mono">{aggregateStats.hitTargetPct.toFixed(1)}%</strong>
+            </span>
+            <span className="text-slate-700">•</span>
+            <span className="text-[10px] text-slate-400 font-sans">
+              Seq. Máx: <strong className="text-emerald-400 font-mono">{aggregateStats.maxGreenStreak}</strong>
+            </span>
+            <span className="text-slate-700">•</span>
+            <span className="text-[10px] text-slate-400 font-sans">
+              Média: <strong className={`font-mono ${aggregateStats.avgProfitUnits >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{aggregateStats.avgProfitUnits >= 0 ? '+' : ''}{aggregateStats.avgProfitUnits.toFixed(2)}u</strong>
+            </span>
           </div>
-          <div className="mt-1">
-            <div className="text-base sm:text-lg font-black text-slate-100 font-mono leading-none">
-              {aggregateStats.totalBlocks} <span className="text-[10px] text-slate-500 font-normal">compl.</span>
-            </div>
-            <div className="text-[9px] text-slate-400 mt-1 truncate">
-              {spins.length} giros totais
-            </div>
-          </div>
+          <button
+            onClick={toggleKpiCollapsed}
+            className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 hover:border-slate-700 transition-colors"
+            title="Expandir cards de métricas gerais da sessão"
+          >
+            <ChevronDown className="w-3 h-3 text-amber-400" />
+            <span>Expandir KPIs</span>
+          </button>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
+          {/* Total Blocks */}
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Total Blocos</span>
+              <Layers className="w-3 h-3 text-amber-400 shrink-0" />
+            </div>
+            <div className="mt-1">
+              <div className="text-base sm:text-lg font-black text-slate-100 font-mono leading-none">
+                {aggregateStats.totalBlocks} <span className="text-[10px] text-slate-500 font-normal">compl.</span>
+              </div>
+              <div className="text-[9px] text-slate-400 mt-1 truncate">
+                {spins.length} giros totais
+              </div>
+            </div>
+          </div>
 
-        {/* % Green Blocks */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Blocos no Verde</span>
-            <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-          </div>
-          <div className="mt-1">
-            <div className="text-base sm:text-lg font-black text-emerald-400 font-mono leading-none">
-              {aggregateStats.greenPct.toFixed(1)}%
+          {/* % Green Blocks */}
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Blocos no Verde</span>
+              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
             </div>
-            <div className="text-[9px] text-slate-400 mt-1 truncate">
-              {aggregateStats.greenBlocks}/{aggregateStats.totalBlocks} lucrativos
+            <div className="mt-1">
+              <div className="text-base sm:text-lg font-black text-emerald-400 font-mono leading-none">
+                {aggregateStats.greenPct.toFixed(1)}%
+              </div>
+              <div className="text-[9px] text-slate-400 mt-1 truncate">
+                {aggregateStats.greenBlocks}/{aggregateStats.totalBlocks} lucrativos
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* % Reached Target Gain (Stop Gain Peak) */}
-        <div className="bg-slate-900 border border-amber-500/30 rounded-lg p-2 sm:p-2.5 shadow-sm bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/20 flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 truncate">Pico Stop Gain (+2u)</span>
-            <Target className="w-3 h-3 text-amber-400 shrink-0" />
-          </div>
-          <div className="mt-1">
-            <div className="text-base sm:text-lg font-black text-amber-300 font-mono leading-none">
-              {aggregateStats.hitTargetPct.toFixed(1)}%
+          {/* % Reached Target Gain (Stop Gain Peak) */}
+          <div className="bg-slate-900 border border-amber-500/30 rounded-lg p-2 sm:p-2.5 shadow-sm bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/20 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 truncate">Pico Stop Gain (+2u)</span>
+              <Target className="w-3 h-3 text-amber-400 shrink-0" />
             </div>
-            <div className="text-[9px] text-amber-400/80 mt-1 truncate">
-              {aggregateStats.hitTargetBlocks} bateram a meta ({blockSize}g)
+            <div className="mt-1">
+              <div className="text-base sm:text-lg font-black text-amber-300 font-mono leading-none">
+                {aggregateStats.hitTargetPct.toFixed(1)}%
+              </div>
+              <div className="text-[9px] text-amber-400/80 mt-1 truncate">
+                {aggregateStats.hitTargetBlocks} bateram a meta ({blockSize}g)
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Max Green Streak */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Seq. Máx. Verde</span>
-            <Zap className="w-3 h-3 text-emerald-400 shrink-0" />
-          </div>
-          <div className="mt-1">
-            <div className="text-base sm:text-lg font-black text-emerald-400 font-mono leading-none">
-              {aggregateStats.maxGreenStreak} <span className="text-[10px] text-slate-400 font-normal">blocos</span>
+          {/* Max Green Streak */}
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Seq. Máx. Verde</span>
+              <Zap className="w-3 h-3 text-emerald-400 shrink-0" />
             </div>
-            <div className="text-[9px] text-slate-400 mt-1 truncate">
-              Maior acerto contínuo
+            <div className="mt-1">
+              <div className="text-base sm:text-lg font-black text-emerald-400 font-mono leading-none">
+                {aggregateStats.maxGreenStreak} <span className="text-[10px] text-slate-400 font-normal">blocos</span>
+              </div>
+              <div className="text-[9px] text-slate-400 mt-1 truncate">
+                Maior acerto contínuo
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Avg Profit per Block */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Média / Bloco</span>
-            <TrendingUp className="w-3 h-3 text-blue-400 shrink-0" />
-          </div>
-          <div className="mt-1">
-            <div className={`text-base sm:text-lg font-black font-mono leading-none ${aggregateStats.avgProfitUnits >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {aggregateStats.avgProfitUnits >= 0 ? '+' : ''}
-              {aggregateStats.avgProfitUnits.toFixed(2)}u
+          {/* Avg Profit per Block */}
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 sm:p-2.5 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">Média / Bloco</span>
+              <TrendingUp className="w-3 h-3 text-blue-400 shrink-0" />
             </div>
-            <div className="text-[9px] text-slate-400 mt-1 font-mono truncate">
-              ~ {currency} {(aggregateStats.avgProfitUnits * getStrategyBetCost(selectedStrategy)).toFixed(2)}
+            <div className="mt-1">
+              <div className={`text-base sm:text-lg font-black font-mono leading-none ${aggregateStats.avgProfitUnits >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {aggregateStats.avgProfitUnits >= 0 ? '+' : ''}
+                {aggregateStats.avgProfitUnits.toFixed(2)}u
+              </div>
+              <div className="text-[9px] text-slate-400 mt-1 font-mono truncate">
+                ~ {currency} {(aggregateStats.avgProfitUnits * getStrategyBetCost(selectedStrategy)).toFixed(2)}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Visual Block Timeline Grid (Visual Map of all blocks) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 flex-wrap gap-1.5">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-sm space-y-2.5">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
             <h3 className="text-xs font-black uppercase text-slate-200 tracking-wider">
               Mapa Sequencial dos Blocos ({strategyTitles[selectedStrategy]})
             </h3>
-            <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 text-[9px] font-bold border border-amber-500/20">
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[9px] font-bold border border-amber-500/20">
               {blockSortOrder === 'desc' ? 'Recentes Primeiro ⬇' : 'Antigos Primeiro ⬆'}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400">
-            Clique no bloco para expandir os detalhes dos {blockSize} giros
-          </span>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Botão de Modo Meia Tela (Split Screen) */}
+            <button
+              onClick={toggleSplitScreenMode}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer ${
+                isSplitScreenMode
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-400/40 shadow-amber-500/20'
+                  : 'bg-slate-950 text-slate-300 border-slate-700 hover:text-white hover:border-amber-500/40'
+              }`}
+              title="Otimizar layout para meia tela / monitor dividido com a roleta (visão cockpit ultra-compacta)"
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+              <span>{isSplitScreenMode ? '🖥️ Meia Tela: ATIVO' : '🖥️ Modo Meia Tela'}</span>
+            </button>
+
+            {/* Toggle Recolher/Expandir KPIs gerais */}
+            <button
+              onClick={toggleKpiCollapsed}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-slate-200 bg-slate-950 border border-slate-800 flex items-center gap-1 transition-colors"
+              title="Recolher/expandir cards de métricas gerais da sessão para economizar espaço vertical"
+            >
+              {isKpiCollapsed ? <ChevronDown className="w-3 h-3 text-amber-400" /> : <ChevronUp className="w-3 h-3 text-slate-400" />}
+              <span>{isKpiCollapsed ? 'KPIs' : 'Recolher'}</span>
+            </button>
+
+            <span className="hidden xl:inline text-[10px] text-slate-400 ml-1">
+              Clique no bloco p/ expandir
+            </span>
+          </div>
         </div>
 
         {/* Detailed Green / Red Sequence & Streaks Summary for CURRENT BLOCK ONLY */}
@@ -1067,28 +1173,77 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 </div>
               </div>
 
-              {/* Tag de divergência Δ */}
-              {globalStreakStats.totalSpins > 0 && currentBlockOutcomes.length > 0 && (
-                <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-xs shrink-0">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Divergência:</span>
-                  <span
-                    className={`font-black text-xs ${
-                      blockComparisonStats.delta > 0
-                        ? 'text-emerald-300'
-                        : blockComparisonStats.delta < 0
-                        ? 'text-rose-300'
-                        : 'text-slate-300'
-                    }`}
-                  >
-                    {blockComparisonStats.delta >= 0 ? '+' : ''}{blockComparisonStats.delta.toFixed(0)}%
-                  </span>
-                  <span className="text-slate-500 text-[9px]">vs Âncora Geral</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Tag de divergência Δ */}
+                {globalStreakStats.totalSpins > 0 && currentBlockOutcomes.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-xs shrink-0">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold">Divergência:</span>
+                    <span
+                      className={`font-black text-xs ${
+                        blockComparisonStats.delta > 0
+                          ? 'text-emerald-300'
+                          : blockComparisonStats.delta < 0
+                          ? 'text-rose-300'
+                          : 'text-slate-300'
+                      }`}
+                    >
+                      {blockComparisonStats.delta >= 0 ? '+' : ''}{blockComparisonStats.delta.toFixed(0)}%
+                    </span>
+                    <span className="text-slate-500 text-[9px]">vs Âncora Geral</span>
+                  </div>
+                )}
+
+                {/* Toggle Detalhar/Compactar para Meia Tela */}
+                <button
+                  onClick={toggleCorrelationDetails}
+                  className="px-2 py-1 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white rounded-lg border border-slate-800 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Alternar entre visão detalhada e visão compacta para tela dividida"
+                >
+                  {isCorrelationDetailsCollapsed ? (
+                    <>
+                      <ChevronDown className="w-3 h-3 text-amber-400" />
+                      <span>Ver Cards</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronUp className="w-3 h-3 text-slate-400" />
+                      <span>Compactar</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Grid dos 3 Cards Analíticos */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+            {/* Quando colapsado no Modo Meia Tela, mostra barra compacta HUD de 1 linha */}
+            {isCorrelationDetailsCollapsed ? (
+              <div className="bg-slate-950/90 p-2 rounded-lg border border-slate-800 flex items-center justify-between text-[11px] font-mono flex-wrap gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-slate-300">
+                    Taxa: <strong className="text-amber-400 font-black">{currentBlockStreakStats.winRatePct.toFixed(0)}%</strong> vs <strong className="text-slate-300">{globalStreakStats.winRatePct.toFixed(0)}%</strong>
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-slate-300">
+                    Próx: <strong className="text-emerald-400">G➔{(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</strong> <strong className="text-rose-400 ml-1">R➔{((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</strong>
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-slate-300">
+                    Saldo: <strong className={blockComparisonStats.currentProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{blockComparisonStats.currentProfit >= 0 ? '+' : ''}{blockComparisonStats.currentProfit.toFixed(1)}u</strong>
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-cyan-400">
+                    Restam {blockComparisonStats.remainingSpinsInBlock}g
+                  </span>
+                </div>
+                <button
+                  onClick={toggleCorrelationDetails}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer font-sans"
+                >
+                  Expandir detalhes
+                </button>
+              </div>
+            ) : (
+              /* Grid dos 3 Cards Analíticos */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
               {/* Card 1: Termômetro & Comparação de Taxas */}
               <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/80 flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1249,6 +1404,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Row 2: Sequence of GREEN / RED for CURRENT BLOCK ONLY + TOTAL GERAL */}
