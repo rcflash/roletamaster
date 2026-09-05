@@ -113,7 +113,22 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   strategy,
   onUpdateStrategy,
 }) => {
-  const [blockSize, setBlockSize] = useState<number>(12);
+  const [blockSize, setBlockSize] = useState<number>(() => {
+    const saved = localStorage.getItem('roleta_block_size');
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if ([12, 13, 20, 30, 50].includes(parsed)) {
+        return parsed;
+      }
+      if (parsed === 10) return 13;
+    }
+    return 13;
+  });
+
+  const handleBlockSizeChange = (sz: number) => {
+    setBlockSize(sz);
+    localStorage.setItem('roleta_block_size', String(sz));
+  };
   const [selectedStrategy, setSelectedStrategy] = useState<'twoDozens' | 'romanosky' | 'voisins' | 'wheelNeighbors' | 'twoColumns' | 'tier' | 'orphelins'>('wheelNeighbors');
   const [vizinhosCount, setVizinhosCount] = useState<number>(7); // Default 7 vizinhos (15 numbers)
   const [blockSortOrder, setBlockSortOrder] = useState<'desc' | 'asc'>('desc'); // Default 'desc': newest blocks first (#52 -> #1)
@@ -1707,7 +1722,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 <Target className="w-5 h-5" />
               </span>
               <h2 className="text-lg font-black text-slate-100 tracking-tight">
-                🎯 Números Vizinhos — Estratégia Principal (Ciclos de 12 Giros)
+                🎯 Números Vizinhos — Estratégia Principal (Ciclos de {blockSize} Giros)
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black border border-amber-500/40 uppercase">
                 Base Central de Lançamentos
@@ -1729,10 +1744,10 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             {/* Block Size Options */}
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-bold uppercase text-slate-400 px-1">Tamanho:</span>
-              {[10, 12, 20, 30, 50].map((sz) => (
+              {[12, 13, 20, 30, 50].map((sz) => (
                 <button
                   key={sz}
-                  onClick={() => setBlockSize(sz)}
+                  onClick={() => handleBlockSizeChange(sz)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
                     blockSize === sz
                       ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
