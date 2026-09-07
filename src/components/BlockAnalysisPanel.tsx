@@ -117,10 +117,9 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     const saved = localStorage.getItem('roleta_block_size');
     if (saved) {
       const parsed = parseInt(saved, 10);
-      if ([12, 13, 20, 30, 50].includes(parsed)) {
+      if ([10, 12, 13, 20, 30, 50].includes(parsed)) {
         return parsed;
       }
-      if (parsed === 10) return 13;
     }
     return 13;
   });
@@ -1744,7 +1743,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             {/* Block Size Options */}
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-bold uppercase text-slate-400 px-1">Tamanho:</span>
-              {[12, 13, 20, 30, 50].map((sz) => (
+              {[10, 12, 13, 20, 30, 50].map((sz) => (
                 <button
                   key={sz}
                   onClick={() => handleBlockSizeChange(sz)}
