@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight, Disc, Grid } from 'lucide-react';
-import { RED_NUMBERS } from '../lib/roulette';
+import React, { useState, useRef, useMemo } from 'react';
+import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight, Disc, Grid, Flame, Snowflake } from 'lucide-react';
+import { RED_NUMBERS, calculateNumberStats } from '../lib/roulette';
+import { SpinRecord, NumberStats } from '../types';
 import { OvalRacetrackBoard } from './OvalRacetrackBoard';
 
 interface QuickSpinInputProps {
@@ -11,6 +12,8 @@ interface QuickSpinInputProps {
   totalSpins: number;
   lastNumber?: number | null;
   showWarmupBanner?: boolean;
+  spins?: SpinRecord[];
+  numberStats?: NumberStats[];
 }
 
 export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
@@ -21,6 +24,8 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   totalSpins,
   lastNumber = null,
   showWarmupBanner = false,
+  spins,
+  numberStats: passedNumberStats,
 }) => {
   const [multiplier, setMultiplier] = useState<number>(1);
   const [inputMode, setInputMode] = useState<'grid' | 'racetrack'>(() => {
@@ -32,6 +37,53 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageSuccessCount, setImageSuccessCount] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Determine top 5 hot (quentes) and top 5 cold (frios / atrasados) numbers based on the TOTAL GERAL DE RODADAS
+  const { hotNumbers, coldNumbers, hotStatsMap, coldStatsMap } = useMemo(() => {
+    // Only calculate if there are spins
+    if (totalSpins === 0) {
+      return {
+        hotNumbers: [] as number[],
+        coldNumbers: [] as number[],
+        hotStatsMap: new Map<number, NumberStats>(),
+        coldStatsMap: new Map<number, NumberStats>(),
+      };
+    }
+
+    const stats: NumberStats[] = passedNumberStats || (spins ? calculateNumberStats(spins) : []);
+    if (!stats || stats.length === 0) {
+      return {
+        hotNumbers: [] as number[],
+        coldNumbers: [] as number[],
+        hotStatsMap: new Map<number, NumberStats>(),
+        coldStatsMap: new Map<number, NumberStats>(),
+      };
+    }
+
+    // Top 5 Quentes do TOTAL GERAL: Mais saíram (maior count). Em caso de empate, menor delay (mais recente)
+    const hotSorted = [...stats]
+      .filter((s) => s.count > 0)
+      .sort((a, b) => b.count - a.count || a.spinsWithoutHit - b.spinsWithoutHit || a.num - b.num)
+      .slice(0, 5);
+
+    // Top 5 Frios do TOTAL GERAL: Mais atrasados / sem sair (maior spinsWithoutHit). Em caso de empate, menor count
+    const coldSorted = [...stats]
+      .sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.count - b.count || a.num - b.num)
+      .slice(0, 5);
+
+    const hMap = new Map<number, NumberStats>();
+    hotSorted.forEach((s) => hMap.set(s.num, s));
+
+    const cMap = new Map<number, NumberStats>();
+    coldSorted.forEach((s) => cMap.set(s.num, s));
+
+    return {
+      hotNumbers: hotSorted.map((s) => s.num),
+      coldNumbers: coldSorted.map((s) => s.num),
+      hotStatsMap: hMap,
+      coldStatsMap: cMap,
+    };
+  }, [totalSpins, passedNumberStats, spins]);
 
   const handleModeChange = (mode: 'grid' | 'racetrack') => {
     setInputMode(mode);
@@ -324,54 +376,108 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
         {/* Render Selected Input Mode: Grid vs Racetrack */}
         {inputMode === 'grid' ? (
           /* Visual Roulette Number Pad Grid (0-36) */
-          <div className="grid grid-cols-12 sm:grid-cols-13 gap-1">
-            {/* Zero */}
-            {(() => {
-              const isZeroLast = lastNumber === 0;
-              return (
-                <button
-                  onClick={() => handleQuickClick(0)}
-                  className={`col-span-12 sm:col-span-1 h-8 sm:h-9 rounded-lg text-slate-950 font-black text-xs sm:text-sm shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
-                    isZeroLast
-                      ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
-                      : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400/40'
-                  }`}
-                >
-                  <span>0</span>
-                  {isZeroLast && (
-                    <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
-                      ÚLTIMO
-                    </span>
-                  )}
-                </button>
-              );
-            })()}
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 sm:grid-cols-13 gap-1">
+              {/* Zero */}
+              {(() => {
+                const isZeroLast = lastNumber === 0;
+                const isZeroHot = hotNumbers.includes(0);
+                const isZeroCold = coldNumbers.includes(0);
+                const hotStat = hotStatsMap.get(0);
+                const coldStat = coldStatsMap.get(0);
 
-            {/* 1 to 36 */}
-            {Array.from({ length: 36 }, (_, i) => i + 1).map((num) => {
-              const isRed = RED_NUMBERS.includes(num);
-              const isLast = lastNumber === num;
-              return (
-                <button
-                  key={num}
-                  onClick={() => handleQuickClick(num)}
-                  className={`h-8 sm:h-9 rounded-lg font-black text-xs shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${
-                    isLast
-                      ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-10 font-black'
-                      : isRed
-                      ? 'bg-rose-950/80 hover:bg-rose-800 border-rose-800/80 text-rose-200'
-                      : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200'
-                  }`}
-                >
-                  <span>{num}</span>
-                  {isLast && (
-                    <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
-                      ÚLTIMO
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                let buttonClass = 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400/40 text-slate-950';
+                if (isZeroLast) {
+                  buttonClass = 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-20 font-black';
+                } else if (isZeroHot) {
+                  buttonClass = 'animate-blink-hot-red font-black text-white z-10';
+                } else if (isZeroCold) {
+                  buttonClass = 'animate-blink-cold-blue font-black text-white z-10';
+                }
+
+                const tooltipTitle = isZeroHot
+                  ? `Número 0: TOP 5 QUENTE (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
+                  : isZeroCold
+                  ? `Número 0: TOP 5 FRIO (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
+                  : 'Número 0';
+
+                return (
+                  <button
+                    onClick={() => handleQuickClick(0)}
+                    title={tooltipTitle}
+                    className={`col-span-12 sm:col-span-1 h-8 sm:h-9 rounded-lg font-black text-xs sm:text-sm shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${buttonClass}`}
+                  >
+                    <span>0</span>
+                    {isZeroLast ? (
+                      <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
+                        ÚLTIMO
+                      </span>
+                    ) : isZeroHot ? (
+                      <span className="text-[6.5px] bg-rose-950/90 text-rose-200 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-rose-400/60 leading-none shadow-xs">
+                        🔥 HOT
+                      </span>
+                    ) : isZeroCold ? (
+                      <span className="text-[6.5px] bg-blue-950/90 text-blue-200 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-blue-400/60 leading-none shadow-xs">
+                        ❄ FRIO
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })()}
+
+              {/* 1 to 36 */}
+              {Array.from({ length: 36 }, (_, i) => i + 1).map((num) => {
+                const isRed = RED_NUMBERS.includes(num);
+                const isLast = lastNumber === num;
+                const isHot = hotNumbers.includes(num);
+                const isCold = coldNumbers.includes(num);
+                const hotStat = hotStatsMap.get(num);
+                const coldStat = coldStatsMap.get(num);
+
+                let buttonClass = '';
+                if (isLast) {
+                  buttonClass = 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-md scale-105 z-20 font-black';
+                } else if (isHot) {
+                  buttonClass = 'animate-blink-hot-red font-black text-white z-10';
+                } else if (isCold) {
+                  buttonClass = 'animate-blink-cold-blue font-black text-white z-10';
+                } else if (isRed) {
+                  buttonClass = 'bg-rose-950/80 hover:bg-rose-800 border-rose-800/80 text-rose-200';
+                } else {
+                  buttonClass = 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200';
+                }
+
+                const tooltipTitle = isHot
+                  ? `Número ${num}: TOP 5 QUENTE (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
+                  : isCold
+                  ? `Número ${num}: TOP 5 FRIO (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
+                  : `Número ${num}`;
+
+                return (
+                  <button
+                    key={num}
+                    onClick={() => handleQuickClick(num)}
+                    title={tooltipTitle}
+                    className={`h-8 sm:h-9 rounded-lg font-black text-xs shadow-sm transition-all active:scale-95 flex flex-col items-center justify-center border relative ${buttonClass}`}
+                  >
+                    <span>{num}</span>
+                    {isLast ? (
+                      <span className="text-[7px] bg-slate-950 text-amber-300 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-amber-400/50 leading-none">
+                        ÚLTIMO
+                      </span>
+                    ) : isHot ? (
+                      <span className="text-[6.5px] bg-rose-950/90 text-rose-200 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-rose-400/60 leading-none shadow-xs">
+                        🔥 HOT
+                      </span>
+                    ) : isCold ? (
+                      <span className="text-[6.5px] bg-blue-950/90 text-blue-200 px-0.5 rounded font-black uppercase tracking-tighter -mt-0.5 border border-blue-400/60 leading-none shadow-xs">
+                        ❄ FRIO
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : (
           /* 🏎️ Roleta Race / Pista Racetrack (Exact Oval Racetrack as in user image) */
@@ -383,7 +489,62 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
             <OvalRacetrackBoard
               onSelectNumber={handleQuickClick}
               lastNumber={lastNumber}
+              hotNumbers={hotNumbers}
+              coldNumbers={coldNumbers}
             />
+          </div>
+        )}
+
+        {/* Legenda Informativa dos 5 Quentes (Vermelho Piscando) e 5 Frios (Azul Piscando) - BASE: TOTAL GERAL DE RODADAS */}
+        {totalSpins > 0 && (hotNumbers.length > 0 || coldNumbers.length > 0) && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[10px] font-mono px-1">
+            {/* 5 Mais Quentes do Total Geral */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1 text-rose-400 font-extrabold uppercase">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>
+                <Flame className="w-3.5 h-3.5 text-rose-400" />
+                <span>5 Quentes (Total Geral: {totalSpins} rodadas):</span>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {hotNumbers.map((n) => {
+                  const s = hotStatsMap.get(n);
+                  return (
+                    <span
+                      key={`legend-hot-${n}`}
+                      title={`Número ${n}: saiu ${s?.count}x (${s?.frequencyPct}% das ${totalSpins} rodadas)`}
+                      className="px-1.5 py-0.5 bg-rose-950/90 text-rose-200 border border-rose-500/50 rounded font-black flex items-center gap-1 shadow-xs"
+                    >
+                      <span>#{n}</span>
+                      {s && <span className="text-[8.5px] text-rose-300 font-medium opacity-90">({s.count}x)</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 5 Mais Frios do Total Geral */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1 text-sky-400 font-extrabold uppercase">
+                <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping inline-block"></span>
+                <Snowflake className="w-3.5 h-3.5 text-sky-400" />
+                <span>5 Frios (Total Geral: {totalSpins} rodadas):</span>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {coldNumbers.map((n) => {
+                  const s = coldStatsMap.get(n);
+                  return (
+                    <span
+                      key={`legend-cold-${n}`}
+                      title={`Número ${n}: há ${s?.spinsWithoutHit} rodadas consecutivas sem sair`}
+                      className="px-1.5 py-0.5 bg-sky-950/90 text-sky-200 border border-sky-500/50 rounded font-black flex items-center gap-1 shadow-xs"
+                    >
+                      <span>#{n}</span>
+                      {s && <span className="text-[8.5px] text-sky-300 font-medium opacity-90">({s.spinsWithoutHit}g)</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>

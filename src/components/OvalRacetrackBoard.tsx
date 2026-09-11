@@ -5,6 +5,8 @@ interface OvalRacetrackBoardProps {
   onSelectNumber: (num: number) => void;
   lastNumber?: number | null;
   highlightedNumbers?: number[];
+  hotNumbers?: number[];
+  coldNumbers?: number[];
   className?: string;
 }
 
@@ -32,6 +34,8 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
   onSelectNumber,
   lastNumber,
   highlightedNumbers = [],
+  hotNumbers = [],
+  coldNumbers = [],
   className = '',
 }) => {
   const [hoveredSector, setHoveredSector] = useState<string | null>(null);
@@ -42,6 +46,8 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
     const isZero = num === 0;
     const isLast = lastNumber === num;
     const isHighlighted = highlightedNumbers.includes(num);
+    const isHot = hotNumbers.includes(num);
+    const isCold = coldNumbers.includes(num);
 
     let sectorHighlight = false;
     if (hoveredSector && SECTORS[hoveredSector as keyof typeof SECTORS]) {
@@ -56,6 +62,14 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
       return 'bg-amber-500/90 text-slate-950 font-black border-2 border-amber-300 ring-1 ring-amber-400 scale-100 z-10 shadow-md';
     }
 
+    if (isHot) {
+      return 'animate-blink-hot-red font-black text-white z-10 border-rose-400';
+    }
+
+    if (isCold) {
+      return 'animate-blink-cold-blue font-black text-white z-10 border-sky-400';
+    }
+
     if (isZero) {
       return 'bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold border border-emerald-400/60 shadow-inner';
     }
@@ -65,6 +79,22 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
     }
 
     return 'bg-zinc-900 hover:bg-zinc-800 text-zinc-100 font-extrabold border border-zinc-700/60 shadow-inner';
+  };
+
+  // Helper to determine cell tooltip title
+  const getCellTitle = (num: number) => {
+    const isZero = num === 0;
+    const colorLabel = isZero ? 'Verde (Zero)' : RED_NUMBERS.includes(num) ? 'Vermelho' : 'Preto';
+    const isHot = hotNumbers.includes(num);
+    const isCold = coldNumbers.includes(num);
+    const isLast = lastNumber === num;
+
+    let suffix = '';
+    if (isLast) suffix += ' [ÚLTIMO NÚMERO SORTEADO]';
+    if (isHot) suffix += ' 🔥 TOP 5 QUENTE (Total Geral)';
+    if (isCold) suffix += ' ❄ TOP 5 FRIO (Total Geral)';
+
+    return `Número ${num} (${colorLabel})${suffix}`;
   };
 
   return (
@@ -82,7 +112,7 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
                 type="button"
                 onClick={() => onSelectNumber(num)}
                 className={`flex-1 h-10 sm:h-11 min-w-[32px] rounded-t-md flex flex-col items-center justify-center transition-all duration-150 active:scale-95 text-xs sm:text-sm ${getCellClass(num)}`}
-                title={`Número ${num} (${RED_NUMBERS.includes(num) ? 'Vermelho' : 'Preto'})`}
+                title={getCellTitle(num)}
               >
                 <span>{num}</span>
                 {lastNumber === num && (
@@ -105,7 +135,7 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
                   type="button"
                   onClick={() => onSelectNumber(num)}
                   className={`h-9 sm:h-10 w-full rounded-l-2xl flex flex-col items-center justify-center transition-all duration-150 active:scale-95 text-xs sm:text-sm ${getCellClass(num)}`}
-                  title={`Número ${num}`}
+                  title={getCellTitle(num)}
                 >
                   <span>{num}</span>
                   {lastNumber === num && (
@@ -190,7 +220,7 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
                   type="button"
                   onClick={() => onSelectNumber(num)}
                   className={`h-9 sm:h-10 w-full rounded-r-2xl flex flex-col items-center justify-center transition-all duration-150 active:scale-95 text-xs sm:text-sm ${getCellClass(num)}`}
-                  title={`Número ${num}`}
+                  title={getCellTitle(num)}
                 >
                   <span>{num}</span>
                   {lastNumber === num && (
@@ -212,7 +242,7 @@ export const OvalRacetrackBoard: React.FC<OvalRacetrackBoardProps> = ({
                 type="button"
                 onClick={() => onSelectNumber(num)}
                 className={`flex-1 h-10 sm:h-11 min-w-[32px] rounded-b-md flex flex-col items-center justify-center transition-all duration-150 active:scale-95 text-xs sm:text-sm ${getCellClass(num)}`}
-                title={`Número ${num}`}
+                title={getCellTitle(num)}
               >
                 <span>{num}</span>
                 {lastNumber === num && (

@@ -1,5 +1,45 @@
 @import "tailwindcss";
 
+@keyframes blinkHotRed {
+  0%, 100% {
+    background-color: rgb(159 18 57 / 0.95);
+    border-color: rgb(244 63 94);
+    box-shadow: 0 0 14px rgb(244 63 94 / 0.75), inset 0 0 8px rgb(244 63 94 / 0.5);
+    color: #ffffff;
+  }
+  50% {
+    background-color: rgb(225 29 72);
+    border-color: rgb(254 205 211);
+    box-shadow: 0 0 22px rgb(244 63 94 / 0.95), inset 0 0 12px rgb(255 255 255 / 0.7);
+    color: #ffffff;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes blinkColdBlue {
+  0%, 100% {
+    background-color: rgb(30 58 138 / 0.9);
+    border-color: rgb(56 189 248);
+    box-shadow: 0 0 14px rgb(56 189 248 / 0.7), inset 0 0 8px rgb(56 189 248 / 0.5);
+    color: #ffffff;
+  }
+  50% {
+    background-color: rgb(37 99 235);
+    border-color: rgb(186 230 253);
+    box-shadow: 0 0 22px rgb(56 189 248 / 0.95), inset 0 0 12px rgb(255 255 255 / 0.7);
+    color: #ffffff;
+    transform: scale(1.03);
+  }
+}
+
+.animate-blink-hot-red {
+  animation: blinkHotRed 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-blink-cold-blue {
+  animation: blinkColdBlue 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -9,3 +49,4 @@
     scrollbar-width: none;
   }
 }
+

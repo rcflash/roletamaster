@@ -7,8 +7,18 @@ interface HotColdNumbersCardProps {
 }
 
 export const HotColdNumbersCard: React.FC<HotColdNumbersCardProps> = ({ numberStats }) => {
-  const sortedHot = [...numberStats].sort((a, b) => b.count - a.count || a.num - b.num).slice(0, 5);
-  const sortedCold = [...numberStats].sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.num - b.num).slice(0, 5);
+  const totalSpins = numberStats.reduce((acc, s) => acc + s.count, 0);
+
+  // Top 5 Quentes do Total Geral (mais frequentes; desempate por menor atraso)
+  const sortedHot = [...numberStats]
+    .filter((s) => s.count > 0)
+    .sort((a, b) => b.count - a.count || a.spinsWithoutHit - b.spinsWithoutHit || a.num - b.num)
+    .slice(0, 5);
+
+  // Top 5 Frias do Total Geral (mais rodadas sem sair; desempate por menor count)
+  const sortedCold = [...numberStats]
+    .sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.count - b.count || a.num - b.num)
+    .slice(0, 5);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -20,7 +30,7 @@ export const HotColdNumbersCard: React.FC<HotColdNumbersCardProps> = ({ numberSt
             <h3 className="text-sm font-extrabold text-slate-100">TOP 5 QUENTES</h3>
           </div>
           <span className="text-[10px] font-semibold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-            Mais Frequentes
+            Total Geral ({totalSpins} rodadas)
           </span>
         </div>
 

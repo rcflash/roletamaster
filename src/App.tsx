@@ -792,6 +792,8 @@ export default function App() {
             totalSpins={totalSpins}
             lastNumber={lastSpin ? lastSpin.numero : null}
             showWarmupBanner={false}
+            spins={spins}
+            numberStats={numberStats}
           />
         );
       case 'wheel_alert':
@@ -1220,6 +1222,8 @@ export default function App() {
               onClearAllSpins={handleClearAllSpins}
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
+              spins={spins}
+              numberStats={numberStats}
             />
           </div>
         )}
@@ -1242,6 +1246,8 @@ export default function App() {
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
+              spins={spins}
+              numberStats={numberStats}
             />
             <StrategiesLivePerformancePanel
               spins={spins}
@@ -1262,6 +1268,8 @@ export default function App() {
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
+              spins={spins}
+              numberStats={numberStats}
             />
             <BlockAnalysisPanel
               spins={spins}
@@ -1283,6 +1291,8 @@ export default function App() {
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
+              spins={spins}
+              numberStats={numberStats}
             />
             <ClosedCyclePanel
               spins={spins}
@@ -1302,6 +1312,8 @@ export default function App() {
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
+              spins={spins}
+              numberStats={numberStats}
             />
             <JamesBondPanel
               spins={spins}
@@ -1321,6 +1333,8 @@ export default function App() {
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
+              spins={spins}
+              numberStats={numberStats}
             />
             <DAlembertPanel
               spins={spins}
@@ -1340,6 +1354,8 @@ export default function App() {
               totalSpins={totalSpins}
               lastNumber={lastSpin ? lastSpin.numero : null}
               showWarmupBanner={false}
+              spins={spins}
+              numberStats={numberStats}
             />
             <StrategiesHubPanel
               spins={spins}
