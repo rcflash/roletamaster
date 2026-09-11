@@ -22,6 +22,8 @@ import {
   Sparkles,
   Flame,
   Target,
+  Scale,
+  Shield,
 } from 'lucide-react';
 import {
   BankrollConfig,
@@ -40,6 +42,8 @@ export type DashboardBlockId =
   | 'camouflaged_alert'
   | 'column_alert'
   | 'horse_alert'
+  | 'dalembert_alert'
+  | 'james_bond_alert'
   | 'smart_bot'
   | 'temperatures'
   | 'hot_cold'
@@ -52,6 +56,8 @@ const DEFAULT_BLOCK_ORDER: DashboardBlockId[] = [
   'quick_input',
   'wheel_alert',
   'zero_monitor',
+  'james_bond_alert',
+  'dalembert_alert',
   'horse_alert',
   'column_alert',
   'camouflaged_alert',
@@ -71,6 +77,8 @@ const BOTTOM_PRESET_ORDER: DashboardBlockId[] = [
   'quick_input',
   'wheel_alert',
   'zero_monitor',
+  'james_bond_alert',
+  'dalembert_alert',
   'horse_alert',
   'column_alert',
   'camouflaged_alert',
@@ -93,6 +101,8 @@ const BLOCK_TITLES: Record<DashboardBlockId, string> = {
   zero_monitor: 'Monitoramento Dedicado do Número Zero (0) & Atraso',
   quick_input: 'Lançamento Rápido de Números',
   wheel_alert: 'Alerta de Vizinhos do Cilindro',
+  james_bond_alert: 'Alerta James Bond 007 (Cobertura Ampla 67.5%)',
+  dalembert_alert: "Alerta de Entrada D'Alembert (Progressão Piramidal)",
   horse_alert: 'Alerta de Cavalos & Crescente de Ímpares (Bastião)',
   camouflaged_alert: 'Alerta de Números Camuflados & Cavalos',
   column_alert: 'Alerta de Surfe de Colunas (Método Bastião)',
@@ -159,6 +169,10 @@ import { ZeroMonitorBlock } from './components/ZeroMonitorBlock';
 import { StrategiesLivePerformancePanel } from './components/StrategiesLivePerformancePanel';
 import { StrategiesHubPanel, SubStrategyId } from './components/StrategiesHubPanel';
 import { ClosedCyclePanel } from './components/ClosedCyclePanel';
+import { DAlembertPanel } from './components/DAlembertPanel';
+import { DAlembertAlertCard } from './components/DAlembertAlertCard';
+import { JamesBondPanel } from './components/JamesBondPanel';
+import { JamesBondAlertCard } from './components/JamesBondAlertCard';
 
 export default function App() {
   // LocalStorage Persistence Keys
@@ -198,8 +212,8 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'vizinhos' | 'ciclo_ausentes' | 'bankroll' | 'performance' | 'strategies_hub' | 'board' | 'analytics' | 'sessions' | 'dashboard'>('vizinhos');
-  const [hubSubStrategy, setHubSubStrategy] = useState<SubStrategyId>('bastiao_scales');
+  const [activeTab, setActiveTab] = useState<'vizinhos' | 'ciclo_ausentes' | 'james_bond' | 'dalembert' | 'bankroll' | 'performance' | 'strategies_hub' | 'board' | 'analytics' | 'sessions' | 'dashboard'>('vizinhos');
+  const [hubSubStrategy, setHubSubStrategy] = useState<SubStrategyId>('dalembert');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [showResetDemoConfirm, setShowResetDemoConfirm] = useState<boolean>(false);
   const [showLayoutControls, setShowLayoutControls] = useState<boolean>(false);
@@ -242,6 +256,10 @@ export default function App() {
       setActiveTab('vizinhos');
     } else if (stratId === 'cold_cycle') {
       setActiveTab('ciclo_ausentes');
+    } else if (stratId === 'james_bond') {
+      setActiveTab('james_bond');
+    } else if (stratId === 'dalembert' || stratId === 'dalembert_red') {
+      setActiveTab('dalembert');
     } else if (stratId === 'bastiao_scales') {
       setHubSubStrategy('bastiao_scales');
       setActiveTab('strategies_hub');
@@ -784,6 +802,22 @@ export default function App() {
             onUpdateStrategy={(upd) => setStrategy((prev) => ({ ...prev, ...upd }))}
           />
         );
+      case 'james_bond_alert':
+        return (
+          <JamesBondAlertCard
+            spins={spins}
+            config={config}
+            onOpenPanel={() => setActiveTab('james_bond')}
+          />
+        );
+      case 'dalembert_alert':
+        return (
+          <DAlembertAlertCard
+            spins={spins}
+            config={config}
+            onOpenPanel={() => setActiveTab('dalembert')}
+          />
+        );
       case 'camouflaged_alert':
         return (
           <div className="space-y-3">
@@ -915,6 +949,32 @@ export default function App() {
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
               <span>🔄 Ciclo de Fechamento (Ausentes)</span>
+            </button>
+
+            {/* GUIA & RADAR EXCLUSIVO: ESTRATÉGIA JAMES BOND 007 */}
+            <button
+              onClick={() => setActiveTab('james_bond')}
+              className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'james_bond'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30 ring-1 ring-amber-300 font-black'
+                  : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5 text-amber-400" />
+              <span>🕶️ James Bond (007)</span>
+            </button>
+
+            {/* GUIA & RADAR EXCLUSIVO: MÉTODO D'ALEMBERT */}
+            <button
+              onClick={() => setActiveTab('dalembert')}
+              className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                activeTab === 'dalembert'
+                  ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-slate-950 shadow-md shadow-sky-500/30 ring-1 ring-sky-300 font-black'
+                  : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
+              }`}
+            >
+              <Scale className="w-3.5 h-3.5 text-sky-400" />
+              <span>⚖️ D'Alembert (Guia & Radar)</span>
             </button>
 
             {/* 2º MENU: GESTÃO DE BANCA & ROI */}
@@ -1225,6 +1285,44 @@ export default function App() {
               showWarmupBanner={false}
             />
             <ClosedCyclePanel
+              spins={spins}
+              config={config}
+            />
+          </div>
+        )}
+
+        {/* Tab: Guia Exclusivo & Radar Estratégia James Bond 007 */}
+        {activeTab === 'james_bond' && (
+          <div className="space-y-6">
+            <QuickSpinInput
+              onAddSpin={handleAddSpin}
+              onBatchAddSpins={handleBatchAddSpins}
+              onUndoLastSpin={handleUndoLastSpin}
+              onClearAllSpins={handleClearAllSpins}
+              totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
+              showWarmupBanner={false}
+            />
+            <JamesBondPanel
+              spins={spins}
+              config={config}
+            />
+          </div>
+        )}
+
+        {/* Tab: Guia Exclusivo & Radar Método D'Alembert */}
+        {activeTab === 'dalembert' && (
+          <div className="space-y-6">
+            <QuickSpinInput
+              onAddSpin={handleAddSpin}
+              onBatchAddSpins={handleBatchAddSpins}
+              onUndoLastSpin={handleUndoLastSpin}
+              onClearAllSpins={handleClearAllSpins}
+              totalSpins={totalSpins}
+              lastNumber={lastSpin ? lastSpin.numero : null}
+              showWarmupBanner={false}
+            />
+            <DAlembertPanel
               spins={spins}
               config={config}
             />

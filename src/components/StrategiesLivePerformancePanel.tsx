@@ -579,6 +579,59 @@ export const StrategiesLivePerformancePanel: React.FC<StrategiesLivePerformanceP
       });
     }
 
+    // --- 10. JAMES BOND (007) - COBERTURA 67.5% ---
+    {
+      let wins = 0;
+      let losses = 0;
+      let profit = 0;
+      let streakType: 'GREEN' | 'RED' | 'WAITING' = 'WAITING';
+      let streakCount = 0;
+      const chipVal = unit / 4; // base proporcional
+
+      for (let i = 0; i < total; i++) {
+        const num = sortedSpins[i].numero;
+        if (num >= 19 && num <= 36) {
+          wins++;
+          profit += 8 * chipVal;
+          if (streakType === 'GREEN') streakCount++;
+          else { streakType = 'GREEN'; streakCount = 1; }
+        } else if (num >= 13 && num <= 18) {
+          wins++;
+          profit += 10 * chipVal;
+          if (streakType === 'GREEN') streakCount++;
+          else { streakType = 'GREEN'; streakCount = 1; }
+        } else if (num === 0) {
+          wins++;
+          profit += 16 * chipVal;
+          if (streakType === 'GREEN') streakCount++;
+          else { streakType = 'GREEN'; streakCount = 1; }
+        } else {
+          losses++;
+          profit -= 20 * chipVal;
+          if (streakType === 'RED') streakCount++;
+          else { streakType = 'RED'; streakCount = 1; }
+        }
+      }
+
+      list.push({
+        id: 'james_bond',
+        name: 'James Bond (007 - 25 Números)',
+        category: 'cobertura',
+        badge: '🕶️ Cobertura 67.5%',
+        description: 'Altas (19-36) + Seisena (13-18) + Seguro no Zero (0) com 20 fichas por giro.',
+        betCostPerSpin: unit * 5,
+        totalBetsCount: total,
+        winCount: wins,
+        lossCount: losses,
+        winRatePct: total > 0 ? (wins / total) * 100 : 0,
+        netProfit: profit,
+        roiPct: total > 0 ? (profit / (total * 20 * chipVal)) * 100 : 0,
+        currentStreak: { type: streakType, count: streakCount },
+        status: profit > 0 ? 'PROFIT' : 'DRAWDOWN',
+        latestTargetSuggestion: '14 Altas + 5 Seisena (13-18) + 1 Zero'
+      });
+    }
+
     // Ordenação
     return list.sort((a, b) => {
       if (sortBy === 'profit') return b.netProfit - a.netProfit;

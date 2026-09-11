@@ -14,7 +14,8 @@ import {
   Filter,
   CheckCircle2,
   Sliders,
-  DollarSign
+  DollarSign,
+  Scale
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
 import { BastiaoScalesPanel } from './BastiaoScalesPanel';
@@ -23,8 +24,12 @@ import { CamouflagedNumbersPanel } from './CamouflagedNumbersPanel';
 import { ColumnSurfingPanel } from './ColumnSurfingPanel';
 import { StrategyBacktestPanel } from './StrategyBacktestPanel';
 import { ActiveStrategyPanel } from './ActiveStrategyPanel';
+import { DAlembertPanel } from './DAlembertPanel';
+import { JamesBondPanel } from './JamesBondPanel';
 
 export type SubStrategyId =
+  | 'james_bond'
+  | 'dalembert'
   | 'bastiao_scales'
   | 'horse_cycles'
   | 'camouflaged'
@@ -41,6 +46,26 @@ interface StrategiesHubPanelProps {
 }
 
 export const STRATEGY_OPTIONS = [
+  {
+    id: 'james_bond',
+    label: 'Estratégia James Bond (Radar & Guia 007)',
+    shortLabel: 'James Bond (007)',
+    tag: '🕶️ James Bond',
+    category: 'classicas',
+    icon: ShieldCheck,
+    color: 'from-amber-500 to-amber-600',
+    description: 'Guia exclusivo e radar de cobertura ampla (67.5% - 25 números) com Altas (19-36), Seisena (13-18) e Zero (0).'
+  },
+  {
+    id: 'dalembert',
+    label: "Método D'Alembert (Radar & Guia)",
+    shortLabel: "D'Alembert Exclusivo",
+    tag: '⚖️ D\'Alembert',
+    category: 'classicas',
+    icon: Scale,
+    color: 'from-sky-500 to-sky-600',
+    description: 'Guia exclusivo e alertas da progressão piramidal (+1 unidade na perda / -1 no ganho). Sem dobrar fichas.'
+  },
   {
     id: 'backtest_lab',
     label: 'Laboratório de Backtests (10+ Estratégias)',
@@ -202,6 +227,20 @@ export const StrategiesHubPanel: React.FC<StrategiesHubPanelProps> = ({
 
       {/* Conteúdo Dinâmico da Estratégia Selecionada */}
       <div className="transition-all duration-200">
+        {activeSubStrategy === 'james_bond' && (
+          <JamesBondPanel
+            spins={spins}
+            config={config}
+          />
+        )}
+
+        {activeSubStrategy === 'dalembert' && (
+          <DAlembertPanel
+            spins={spins}
+            config={config}
+          />
+        )}
+
         {activeSubStrategy === 'bastiao_scales' && (
           <BastiaoScalesPanel
             spins={spins}
