@@ -468,6 +468,34 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     };
   }, [completeBlocks, selectedStrategy]);
 
+  // Extremes among completed blocks (Maior e Menor taxa de acerto por bloco)
+  const blockExtremes = useMemo(() => {
+    if (completeBlocks.length === 0) return null;
+    let maxB = completeBlocks[0];
+    let minB = completeBlocks[0];
+    let maxRate = (maxB[selectedStrategy].wins / maxB.spins.length) * 100;
+    let minRate = (minB[selectedStrategy].wins / minB.spins.length) * 100;
+
+    completeBlocks.forEach((b) => {
+      const rate = (b[selectedStrategy].wins / b.spins.length) * 100;
+      if (rate > maxRate) {
+        maxRate = rate;
+        maxB = b;
+      }
+      if (rate < minRate) {
+        minRate = rate;
+        minB = b;
+      }
+    });
+
+    return {
+      maxBlockNumber: maxB.blockNumber,
+      maxBlockRate: maxRate,
+      minBlockNumber: minB.blockNumber,
+      minBlockRate: minRate,
+    };
+  }, [completeBlocks, selectedStrategy]);
+
   // Active block (in progress) or latest block if all completed
   const currentBlock = useMemo(() => {
     if (blocks.length === 0) return null;
@@ -624,6 +652,14 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         currentCount: 0,
         maxGreenStreak: 0,
         maxRedStreak: 0,
+        lastPeakPct: 0,
+        lastPeakSpin: 0,
+        lastTroughPct: 0,
+        lastTroughSpin: 0,
+        maxRatePct: 0,
+        maxRateSpin: 0,
+        minRatePct: 0,
+        minRateSpin: 0,
       };
     }
 
@@ -634,7 +670,15 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     let curType: 'GREEN' | 'RED' | null = null;
     let curCount = 0;
 
-    allSpinsOutcomes.forEach((spin) => {
+    const rateHistory: {
+      spinNumber: number;
+      spinIndex: number;
+      isWin: boolean;
+      winsSoFar: number;
+      ratePct: number;
+    }[] = [];
+
+    allSpinsOutcomes.forEach((spin, idx) => {
       const type: 'GREEN' | 'RED' = spin.isWin ? 'GREEN' : 'RED';
       if (spin.isWin) totalWins++;
       else totalLosses++;
@@ -648,10 +692,87 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
       if (type === 'GREEN' && curCount > maxGreen) maxGreen = curCount;
       if (type === 'RED' && curCount > maxRed) maxRed = curCount;
+
+      const spinIndex = idx + 1;
+      const ratePct = (totalWins / spinIndex) * 100;
+      rateHistory.push({
+        spinNumber: spin.giro,
+        spinIndex,
+        isWin: spin.isWin,
+        winsSoFar: totalWins,
+        ratePct,
+      });
     });
 
     const totalSpins = allSpinsOutcomes.length;
     const winRatePct = totalSpins > 0 ? (totalWins / totalSpins) * 100 : 0;
+
+    // Detect confirmed peaks (Green followed by Red) and troughs (Red followed by Green)
+    const confirmedPeaks: typeof rateHistory = [];
+    const confirmedTroughs: typeof rateHistory = [];
+
+    for (let i = 0; i < rateHistory.length - 1; i++) {
+      const cur = rateHistory[i];
+      const next = rateHistory[i + 1];
+      if (cur.isWin && !next.isWin) {
+        confirmedPeaks.push(cur);
+      }
+      if (!cur.isWin && next.isWin) {
+        confirmedTroughs.push(cur);
+      }
+    }
+
+    const lastItem = rateHistory[rateHistory.length - 1];
+
+    // Determine Last Peak (Último Valor Maior em %)
+    // If the latest point is a WIN, it's currently at or extending a peak.
+    // If it's a LOSS, the last peak is the one right before this falling move started.
+    let lastPeak = confirmedPeaks.length > 0 ? confirmedPeaks[confirmedPeaks.length - 1] : null;
+    if (lastItem.isWin) {
+      if (!lastPeak || lastItem.ratePct >= lastPeak.ratePct) {
+        lastPeak = lastItem;
+      }
+    } else {
+      if (!lastPeak) {
+        lastPeak = rateHistory.find((r) => r.isWin) || rateHistory[0];
+      }
+    }
+
+    // Determine Last Trough (Último Valor Menor em %)
+    // If the latest point is a LOSS, it's currently at or extending a trough.
+    // If it's a WIN, the last trough is the one right before this rising move started.
+    let lastTrough = confirmedTroughs.length > 0 ? confirmedTroughs[confirmedTroughs.length - 1] : null;
+    if (!lastItem.isWin) {
+      if (!lastTrough || lastItem.ratePct <= lastTrough.ratePct) {
+        lastTrough = lastItem;
+      }
+    } else {
+      if (!lastTrough) {
+        lastTrough = rateHistory.find((r) => !r.isWin) || rateHistory[0];
+      }
+    }
+
+    // Absolute Maximum and Minimum in session (using spins >= 3 to avoid 1-spin 100% distortion if N >= 3)
+    const candidates = totalSpins >= 3 ? rateHistory.slice(2) : rateHistory;
+    let maxRateItem = candidates[0] || rateHistory[0];
+    let minRateItem = candidates[0] || rateHistory[0];
+
+    candidates.forEach((item) => {
+      if (item.ratePct > maxRateItem.ratePct) maxRateItem = item;
+      if (item.ratePct < minRateItem.ratePct) minRateItem = item;
+    });
+
+    const lastPeakPct = lastPeak ? lastPeak.ratePct : winRatePct;
+    const lastPeakSpin = lastPeak ? lastPeak.spinNumber : (rateHistory[0]?.spinNumber || 0);
+
+    const lastTroughPct = lastTrough ? lastTrough.ratePct : winRatePct;
+    const lastTroughSpin = lastTrough ? lastTrough.spinNumber : (rateHistory[0]?.spinNumber || 0);
+
+    const maxRatePct = maxRateItem ? maxRateItem.ratePct : winRatePct;
+    const maxRateSpin = maxRateItem ? maxRateItem.spinNumber : (rateHistory[0]?.spinNumber || 0);
+
+    const minRatePct = minRateItem ? minRateItem.ratePct : winRatePct;
+    const minRateSpin = minRateItem ? minRateItem.spinNumber : (rateHistory[0]?.spinNumber || 0);
 
     return {
       totalWins,
@@ -662,6 +783,14 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
       currentCount: curCount,
       maxGreenStreak: maxGreen,
       maxRedStreak: maxRed,
+      lastPeakPct,
+      lastPeakSpin,
+      lastTroughPct,
+      lastTroughSpin,
+      maxRatePct,
+      maxRateSpin,
+      minRatePct,
+      minRateSpin,
     };
   }, [allSpinsOutcomes]);
 
@@ -1135,6 +1264,41 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 )}
               </div>
 
+              {/* Informação solicitada: Último Valor Maior em % e Último Valor Menor em % */}
+              {globalStreakStats.totalSpins > 0 && (
+                <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
+                  <span className="text-slate-400 text-[8.5px] uppercase font-bold tracking-tight">Extremos:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="text-emerald-300 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5 cursor-help"
+                      title={`Último valor maior (topo da taxa): ${globalStreakStats.lastPeakPct.toFixed(1)}% (no giro #${globalStreakStats.lastPeakSpin})\nMáxima geral da sessão: ${globalStreakStats.maxRatePct.toFixed(1)}% (no giro #${globalStreakStats.maxRateSpin})`}
+                    >
+                      <span className="text-emerald-400 font-black">▲</span>
+                      <span className="text-slate-400 text-[8px] uppercase">Maior:</span>
+                      <span className="text-emerald-200 font-black text-[10px]">{globalStreakStats.lastPeakPct.toFixed(0)}%</span>
+                      {Math.abs(globalStreakStats.maxRatePct - globalStreakStats.lastPeakPct) >= 1 && (
+                        <span className="text-[8px] text-emerald-400/80 font-normal">
+                          (Máx {globalStreakStats.maxRatePct.toFixed(0)}%)
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="text-rose-300 bg-rose-950/70 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold flex items-center gap-0.5 cursor-help"
+                      title={`Último valor menor (fundo da taxa): ${globalStreakStats.lastTroughPct.toFixed(1)}% (no giro #${globalStreakStats.lastTroughSpin})\nMínima geral da sessão: ${globalStreakStats.minRatePct.toFixed(1)}% (no giro #${globalStreakStats.minRateSpin})`}
+                    >
+                      <span className="text-rose-400 font-black">▼</span>
+                      <span className="text-slate-400 text-[8px] uppercase">Menor:</span>
+                      <span className="text-rose-200 font-black text-[10px]">{globalStreakStats.lastTroughPct.toFixed(0)}%</span>
+                      {Math.abs(globalStreakStats.minRatePct - globalStreakStats.lastTroughPct) >= 1 && (
+                        <span className="text-[8px] text-rose-400/80 font-normal">
+                          (Mín {globalStreakStats.minRatePct.toFixed(0)}%)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Projeção Próxima Rodada (Se Green vai para quanto / Se Red vai para quanto) */}
               {globalStreakStats.totalSpins > 0 && (
                 <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
@@ -1247,6 +1411,14 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   <span className="text-cyan-400">
                     Restam {blockComparisonStats.remainingSpinsInBlock}g
                   </span>
+                  {globalStreakStats.totalSpins > 0 && (
+                    <>
+                      <span className="text-slate-600">|</span>
+                      <span className="text-slate-300" title={`Extremos da Taxa Geral: Último maior ${globalStreakStats.lastPeakPct.toFixed(1)}% | Último menor ${globalStreakStats.lastTroughPct.toFixed(1)}%`}>
+                        Extremos: <strong className="text-emerald-400 font-black">▲{globalStreakStats.lastPeakPct.toFixed(0)}%</strong> <strong className="text-rose-400 font-black ml-1">▼{globalStreakStats.lastTroughPct.toFixed(0)}%</strong>
+                      </span>
+                    </>
+                  )}
                 </div>
                 <button
                   onClick={toggleCorrelationDetails}
@@ -1297,6 +1469,52 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Extremos da Taxa Geral */}
+                  {globalStreakStats.totalSpins > 0 && (
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 pt-0.5">
+                      <span className="text-[8px] uppercase text-slate-500 font-semibold">Extremos Geral:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="text-emerald-300 font-bold flex items-center gap-0.5 cursor-help"
+                          title={`Último valor maior da taxa: ${globalStreakStats.lastPeakPct.toFixed(1)}% (no giro #${globalStreakStats.lastPeakSpin}) | Máxima geral da sessão: ${globalStreakStats.maxRatePct.toFixed(1)}% (no giro #${globalStreakStats.maxRateSpin})`}
+                        >
+                          <span className="text-emerald-400 font-black">▲</span>
+                          <span>Últ. Maior {globalStreakStats.lastPeakPct.toFixed(0)}%</span>
+                          {Math.abs(globalStreakStats.maxRatePct - globalStreakStats.lastPeakPct) >= 1 && (
+                            <span className="text-[8px] text-emerald-400/70 font-normal">(Máx {globalStreakStats.maxRatePct.toFixed(0)}%)</span>
+                          )}
+                        </span>
+                        <span className="text-slate-600">|</span>
+                        <span
+                          className="text-rose-300 font-bold flex items-center gap-0.5 cursor-help"
+                          title={`Último valor menor da taxa: ${globalStreakStats.lastTroughPct.toFixed(1)}% (no giro #${globalStreakStats.lastTroughSpin}) | Mínima geral da sessão: ${globalStreakStats.minRatePct.toFixed(1)}% (no giro #${globalStreakStats.minRateSpin})`}
+                        >
+                          <span className="text-rose-400 font-black">▼</span>
+                          <span>Últ. Menor {globalStreakStats.lastTroughPct.toFixed(0)}%</span>
+                          {Math.abs(globalStreakStats.minRatePct - globalStreakStats.lastTroughPct) >= 1 && (
+                            <span className="text-[8px] text-rose-400/70 font-normal">(Mín {globalStreakStats.minRatePct.toFixed(0)}%)</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Extremos entre Blocos Concluídos (se houver) */}
+                  {blockExtremes && (
+                    <div className="flex items-center justify-between text-[8.5px] font-mono text-slate-400 pt-0.5 border-t border-slate-900">
+                      <span className="text-[8px] uppercase text-slate-500 font-semibold">Blocos:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-emerald-400/90 font-bold" title={`Bloco com melhor taxa de acerto: Bloco #${blockExtremes.maxBlockNumber} (${blockExtremes.maxBlockRate.toFixed(1)}%)`}>
+                          Maior: #{blockExtremes.maxBlockNumber} ({blockExtremes.maxBlockRate.toFixed(0)}%)
+                        </span>
+                        <span className="text-slate-700">|</span>
+                        <span className="text-rose-400/90 font-bold" title={`Bloco com menor taxa de acerto: Bloco #${blockExtremes.minBlockNumber} (${blockExtremes.minBlockRate.toFixed(1)}%)`}>
+                          Menor: #{blockExtremes.minBlockNumber} ({blockExtremes.minBlockRate.toFixed(0)}%)
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-[9.5px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between font-mono">
@@ -1460,13 +1678,26 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                     </span>
                   )}
                   {globalStreakStats.totalSpins > 0 && (
-                    <span className="text-[9px] text-slate-400 font-normal border-l border-amber-500/30 pl-1.5 flex items-center gap-1">
-                      <span className="text-emerald-300 font-bold" title={`Se próximo for Green: ${(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}>
-                        G➔{(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                    <span className="text-[9px] text-slate-400 font-normal border-l border-amber-500/30 pl-1.5 flex items-center gap-1.5">
+                      <span className="flex items-center gap-1">
+                        <span className="text-emerald-300 font-bold" title={`Se próximo for Green: ${(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}>
+                          G➔{(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                        </span>
+                        <span className="text-slate-600">|</span>
+                        <span className="text-rose-300 font-bold" title={`Se próximo for Red: ${((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}>
+                          R➔{((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                        </span>
                       </span>
                       <span className="text-slate-600">|</span>
-                      <span className="text-rose-300 font-bold" title={`Se próximo for Red: ${((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}>
-                        R➔{((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                      <span className="flex items-center gap-1 cursor-help" title={`Extremos da Taxa Geral: Último maior ${globalStreakStats.lastPeakPct.toFixed(1)}% (giro #${globalStreakStats.lastPeakSpin}) | Último menor ${globalStreakStats.lastTroughPct.toFixed(1)}% (giro #${globalStreakStats.lastTroughSpin})`}>
+                        <span className="text-emerald-300 font-bold flex items-center gap-0.5">
+                          <span className="text-emerald-400 text-[8px]">▲</span>
+                          <span>{globalStreakStats.lastPeakPct.toFixed(0)}%</span>
+                        </span>
+                        <span className="text-rose-300 font-bold flex items-center gap-0.5">
+                          <span className="text-rose-400 text-[8px]">▼</span>
+                          <span>{globalStreakStats.lastTroughPct.toFixed(0)}%</span>
+                        </span>
                       </span>
                     </span>
                   )}
