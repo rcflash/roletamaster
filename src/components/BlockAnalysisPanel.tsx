@@ -36,10 +36,11 @@ import {
   Monitor,
   Maximize2,
   Minimize2,
-  LayoutGrid
+  LayoutGrid,
+  Snowflake
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig, StrategyConfig } from '../types';
-import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert } from '../lib/roulette';
+import { getNumberColor, getNumberDozen, calculateZeroStats, calculateNeighborsAlert, calculateNumberStats } from '../lib/roulette';
 import { ZeroMonitorBlock } from './ZeroMonitorBlock';
 import { WheelNeighborsAlertCard } from './WheelNeighborsAlertCard';
 
@@ -899,6 +900,42 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     const radius = selectedStrategy === 'wheelNeighbors' ? vizinhosCount : (strategy?.neighborRadius || 2);
     return calculateNeighborsAlert(sortedSpins, radius);
   }, [sortedSpins, selectedStrategy, vizinhosCount, strategy?.neighborRadius]);
+
+  // Top 5 Quentes e Top 5 Frios do Total Geral (piscando em vermelho/azul nos alertas)
+  const { hotNumbersGlobal, coldNumbersGlobal } = useMemo(() => {
+    if (sortedSpins.length === 0) return { hotNumbersGlobal: [] as number[], coldNumbersGlobal: [] as number[] };
+    const stats = calculateNumberStats(sortedSpins);
+    const hotSorted = [...stats]
+      .filter((s) => s.count > 0)
+      .sort((a, b) => b.count - a.count || a.spinsWithoutHit - b.spinsWithoutHit || a.num - b.num)
+      .slice(0, 5);
+    const coldSorted = [...stats]
+      .sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.count - b.count || a.num - b.num)
+      .slice(0, 5);
+    return {
+      hotNumbersGlobal: hotSorted.map((s) => s.num),
+      coldNumbersGlobal: coldSorted.map((s) => s.num),
+    };
+  }, [sortedSpins]);
+
+  // Vizinhos do alerta que são quentes ou frios
+  const { hotNeighborsInAlert, coldNeighborsInAlert } = useMemo(() => {
+    if (!wheelAlert?.hasAlert || sortedSpins.length === 0) {
+      return { hotNeighborsInAlert: [] as number[], coldNeighborsInAlert: [] as number[] };
+    }
+    const lastNum = sortedSpins[sortedSpins.length - 1]?.numero;
+    if (lastNum === undefined || lastNum === null) {
+      return { hotNeighborsInAlert: [] as number[], coldNeighborsInAlert: [] as number[] };
+    }
+    const radius = selectedStrategy === 'wheelNeighbors' ? vizinhosCount : (strategy?.neighborRadius || 2);
+    const neighborsSet = getWheelNeighbors(lastNum, radius);
+    const neighborsArr = Array.from(neighborsSet);
+
+    return {
+      hotNeighborsInAlert: neighborsArr.filter((n) => hotNumbersGlobal.includes(n)),
+      coldNeighborsInAlert: neighborsArr.filter((n) => coldNumbersGlobal.includes(n)),
+    };
+  }, [wheelAlert, sortedSpins, selectedStrategy, vizinhosCount, strategy?.neighborRadius, hotNumbersGlobal, coldNumbersGlobal]);
 
   const totalNeighborNums = 2 * vizinhosCount + 1;
   const coveragePct = ((totalNeighborNums / 37) * 100).toFixed(1);
@@ -1858,10 +1895,36 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                     Giro {activeBlock.spins.length} / {blockSize}
                   </span>
                   {wheelAlert?.hasAlert && (
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide border-2 border-amber-300 shadow-lg animate-pulse drop-shadow-[0_0_12px_rgba(251,191,36,0.9)] flex items-center gap-1.5 shrink-0">
-                      <Flame className="w-4 h-4 fill-slate-950 text-slate-950" />
-                      ALERTA DE ENTRADA
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide border-2 border-amber-300 shadow-lg animate-pulse drop-shadow-[0_0_12px_rgba(251,191,36,0.9)] flex items-center gap-1.5 shrink-0">
+                        <Flame className="w-4 h-4 fill-slate-950 text-slate-950" />
+                        ALERTA DE ENTRADA
+                      </span>
+
+                      {/* Quentes no setor - Piscando Vermelho */}
+                      {hotNeighborsInAlert.length > 0 && (
+                        <span
+                          title={`Números Quentes no setor em alerta: ${hotNeighborsInAlert.map((n) => `#${n}`).join(', ')}`}
+                          className="animate-blink-hot-red px-2 py-0.5 rounded-lg text-white text-[11px] font-black uppercase tracking-wide border border-rose-300 shadow-md flex items-center gap-1 shrink-0"
+                        >
+                          <Flame className="w-3.5 h-3.5 fill-white text-white" />
+                          <span>{hotNeighborsInAlert.length} HOT:</span>
+                          <span className="font-mono">{hotNeighborsInAlert.map((n) => `#${n}`).join(' ')}</span>
+                        </span>
+                      )}
+
+                      {/* Frios no setor - Piscando Azul */}
+                      {coldNeighborsInAlert.length > 0 && (
+                        <span
+                          title={`Números Frios no setor em alerta: ${coldNeighborsInAlert.map((n) => `#${n}`).join(', ')}`}
+                          className="animate-blink-cold-blue px-2 py-0.5 rounded-lg text-white text-[11px] font-black uppercase tracking-wide border border-sky-300 shadow-md flex items-center gap-1 shrink-0"
+                        >
+                          <Snowflake className="w-3.5 h-3.5 text-white" />
+                          <span>{coldNeighborsInAlert.length} FRIO:</span>
+                          <span className="font-mono">{coldNeighborsInAlert.map((n) => `#${n}`).join(' ')}</span>
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <p className="text-[10px] text-slate-300">

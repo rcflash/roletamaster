@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight, Disc, Grid, Flame, Snowflake } from 'lucide-react';
+import { Undo2, Zap, Layers, CheckCircle2, Sparkles, Trash2, Camera, UploadCloud, Loader2, ArrowLeftRight, Disc, Grid, Flame, Snowflake, RefreshCw } from 'lucide-react';
 import { RED_NUMBERS, calculateNumberStats } from '../lib/roulette';
-import { SpinRecord, NumberStats } from '../types';
+import { SpinRecord, NumberStats, CasinoSyncConfig } from '../types';
 import { OvalRacetrackBoard } from './OvalRacetrackBoard';
 
 interface QuickSpinInputProps {
@@ -14,6 +14,8 @@ interface QuickSpinInputProps {
   showWarmupBanner?: boolean;
   spins?: SpinRecord[];
   numberStats?: NumberStats[];
+  casinoSync?: CasinoSyncConfig;
+  onOpenCasinoSync?: () => void;
 }
 
 export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
@@ -26,6 +28,8 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   showWarmupBanner = false,
   spins,
   numberStats: passedNumberStats,
+  casinoSync,
+  onOpenCasinoSync,
 }) => {
   const [multiplier, setMultiplier] = useState<number>(1);
   const [inputMode, setInputMode] = useState<'grid' | 'racetrack'>(() => {
@@ -38,52 +42,61 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
   const [imageSuccessCount, setImageSuccessCount] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Determine top 5 hot (quentes) and top 5 cold (frios / atrasados) numbers based on the TOTAL GERAL DE RODADAS
-  const { hotNumbers, coldNumbers, hotStatsMap, coldStatsMap } = useMemo(() => {
-    // Only calculate if there are spins
-    if (totalSpins === 0) {
-      return {
-        hotNumbers: [] as number[],
-        coldNumbers: [] as number[],
-        hotStatsMap: new Map<number, NumberStats>(),
-        coldStatsMap: new Map<number, NumberStats>(),
-      };
-    }
+  // Determine top 4 hot (quentes) and top 4 cold (frios / atrasados) numbers
+  // If CasinoSync is configured and enabled, use those 4 hot and 4 cold numbers!
+  const { hotNumbers, coldNumbers, hotStatsMap, coldStatsMap, isSyncActive } = useMemo(() => {
+    const isManualSync = !!(
+      casinoSync?.enabled &&
+      ((casinoSync.hotNumbers?.length || 0) > 0 || (casinoSync.coldNumbers?.length || 0) > 0)
+    );
 
     const stats: NumberStats[] = passedNumberStats || (spins ? calculateNumberStats(spins) : []);
-    if (!stats || stats.length === 0) {
+    const hMap = new Map<number, NumberStats>();
+    const cMap = new Map<number, NumberStats>();
+    stats.forEach((s) => {
+      hMap.set(s.num, s);
+      cMap.set(s.num, s);
+    });
+
+    if (isManualSync) {
       return {
-        hotNumbers: [] as number[],
-        coldNumbers: [] as number[],
-        hotStatsMap: new Map<number, NumberStats>(),
-        coldStatsMap: new Map<number, NumberStats>(),
+        hotNumbers: (casinoSync.hotNumbers || []).slice(0, 4),
+        coldNumbers: (casinoSync.coldNumbers || []).slice(0, 4),
+        hotStatsMap: hMap,
+        coldStatsMap: cMap,
+        isSyncActive: true,
       };
     }
 
-    // Top 5 Quentes do TOTAL GERAL: Mais saíram (maior count). Em caso de empate, menor delay (mais recente)
+    if (totalSpins === 0 || !stats || stats.length === 0) {
+      return {
+        hotNumbers: [] as number[],
+        coldNumbers: [] as number[],
+        hotStatsMap: hMap,
+        coldStatsMap: cMap,
+        isSyncActive: false,
+      };
+    }
+
+    // Top 4 Quentes do TOTAL GERAL: Mais saíram (maior count). Em caso de empate, menor delay (mais recente)
     const hotSorted = [...stats]
       .filter((s) => s.count > 0)
       .sort((a, b) => b.count - a.count || a.spinsWithoutHit - b.spinsWithoutHit || a.num - b.num)
-      .slice(0, 5);
+      .slice(0, 4);
 
-    // Top 5 Frios do TOTAL GERAL: Mais atrasados / sem sair (maior spinsWithoutHit). Em caso de empate, menor count
+    // Top 4 Frios do TOTAL GERAL: Mais atrasados / sem sair (maior spinsWithoutHit). Em caso de empate, menor count
     const coldSorted = [...stats]
       .sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.count - b.count || a.num - b.num)
-      .slice(0, 5);
-
-    const hMap = new Map<number, NumberStats>();
-    hotSorted.forEach((s) => hMap.set(s.num, s));
-
-    const cMap = new Map<number, NumberStats>();
-    coldSorted.forEach((s) => cMap.set(s.num, s));
+      .slice(0, 4);
 
     return {
       hotNumbers: hotSorted.map((s) => s.num),
       coldNumbers: coldSorted.map((s) => s.num),
       hotStatsMap: hMap,
       coldStatsMap: cMap,
+      isSyncActive: false,
     };
-  }, [totalSpins, passedNumberStats, spins]);
+  }, [totalSpins, passedNumberStats, spins, casinoSync]);
 
   const handleModeChange = (mode: 'grid' | 'racetrack') => {
     setInputMode(mode);
@@ -344,6 +357,26 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               </button>
             </div>
 
+            {/* Botão Sincronizar Casa (4 Quentes / 4 Frios) */}
+            {onOpenCasinoSync && (
+              <button
+                type="button"
+                onClick={onOpenCasinoSync}
+                className={`px-2.5 py-1 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer border ${
+                  isSyncActive
+                    ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border-rose-500/40 ring-1 ring-rose-500/30'
+                    : 'bg-slate-950 hover:bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                }`}
+                title="Sincronizar os 4 números Quentes e 4 Frios da tela da casa de apostas"
+              >
+                <div className="flex items-center -space-x-1">
+                  <Flame className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
+                  <Snowflake className="w-3.5 h-3.5 text-sky-400" />
+                </div>
+                <span>{isSyncActive ? `Sincronia Casa (${casinoSync?.casinoRounds || 1000}r)` : 'Sincronizar Casa (4Q/4F)'}</span>
+              </button>
+            )}
+
             {/* Bulk / Batch Import Button */}
             <button
               type="button"
@@ -352,7 +385,7 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 setImageSuccessCount(null);
                 setShowBulkModal(true);
               }}
-              className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+              className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm cursor-pointer"
               title="Cole números ou envie um print da tela para extração por IA"
             >
               <Camera className="w-3 h-3 text-amber-400" />
@@ -365,13 +398,54 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
               onClick={onUndoLastSpin}
               disabled={totalSpins === 0}
               title="Desfazer último número lançado"
-              className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:hover:bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+              className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:hover:bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shadow-sm cursor-pointer disabled:cursor-not-allowed"
             >
               <Undo2 className="w-3 h-3 text-rose-400" />
               <span>Desfazer</span>
             </button>
           </div>
         </div>
+
+        {/* Banner de Sincronia da Casa de Apostas Ativa */}
+        {isSyncActive && onOpenCasinoSync && (
+          <div className="mb-2.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-950/40 via-slate-900/60 to-sky-950/40 border border-slate-700/80 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1 text-emerald-400 font-black text-[10px] uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span>
+                Casa Sincronizada ({casinoSync?.casinoRounds || 1000} giros):
+              </span>
+              <div className="flex items-center gap-1 font-mono text-[10px]">
+                <span className="text-rose-400 font-extrabold flex items-center gap-0.5">
+                  <Flame className="w-3 h-3 fill-rose-400" /> 4 Quentes:
+                </span>
+                {casinoSync?.hotNumbers?.map((n) => (
+                  <span key={`sync-hot-${n}`} className="px-1.5 py-0.2 bg-rose-900/80 text-rose-200 border border-rose-500/40 rounded font-black">
+                    #{n}
+                  </span>
+                ))}
+              </div>
+              <span className="text-slate-600">|</span>
+              <div className="flex items-center gap-1 font-mono text-[10px]">
+                <span className="text-sky-400 font-extrabold flex items-center gap-0.5">
+                  <Snowflake className="w-3 h-3" /> 4 Frios:
+                </span>
+                {casinoSync?.coldNumbers?.map((n) => (
+                  <span key={`sync-cold-${n}`} className="px-1.5 py-0.2 bg-sky-900/80 text-sky-200 border border-sky-500/40 rounded font-black">
+                    #{n}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenCasinoSync}
+              className="text-[10px] text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+            >
+              Alterar Números
+            </button>
+          </div>
+        )}
 
         {/* Render Selected Input Mode: Grid vs Racetrack */}
         {inputMode === 'grid' ? (
@@ -396,9 +470,13 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 }
 
                 const tooltipTitle = isZeroHot
-                  ? `Número 0: TOP 5 QUENTE (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
+                  ? isSyncActive
+                    ? `Número 0: 4 QUENTES DA CASA (Roleta ao Vivo)`
+                    : `Número 0: 4 QUENTES (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
                   : isZeroCold
-                  ? `Número 0: TOP 5 FRIO (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
+                  ? isSyncActive
+                    ? `Número 0: 4 FRIOS DA CASA (Roleta ao Vivo)`
+                    : `Número 0: 4 FRIOS (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
                   : 'Número 0';
 
                 return (
@@ -448,9 +526,13 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 }
 
                 const tooltipTitle = isHot
-                  ? `Número ${num}: TOP 5 QUENTE (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
+                  ? isSyncActive
+                    ? `Número ${num}: 4 QUENTES DA CASA (Roleta ao Vivo)`
+                    : `Número ${num}: 4 QUENTES (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
                   : isCold
-                  ? `Número ${num}: TOP 5 FRIO (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
+                  ? isSyncActive
+                    ? `Número ${num}: 4 FRIOS DA CASA (Roleta ao Vivo)`
+                    : `Número ${num}: 4 FRIOS (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
                   : `Número ${num}`;
 
                 return (
@@ -495,15 +577,19 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
           </div>
         )}
 
-        {/* Legenda Informativa dos 5 Quentes (Vermelho Piscando) e 5 Frios (Azul Piscando) - BASE: TOTAL GERAL DE RODADAS */}
-        {totalSpins > 0 && (hotNumbers.length > 0 || coldNumbers.length > 0) && (
+        {/* Legenda Informativa dos 4 Quentes (Vermelho Piscando) e 4 Frios (Azul Piscando) */}
+        {(isSyncActive || totalSpins > 0) && (hotNumbers.length > 0 || coldNumbers.length > 0) && (
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[10px] font-mono px-1">
-            {/* 5 Mais Quentes do Total Geral */}
+            {/* 4 Mais Quentes */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <div className="flex items-center gap-1 text-rose-400 font-extrabold uppercase">
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>
                 <Flame className="w-3.5 h-3.5 text-rose-400" />
-                <span>5 Quentes (Total Geral: {totalSpins} rodadas):</span>
+                <span>
+                  {isSyncActive
+                    ? `4 Quentes (Roleta ao Vivo ${casinoSync?.casinoRounds || 1000}r):`
+                    : `4 Quentes (Total Geral: ${totalSpins}r):`}
+                </span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {hotNumbers.map((n) => {
@@ -511,23 +597,31 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                   return (
                     <span
                       key={`legend-hot-${n}`}
-                      title={`Número ${n}: saiu ${s?.count}x (${s?.frequencyPct}% das ${totalSpins} rodadas)`}
+                      title={
+                        isSyncActive
+                          ? `Número ${n}: 4 Quentes configurado da casa de apostas`
+                          : `Número ${n}: saiu ${s?.count}x (${s?.frequencyPct}% das ${totalSpins} rodadas)`
+                      }
                       className="px-1.5 py-0.5 bg-rose-950/90 text-rose-200 border border-rose-500/50 rounded font-black flex items-center gap-1 shadow-xs"
                     >
                       <span>#{n}</span>
-                      {s && <span className="text-[8.5px] text-rose-300 font-medium opacity-90">({s.count}x)</span>}
+                      {s && s.count > 0 && <span className="text-[8.5px] text-rose-300 font-medium opacity-90">({s.count}x)</span>}
                     </span>
                   );
                 })}
               </div>
             </div>
 
-            {/* 5 Mais Frios do Total Geral */}
+            {/* 4 Mais Frios */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <div className="flex items-center gap-1 text-sky-400 font-extrabold uppercase">
                 <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping inline-block"></span>
                 <Snowflake className="w-3.5 h-3.5 text-sky-400" />
-                <span>5 Frios (Total Geral: {totalSpins} rodadas):</span>
+                <span>
+                  {isSyncActive
+                    ? `4 Frios (Roleta ao Vivo ${casinoSync?.casinoRounds || 1000}r):`
+                    : `4 Frios (Total Geral: ${totalSpins}r):`}
+                </span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {coldNumbers.map((n) => {
@@ -535,11 +629,15 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                   return (
                     <span
                       key={`legend-cold-${n}`}
-                      title={`Número ${n}: há ${s?.spinsWithoutHit} rodadas consecutivas sem sair`}
+                      title={
+                        isSyncActive
+                          ? `Número ${n}: 4 Frios configurado da casa de apostas`
+                          : `Número ${n}: há ${s?.spinsWithoutHit} rodadas consecutivas sem sair`
+                      }
                       className="px-1.5 py-0.5 bg-sky-950/90 text-sky-200 border border-sky-500/50 rounded font-black flex items-center gap-1 shadow-xs"
                     >
                       <span>#{n}</span>
-                      {s && <span className="text-[8.5px] text-sky-300 font-medium opacity-90">({s.spinsWithoutHit}g)</span>}
+                      {s && s.spinsWithoutHit > 0 && <span className="text-[8.5px] text-sky-300 font-medium opacity-90">({s.spinsWithoutHit}g)</span>}
                     </span>
                   );
                 })}

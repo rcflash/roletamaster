@@ -61,6 +61,14 @@ export interface SavedRouletteSession {
   notes?: string;
 }
 
+export interface CasinoSyncConfig {
+  enabled: boolean;
+  hotNumbers: number[];
+  coldNumbers: number[];
+  casinoRounds?: 100 | 200 | 500 | 1000;
+  lastSyncAt?: string;
+}
+
 export interface BankrollConfig {
   initialBankroll: number;
   dailyGoal: number;
@@ -92,6 +100,7 @@ export interface StrategyConfig {
   initialZeroDelay?: number;
   manualZeroHistory?: number[];
   disabledStrategies?: string[];
+  casinoSync?: CasinoSyncConfig;
 }
 
 export interface TempItem {
