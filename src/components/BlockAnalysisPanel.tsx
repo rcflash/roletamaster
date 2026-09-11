@@ -1092,20 +1092,20 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
         {/* Detailed Green / Red Sequence & Streaks Summary for CURRENT BLOCK ONLY */}
         <div className="bg-slate-950/90 border border-slate-800/80 rounded-xl p-3 space-y-2.5 shadow-inner">
-          {/* Row 1: Streaks & Total Summary Badges (5 Cards Grid) - Compact Height */}
+          {/* Row 1: Streaks & Total Summary Badges (5 Cards Grid) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
             {/* Sequência Atual */}
-            <div className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block truncate">Sequência Atual Total</span>
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sequência Atual Total</span>
               <div className="mt-1 flex items-center gap-1.5 font-mono font-black">
                 {globalStreakStats.currentType ? (
-                  <span className={`px-2 py-0.5 rounded border text-[11px] font-bold uppercase flex items-center gap-1 ${
+                  <span className={`px-2 py-0.5 rounded-md border text-xs font-bold uppercase flex items-center gap-1 ${
                     globalStreakStats.currentType === 'GREEN'
                       ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
                       : 'bg-rose-950 text-rose-300 border-rose-500/50'
                   }`}>
                     <Zap className="w-3 h-3 text-amber-400 shrink-0" />
-                    {globalStreakStats.currentCount}x {globalStreakStats.currentType === 'GREEN' ? 'GREEN' : 'RED'}
+                    {globalStreakStats.currentCount}x {globalStreakStats.currentType === 'GREEN' ? 'GREEN Seguidos' : 'RED Seguidos'}
                   </span>
                 ) : (
                   <span className="text-slate-500 font-normal text-xs">-</span>
@@ -1114,11 +1114,11 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             </div>
 
             {/* Última Sequência Ant. */}
-            <div className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block truncate">Última Sequência Ant.</span>
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Última Sequência Ant.</span>
               <div className="mt-1 font-mono font-black">
                 {currentBlockStreakStats.lastStreakType ? (
-                  <span className={`px-2 py-0.5 rounded border text-[11px] font-bold uppercase flex items-center gap-1 ${
+                  <span className={`px-2 py-0.5 rounded-md border text-xs font-bold uppercase flex items-center gap-1 ${
                     currentBlockStreakStats.lastStreakType === 'GREEN'
                       ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
                       : 'bg-rose-950/80 text-rose-400 border-rose-500/30'
@@ -1133,25 +1133,25 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             </div>
 
             {/* Maior Sequência Histórica */}
-            <div className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block truncate">Maior Sequência Histórica</span>
-              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-[11px]">
-                <span className="text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Maior Sequência Histórica</span>
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
+                <span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
                   🟩 Max {globalStreakStats.maxGreenStreak}x
                 </span>
-                <span className="text-rose-400 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-500/30 flex items-center gap-1">
+                <span className="text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/30">
                   🟥 Max {globalStreakStats.maxRedStreak}x
                 </span>
               </div>
             </div>
 
             {/* Placar do Bloco Atual */}
-            <div className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
-                <span className="truncate">Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize}g)</span>
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>Placar Bloco #{currentBlock?.blockNumber || 1} ({currentBlockOutcomes.length}/{blockSize}g)</span>
                 {currentBlockOutcomes.length > 0 && globalStreakStats.totalSpins > 0 && (
                   <span
-                    className={`text-[8px] px-1 py-0.2 rounded font-mono font-bold shrink-0 ${
+                    className={`text-[8.5px] px-1 py-0.2 rounded font-mono font-bold ${
                       currentBlockStreakStats.winRatePct >= globalStreakStats.winRatePct
                         ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-500/40'
                         : 'text-rose-300 bg-rose-950/60 border border-rose-500/40'
@@ -1162,7 +1162,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   </span>
                 )}
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 font-mono font-black text-xs">
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
                 <span
                   className={`flex items-center gap-1 transition-all ${
                     currentBlockStreakStats.totalWins > currentBlockStreakStats.totalLosses
@@ -1197,22 +1197,22 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 )}
               </div>
 
-              {/* Projeção Próxima Rodada do Bloco */}
-              <div className="mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between text-[8.5px] font-mono">
-                <span className="text-slate-400 text-[8px] uppercase font-bold tracking-tight">Próx:</span>
+              {/* Projeção Próxima Rodada do Bloco (Se Green vai para quanto / Se Red vai para quanto) */}
+              <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
+                <span className="text-slate-400 text-[8.5px] uppercase font-bold tracking-tight">Próx:</span>
                 <div className="flex items-center gap-1.5">
                   <span
-                    className="text-emerald-400 bg-emerald-950/70 px-1.5 py-0.2 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5"
-                    title={`Se próxima rodada for Green: ${(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(1)}%`}
+                    className="text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5"
+                    title={`Se a próxima rodada do bloco for Green (${currentBlockStreakStats.totalWins + 1}G / ${currentBlockOutcomes.length + 1}g no bloco), a taxa do bloco irá para ${(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(1)}%`}
                   >
-                    <span>G➔</span>
+                    <span>G ➔</span>
                     <span>{(((currentBlockStreakStats.totalWins + 1) / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</span>
                   </span>
                   <span
-                    className="text-rose-400 bg-rose-950/70 px-1.5 py-0.2 rounded border border-rose-500/30 font-bold flex items-center gap-0.5"
-                    title={`Se próxima rodada for Red: ${((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(1)}%`}
+                    className="text-rose-400 bg-rose-950/70 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold flex items-center gap-0.5"
+                    title={`Se a próxima rodada do bloco for Red (${currentBlockStreakStats.totalWins}G / ${currentBlockOutcomes.length + 1}g no bloco), a taxa do bloco irá para ${((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(1)}%`}
                   >
-                    <span>R➔</span>
+                    <span>R ➔</span>
                     <span>{((currentBlockStreakStats.totalWins / (currentBlockOutcomes.length + 1)) * 100).toFixed(0)}%</span>
                   </span>
                 </div>
@@ -1220,29 +1220,24 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             </div>
 
             {/* Placar Total Geral */}
-            <div className="bg-slate-900 p-2 rounded-lg border border-amber-500/30 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-[9.5px] font-bold text-amber-400/90 uppercase tracking-wider">
-                <span>Total Geral ({globalStreakStats.totalSpins}g)</span>
-                {globalStreakStats.totalSpins > 0 && (
-                  <span className="text-amber-400 font-black">
-                    ({globalStreakStats.winRatePct.toFixed(0)}%)
-                  </span>
-                )}
-              </div>
-              <div className="mt-0.5 flex items-center gap-1.5 font-mono font-black text-xs">
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-amber-500/30 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-amber-400/90 uppercase tracking-wider block">
+                Total Geral ({globalStreakStats.totalSpins} Giros)
+              </span>
+              <div className="mt-1 flex items-center gap-1.5 font-mono font-black text-xs">
                 {/* Greens Total - Pisca se for maior */}
                 <span
                   className={`flex items-center gap-1.5 transition-all ${
                     globalStreakStats.totalWins > globalStreakStats.totalLosses
-                      ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-1.5 py-0.5 rounded shadow-xs shadow-emerald-500/30 ring-1 ring-emerald-400/40 text-xs'
+                      ? 'text-emerald-300 font-black animate-pulse bg-emerald-500/20 px-2 py-0.5 rounded shadow-sm shadow-emerald-500/30 ring-1 ring-emerald-400/40 text-sm'
                       : globalStreakStats.totalLosses > globalStreakStats.totalWins
                       ? 'text-emerald-500/60 font-semibold'
                       : 'text-emerald-400 font-bold'
                   }`}
                   title={`${globalStreakStats.totalWins} Greens no Total${globalStreakStats.totalWins > globalStreakStats.totalLosses ? ' (Maior - Dominante)' : ''}`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-ping' : ''}`}></span>
-                  <span className="text-xs font-black">{globalStreakStats.totalWins}</span>
+                  <span className={`w-2 h-2 rounded-full bg-emerald-400 inline-block shrink-0 ${globalStreakStats.totalWins > globalStreakStats.totalLosses ? 'animate-ping' : ''}`}></span>
+                  <span className="text-sm font-black">{globalStreakStats.totalWins}</span>
                 </span>
 
                 <span className="text-slate-600 font-normal">/</span>
@@ -1251,50 +1246,77 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                 <span
                   className={`flex items-center gap-1.5 transition-all ${
                     globalStreakStats.totalLosses > globalStreakStats.totalWins
-                      ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-1.5 py-0.5 rounded shadow-xs shadow-rose-500/30 ring-1 ring-rose-400/40 text-xs'
+                      ? 'text-rose-300 font-black animate-pulse bg-rose-500/20 px-2 py-0.5 rounded shadow-sm shadow-rose-500/30 ring-1 ring-rose-400/40 text-sm'
                       : globalStreakStats.totalWins > globalStreakStats.totalLosses
                       ? 'text-rose-500/60 font-semibold'
                       : 'text-rose-400 font-bold'
                   }`}
                   title={`${globalStreakStats.totalLosses} Reds no Total${globalStreakStats.totalLosses > globalStreakStats.totalWins ? ' (Maior - Dominante)' : ''}`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shrink-0 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-ping' : ''}`}></span>
-                  <span className="text-xs font-black">{globalStreakStats.totalLosses}</span>
+                  <span className={`w-2 h-2 rounded-full bg-rose-400 inline-block shrink-0 ${globalStreakStats.totalLosses > globalStreakStats.totalWins ? 'animate-ping' : ''}`}></span>
+                  <span className="text-sm font-black">{globalStreakStats.totalLosses}</span>
                 </span>
+
+                {globalStreakStats.totalSpins > 0 && (
+                  <span className="text-amber-400 font-black ml-auto">
+                    ({globalStreakStats.winRatePct.toFixed(0)}%)
+                  </span>
+                )}
               </div>
 
-              {/* Linha compacta unificada: Extremos & Próx */}
+              {/* Informação solicitada: Último Valor Maior em % e Último Valor Menor em % */}
               {globalStreakStats.totalSpins > 0 && (
-                <div className="mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between text-[8.5px] font-mono">
-                  {/* Extremos */}
-                  <div className="flex items-center gap-1 cursor-help" title={`Último maior ${globalStreakStats.lastPeakPct.toFixed(1)}% (giro #${globalStreakStats.lastPeakSpin})\nÚltimo menor ${globalStreakStats.lastTroughPct.toFixed(1)}% (giro #${globalStreakStats.lastTroughSpin})\nMáx ${globalStreakStats.maxRatePct.toFixed(1)}% / Mín ${globalStreakStats.minRatePct.toFixed(1)}%`}>
-                    <span className="text-slate-500 text-[7.5px] uppercase font-bold">Ext:</span>
-                    <span className="text-emerald-300 font-bold flex items-center">
+                <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
+                  <span className="text-slate-400 text-[8.5px] uppercase font-bold tracking-tight">Extremos:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="text-emerald-300 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5 cursor-help"
+                      title={`Último valor maior (topo da taxa): ${globalStreakStats.lastPeakPct.toFixed(1)}% (no giro #${globalStreakStats.lastPeakSpin})\nMáxima geral da sessão: ${globalStreakStats.maxRatePct.toFixed(1)}% (no giro #${globalStreakStats.maxRateSpin})`}
+                    >
                       <span className="text-emerald-400 font-black">▲</span>
-                      {globalStreakStats.lastPeakPct.toFixed(0)}%
+                      <span className="text-slate-400 text-[8px] uppercase">Maior:</span>
+                      <span className="text-emerald-200 font-black text-[10px]">{globalStreakStats.lastPeakPct.toFixed(0)}%</span>
+                      {Math.abs(globalStreakStats.maxRatePct - globalStreakStats.lastPeakPct) >= 1 && (
+                        <span className="text-[8px] text-emerald-400/80 font-normal">
+                          (Máx {globalStreakStats.maxRatePct.toFixed(0)}%)
+                        </span>
+                      )}
                     </span>
-                    <span className="text-rose-300 font-bold flex items-center">
+                    <span
+                      className="text-rose-300 bg-rose-950/70 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold flex items-center gap-0.5 cursor-help"
+                      title={`Último valor menor (fundo da taxa): ${globalStreakStats.lastTroughPct.toFixed(1)}% (no giro #${globalStreakStats.lastTroughSpin})\nMínima geral da sessão: ${globalStreakStats.minRatePct.toFixed(1)}% (no giro #${globalStreakStats.minRateSpin})`}
+                    >
                       <span className="text-rose-400 font-black">▼</span>
-                      {globalStreakStats.lastTroughPct.toFixed(0)}%
+                      <span className="text-slate-400 text-[8px] uppercase">Menor:</span>
+                      <span className="text-rose-200 font-black text-[10px]">{globalStreakStats.lastTroughPct.toFixed(0)}%</span>
+                      {Math.abs(globalStreakStats.minRatePct - globalStreakStats.lastTroughPct) >= 1 && (
+                        <span className="text-[8px] text-rose-400/80 font-normal">
+                          (Mín {globalStreakStats.minRatePct.toFixed(0)}%)
+                        </span>
+                      )}
                     </span>
                   </div>
+                </div>
+              )}
 
-                  <span className="text-slate-700">|</span>
-
-                  {/* Próx */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-500 text-[7.5px] uppercase font-bold">Próx:</span>
+              {/* Projeção Próxima Rodada (Se Green vai para quanto / Se Red vai para quanto) */}
+              {globalStreakStats.totalSpins > 0 && (
+                <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono">
+                  <span className="text-slate-400 text-[8.5px] uppercase font-bold tracking-tight">Próx:</span>
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className="text-emerald-400 font-bold"
-                      title={`Se próxima rodada for Green: ${(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}
+                      className="text-emerald-400 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold flex items-center gap-0.5"
+                      title={`Se a próxima rodada for Green (${globalStreakStats.totalWins + 1}G / ${globalStreakStats.totalSpins + 1}g), a taxa de acerto total irá para ${(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}
                     >
-                      G➔{(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                      <span>G ➔</span>
+                      <span>{(((globalStreakStats.totalWins + 1) / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%</span>
                     </span>
                     <span
-                      className="text-rose-400 font-bold"
-                      title={`Se próxima rodada for Red: ${((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}
+                      className="text-rose-400 bg-rose-950/70 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold flex items-center gap-0.5"
+                      title={`Se a próxima rodada for Red (${globalStreakStats.totalWins}G / ${globalStreakStats.totalSpins + 1}g), a taxa de acerto total irá para ${((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(1)}%`}
                     >
-                      R➔{((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%
+                      <span>R ➔</span>
+                      <span>{((globalStreakStats.totalWins / (globalStreakStats.totalSpins + 1)) * 100).toFixed(0)}%</span>
                     </span>
                   </div>
                 </div>
