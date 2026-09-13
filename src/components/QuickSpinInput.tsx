@@ -387,13 +387,9 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 }
 
                 const tooltipTitle = isZeroHot
-                  ? isSyncActive
-                    ? `Número 0: 4 QUENTES DA CASA (Roleta ao Vivo)`
-                    : `Número 0: 4 QUENTES (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
+                  ? `Número 0: 5 QUENTES (Total: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
                   : isZeroCold
-                  ? isSyncActive
-                    ? `Número 0: 4 FRIOS DA CASA (Roleta ao Vivo)`
-                    : `Número 0: 4 FRIOS (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
+                  ? `Número 0: 5 FRIOS (Total: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
                   : 'Número 0';
 
                 return (
@@ -443,13 +439,9 @@ export const QuickSpinInput: React.FC<QuickSpinInputProps> = ({
                 }
 
                 const tooltipTitle = isHot
-                  ? isSyncActive
-                    ? `Número ${num}: 4 QUENTES DA CASA (Roleta ao Vivo)`
-                    : `Número ${num}: 4 QUENTES (Total Geral: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
+                  ? `Número ${num}: 5 QUENTES (Total: ${hotStat?.count}x saídas em ${totalSpins} rodadas - ${hotStat?.frequencyPct}%)`
                   : isCold
-                  ? isSyncActive
-                    ? `Número ${num}: 4 FRIOS DA CASA (Roleta ao Vivo)`
-                    : `Número ${num}: 4 FRIOS (Total Geral: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
+                  ? `Número ${num}: 5 FRIOS (Total: ${coldStat?.spinsWithoutHit} rodadas consecutivas sem sair)`
                   : `Número ${num}`;
 
                 return (

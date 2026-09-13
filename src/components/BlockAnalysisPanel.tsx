@@ -901,35 +901,22 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
     return calculateNeighborsAlert(sortedSpins, radius);
   }, [sortedSpins, selectedStrategy, vizinhosCount, strategy?.neighborRadius]);
 
-  // Top 4 Quentes e Top 4 Frios (sincronizados da casa de apostas ou do Total Geral)
+  // Top 5 Quentes e Top 5 Frios do Total Geral da Mesa
   const { hotNumbersGlobal, coldNumbersGlobal } = useMemo(() => {
-    const casinoSync = strategy?.casinoSync;
-    const isManual = !!(
-      casinoSync?.enabled &&
-      ((casinoSync.hotNumbers?.length || 0) > 0 || (casinoSync.coldNumbers?.length || 0) > 0)
-    );
-
-    if (isManual && casinoSync) {
-      return {
-        hotNumbersGlobal: (casinoSync.hotNumbers || []).slice(0, 4),
-        coldNumbersGlobal: (casinoSync.coldNumbers || []).slice(0, 4),
-      };
-    }
-
     if (sortedSpins.length === 0) return { hotNumbersGlobal: [] as number[], coldNumbersGlobal: [] as number[] };
     const stats = calculateNumberStats(sortedSpins);
     const hotSorted = [...stats]
       .filter((s) => s.count > 0)
       .sort((a, b) => b.count - a.count || a.spinsWithoutHit - b.spinsWithoutHit || a.num - b.num)
-      .slice(0, 4);
+      .slice(0, 5);
     const coldSorted = [...stats]
       .sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.count - b.count || a.num - b.num)
-      .slice(0, 4);
+      .slice(0, 5);
     return {
       hotNumbersGlobal: hotSorted.map((s) => s.num),
       coldNumbersGlobal: coldSorted.map((s) => s.num),
     };
-  }, [sortedSpins, strategy?.casinoSync]);
+  }, [sortedSpins]);
 
   // Vizinhos do alerta que são quentes ou frios
   const { hotNeighborsInAlert, coldNeighborsInAlert } = useMemo(() => {
