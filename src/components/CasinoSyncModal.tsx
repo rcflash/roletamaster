@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Flame, Snowflake, Check, RotateCcw, Sparkles, RefreshCw, AlertCircle } from 'lucide-react';
 import { CasinoSyncConfig } from '../types';
 import { RED_NUMBERS, getNumberColor } from '../lib/roulette';
@@ -6,8 +6,10 @@ import { RED_NUMBERS, getNumberColor } from '../lib/roulette';
 interface CasinoSyncModalProps {
   isOpen: boolean;
   onClose: () => void;
-  casinoSync: CasinoSyncConfig;
-  onSaveSync: (sync: CasinoSyncConfig) => void;
+  casinoSync?: CasinoSyncConfig;
+  config?: CasinoSyncConfig;
+  onSaveSync?: (sync: CasinoSyncConfig) => void;
+  onSave?: (sync: CasinoSyncConfig) => void;
   calculatedHotNumbers?: number[];
   calculatedColdNumbers?: number[];
   totalSpins?: number;
@@ -17,25 +19,51 @@ export const CasinoSyncModal: React.FC<CasinoSyncModalProps> = ({
   isOpen,
   onClose,
   casinoSync,
+  config,
   onSaveSync,
+  onSave,
   calculatedHotNumbers = [],
   calculatedColdNumbers = [],
   totalSpins = 0,
 }) => {
-  const [enabled, setEnabled] = useState<boolean>(casinoSync.enabled ?? true);
+  const activeConfig = casinoSync || config || {
+    enabled: false,
+    hotNumbers: [],
+    coldNumbers: [],
+    casinoRounds: 1000,
+  };
+
+  const [enabled, setEnabled] = useState<boolean>(activeConfig.enabled ?? false);
   const [hotSlots, setHotSlots] = useState<number[]>(() => {
-    const list = [...(casinoSync.hotNumbers || [])];
+    const list = [...(activeConfig.hotNumbers || [])];
     while (list.length < 4) list.push(NaN);
     return list.slice(0, 4);
   });
   const [coldSlots, setColdSlots] = useState<number[]>(() => {
-    const list = [...(casinoSync.coldNumbers || [])];
+    const list = [...(activeConfig.coldNumbers || [])];
     while (list.length < 4) list.push(NaN);
     return list.slice(0, 4);
   });
   const [roundsRef, setRoundsRef] = useState<100 | 200 | 500 | 1000>(
-    casinoSync.casinoRounds || 1000
+    activeConfig.casinoRounds || 1000
   );
+
+  // Synchronize state when modal opens or activeConfig changes
+  useEffect(() => {
+    if (isOpen) {
+      setEnabled(activeConfig.enabled ?? false);
+      const listHot = [...(activeConfig.hotNumbers || [])];
+      while (listHot.length < 4) listHot.push(NaN);
+      setHotSlots(listHot.slice(0, 4));
+
+      const listCold = [...(activeConfig.coldNumbers || [])];
+      while (listCold.length < 4) listCold.push(NaN);
+      setColdSlots(listCold.slice(0, 4));
+
+      setRoundsRef(activeConfig.casinoRounds || 1000);
+      setActiveSlot({ type: 'hot', index: 0 });
+    }
+  }, [isOpen, activeConfig.enabled, activeConfig.hotNumbers, activeConfig.coldNumbers, activeConfig.casinoRounds]);
 
   // Active target for quick number click picker: { type: 'hot' | 'cold', index: number }
   const [activeSlot, setActiveSlot] = useState<{ type: 'hot' | 'cold'; index: number }>({
@@ -104,13 +132,19 @@ export const CasinoSyncModal: React.FC<CasinoSyncModalProps> = ({
 
     const hasAny = validHot.length > 0 || validCold.length > 0;
 
-    onSaveSync({
+    const payload: CasinoSyncConfig = {
       enabled: hasAny ? enabled : false,
       hotNumbers: validHot,
       coldNumbers: validCold,
       casinoRounds: roundsRef,
       lastSyncAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    });
+    };
+
+    if (onSaveSync) {
+      onSaveSync(payload);
+    } else if (onSave) {
+      onSave(payload);
+    }
     onClose();
   };
 

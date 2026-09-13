@@ -23,14 +23,8 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
   const targetNum = lastSpin ? lastSpin.numero : 0;
   const currentNeighbors = getWheelNeighbors(targetNum, neighborRadius);
 
-  // Top 4 Quentes e Top 4 Frios (ou sincronizados da casa de apostas)
-  const { hotNumbers, coldNumbers, hotStatsMap, coldStatsMap, isSyncActive } = useMemo(() => {
-    const casinoSync = strategy?.casinoSync;
-    const isManual = !!(
-      casinoSync?.enabled &&
-      ((casinoSync.hotNumbers?.length || 0) > 0 || (casinoSync.coldNumbers?.length || 0) > 0)
-    );
-
+  // Top 5 Quentes e Top 5 Frios da sessão local
+  const { hotNumbers, coldNumbers, hotStatsMap, coldStatsMap } = useMemo(() => {
     const stats: NumberStats[] = passedNumberStats || (spins.length > 0 ? calculateNumberStats(spins) : []);
     const hMap = new Map<number, NumberStats>();
     const cMap = new Map<number, NumberStats>();
@@ -39,45 +33,33 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
       cMap.set(s.num, s);
     });
 
-    if (isManual && casinoSync) {
-      return {
-        hotNumbers: (casinoSync.hotNumbers || []).slice(0, 4),
-        coldNumbers: (casinoSync.coldNumbers || []).slice(0, 4),
-        hotStatsMap: hMap,
-        coldStatsMap: cMap,
-        isSyncActive: true,
-      };
-    }
-
     if (spins.length === 0 || !stats || stats.length === 0) {
       return {
         hotNumbers: [] as number[],
         coldNumbers: [] as number[],
         hotStatsMap: hMap,
         coldStatsMap: cMap,
-        isSyncActive: false,
       };
     }
 
-    // Top 4 Quentes do Total Geral (mais saíram; desempate por menor atraso)
+    // Top 5 Quentes do Total Geral (mais saíram; desempate por menor atraso)
     const hotSorted = [...stats]
       .filter((s) => s.count > 0)
       .sort((a, b) => b.count - a.count || a.spinsWithoutHit - b.spinsWithoutHit || a.num - b.num)
-      .slice(0, 4);
+      .slice(0, 5);
 
-    // Top 4 Frios do Total Geral (mais rodadas sem sair; desempate por menor count)
+    // Top 5 Frios do Total Geral (mais rodadas sem sair; desempate por menor count)
     const coldSorted = [...stats]
       .sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit || a.count - b.count || a.num - b.num)
-      .slice(0, 4);
+      .slice(0, 5);
 
     return {
       hotNumbers: hotSorted.map((s) => s.num),
       coldNumbers: coldSorted.map((s) => s.num),
       hotStatsMap: hMap,
       coldStatsMap: cMap,
-      isSyncActive: false,
     };
-  }, [spins, passedNumberStats, strategy?.casinoSync]);
+  }, [spins, passedNumberStats]);
 
   // Números quentes e frios presentes especificamente no setor dos vizinhos
   const hotNeighborsInSector = useMemo(() => {
@@ -244,13 +226,9 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
               }
 
               const tooltipTitle = isHot
-                ? isSyncActive
-                  ? `Número ${num}: 4 QUENTES DA CASA (Roleta ao Vivo)`
-                  : `Número ${num}: 4 QUENTES (Total Geral: ${hotStat?.count}x saídas em ${spins.length} rodadas - ${hotStat?.frequencyPct}%)`
+                ? `Número ${num}: 5 QUENTES (Total: ${hotStat?.count}x saídas em ${spins.length} rodadas - ${hotStat?.frequencyPct}%)`
                 : isCold
-                ? isSyncActive
-                  ? `Número ${num}: 4 FRIOS DA CASA (Roleta ao Vivo)`
-                  : `Número ${num}: 4 FRIOS (Total Geral: ${coldStat?.spinsWithoutHit} rodadas sem sair)`
+                ? `Número ${num}: 5 FRIOS (Total: ${coldStat?.spinsWithoutHit} rodadas sem sair)`
                 : `Número ${num} (${isCenter ? 'Centro' : 'Vizinho'})`;
 
               return (
@@ -307,7 +285,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
                   </span>
                 )}
 
-                {/* 5 Frios encontrados no setor - Piscando em Azul */}
+                {/* Frios encontrados no setor - Piscando em Azul */}
                 {coldNeighborsInSector.length > 0 ? (
                   <div className="animate-blink-cold-blue px-2 py-0.5 rounded text-white font-black flex items-center gap-1.5 shadow-md">
                     <Snowflake className="w-3 h-3 text-white animate-pulse" />
@@ -315,13 +293,14 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
                     <div className="flex items-center gap-1">
                       {coldNeighborsInSector.map((n) => {
                         const s = coldStatsMap.get(n);
+                        const delay = s?.spinsWithoutHit || 0;
                         return (
                           <span
                             key={`alert-cold-${n}`}
                             className="bg-black/40 px-1 rounded text-[9.5px] border border-white/40"
-                            title={`Número ${n}: ${s?.spinsWithoutHit} rodadas consecutivas sem sair`}
+                            title={`Número ${n}: ${delay} rodadas consecutivas sem sair`}
                           >
-                            #{n} ({s?.spinsWithoutHit}g)
+                            #{n} ({delay} sem sair)
                           </span>
                         );
                       })}
@@ -335,9 +314,7 @@ export const WheelNeighborsAlertCard: React.FC<WheelNeighborsAlertCardProps> = (
               </div>
 
               <span className="text-[9px] text-slate-400 ml-auto">
-                {isSyncActive
-                  ? `Base: Roleta ao Vivo (Casa - ${strategy?.casinoSync?.casinoRounds || 1000}r)`
-                  : `Base: Total Geral (${spins.length} giros)`}
+                Base: Total da Mesa ({spins.length} giros)
               </span>
             </div>
           )}

@@ -30,6 +30,7 @@ import {
   StrategyConfig,
   SpinRecord,
   DailySessionRecord,
+  CasinoSyncConfig,
 } from './types';
 
 export type DashboardBlockId =
@@ -150,6 +151,7 @@ import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { StrategyBacktestPanel } from './components/StrategyBacktestPanel';
 import { BankrollControlPanel } from './components/BankrollControlPanel';
 import { SettingsModal } from './components/SettingsModal';
+import { CasinoSyncModal } from './components/CasinoSyncModal';
 import { StrategyGuideModal } from './components/StrategyGuideModal';
 import { TableWarmupCard } from './components/TableWarmupCard';
 import { TableAnalysisCard } from './components/TableAnalysisCard';
@@ -212,6 +214,46 @@ export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isStrategyPdfOpen, setIsStrategyPdfOpen] = useState<boolean>(false);
+  const [isCasinoSyncOpen, setIsCasinoSyncOpen] = useState<boolean>(false);
+  const [casinoSync, setCasinoSync] = useState<CasinoSyncConfig>(() => {
+    try {
+      const saved = localStorage.getItem('roleta_master_casino_sync_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            enabled: Boolean(parsed.enabled),
+            hotNumbers: Array.isArray(parsed.hotNumbers) ? parsed.hotNumbers : [],
+            coldNumbers: Array.isArray(parsed.coldNumbers) ? parsed.coldNumbers : [],
+            casinoRounds: parsed.casinoRounds || 1000,
+            lastSyncAt: parsed.lastSyncAt,
+          };
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return {
+      enabled: false,
+      hotNumbers: [],
+      coldNumbers: [],
+      casinoRounds: 1000,
+    };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('roleta_master_casino_sync_v2', JSON.stringify(casinoSync));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [casinoSync]);
+
+  const handleUpdateCasinoSync = (updated: CasinoSyncConfig) => {
+    setCasinoSync(updated);
+    setStrategy((prev) => ({ ...prev, casinoSync: updated }));
+  };
+
   const [activeTab, setActiveTab] = useState<'vizinhos' | 'ciclo_ausentes' | 'james_bond' | 'dalembert' | 'bankroll' | 'performance' | 'strategies_hub' | 'board' | 'analytics' | 'sessions' | 'dashboard'>('vizinhos');
   const [hubSubStrategy, setHubSubStrategy] = useState<SubStrategyId>('dalembert');
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
@@ -537,10 +579,13 @@ export default function App() {
     setShowClearConfirm(true);
   };
 
-  const executeClearAllSpins = () => {
+  const executeClearAllSpins = (openSyncModal: boolean = true) => {
     if (config.soundEnabled) soundEffects.playChipClick();
     setSpins([]);
     setShowClearConfirm(false);
+    if (openSyncModal) {
+      setIsCasinoSyncOpen(true);
+    }
   };
 
   // Add Custom Spin
@@ -794,6 +839,8 @@ export default function App() {
             showWarmupBanner={false}
             spins={spins}
             numberStats={numberStats}
+            casinoSync={casinoSync}
+            onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
           />
         );
       case 'wheel_alert':
@@ -881,7 +928,13 @@ export default function App() {
           />
         );
       case 'hot_cold':
-        return <HotColdNumbersCard numberStats={numberStats} />;
+        return (
+          <HotColdNumbersCard
+            numberStats={numberStats}
+            casinoSync={casinoSync}
+            onOpenSyncModal={() => setIsCasinoSyncOpen(true)}
+          />
+        );
       case 'history':
         return (
           <HistoryTable
@@ -910,6 +963,8 @@ export default function App() {
         onImportCSV={handleImportCSV}
         onResetData={handleResetData}
         onClearAllSpins={handleClearAllSpins}
+        onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
+        isCasinoSynced={Boolean(casinoSync?.enabled && ((casinoSync?.hotNumbers?.length || 0) > 0 || (casinoSync?.coldNumbers?.length || 0) > 0))}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         currentBalance={currentBalance}
@@ -1224,6 +1279,8 @@ export default function App() {
               lastNumber={lastSpin ? lastSpin.numero : null}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
           </div>
         )}
@@ -1248,6 +1305,8 @@ export default function App() {
               showWarmupBanner={false}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
             <StrategiesLivePerformancePanel
               spins={spins}
@@ -1270,6 +1329,8 @@ export default function App() {
               showWarmupBanner={false}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
             <BlockAnalysisPanel
               spins={spins}
@@ -1293,6 +1354,8 @@ export default function App() {
               showWarmupBanner={false}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
             <ClosedCyclePanel
               spins={spins}
@@ -1314,6 +1377,8 @@ export default function App() {
               showWarmupBanner={false}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
             <JamesBondPanel
               spins={spins}
@@ -1335,6 +1400,8 @@ export default function App() {
               showWarmupBanner={false}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
             <DAlembertPanel
               spins={spins}
@@ -1356,6 +1423,8 @@ export default function App() {
               showWarmupBanner={false}
               spins={spins}
               numberStats={numberStats}
+              casinoSync={casinoSync}
+              onOpenCasinoSync={() => setIsCasinoSyncOpen(true)}
             />
             <StrategiesHubPanel
               spins={spins}
@@ -1405,18 +1474,24 @@ export default function App() {
               Esta ação irá zerar o histórico da mesa para que você possa colar a nova sequência de 100 rodadas da sua nova mesa de roleta.
             </p>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all"
+                className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all text-center"
               >
                 Cancelar
               </button>
               <button
-                onClick={executeClearAllSpins}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center gap-1.5"
+                onClick={() => executeClearAllSpins(false)}
+                className="px-3.5 py-2.5 bg-slate-800 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 border border-rose-500/30 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
               >
-                <Trash2 className="w-4 h-4" /> Sim, Zerar Mesa
+                <Trash2 className="w-3.5 h-3.5" /> Apenas Zerar
+              </button>
+              <button
+                onClick={() => executeClearAllSpins(true)}
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-4 h-4" /> Zerar e Sincronizar (4Q / 4F)
               </button>
             </div>
           </div>
@@ -1458,6 +1533,19 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Casino Live Synchronization Modal (4 Hot & 4 Cold Numbers) */}
+      <CasinoSyncModal
+        isOpen={isCasinoSyncOpen}
+        onClose={() => setIsCasinoSyncOpen(false)}
+        casinoSync={casinoSync}
+        config={casinoSync}
+        onSaveSync={handleUpdateCasinoSync}
+        onSave={handleUpdateCasinoSync}
+        calculatedHotNumbers={numberStats.slice(0, 4).map((s) => s.num)}
+        calculatedColdNumbers={[...numberStats].sort((a, b) => b.spinsWithoutHit - a.spinsWithoutHit).slice(0, 4).map((s) => s.num)}
+        totalSpins={spins.length}
+      />
     </div>
   );
 }
