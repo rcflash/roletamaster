@@ -192,7 +192,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
   const currency = config.currency || 'R$';
 
   const getStrategyBetCost = (stratKey: string) => {
-    if (stratKey === 'wheelNeighbors') {
+    if (stratKey === 'wheelNeighbors' || stratKey === 'oppositeNeighbors') {
       const chipVal = strategy?.neighborChipValue || 2.50;
       const totalNums = 2 * vizinhosCount + 1;
       return totalNums * chipVal;
@@ -537,6 +537,48 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
       minBlockRate: minRate,
     };
   }, [completeBlocks, selectedStrategy]);
+
+  // Somatória acumulada de TODOS os blocos (concluídos e em andamento) para o histórico detalhado
+  const allBlocksSummary = useMemo(() => {
+    let totalProfitUnits = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+    let greenBlocks = 0;
+    let redBlocks = 0;
+    let inProgressBlocks = 0;
+
+    blocks.forEach((b) => {
+      const data = b[selectedStrategy];
+      if (data) {
+        totalProfitUnits += data.profit;
+        totalWins += data.wins;
+        totalLosses += data.losses;
+        if (b.isComplete) {
+          if (data.isGreen) greenBlocks++;
+          else redBlocks++;
+        } else {
+          inProgressBlocks++;
+        }
+      }
+    });
+
+    const cost = getStrategyBetCost(selectedStrategy);
+    const totalMoney = totalProfitUnits * cost;
+    const totalSpins = totalWins + totalLosses;
+    const winRate = totalSpins > 0 ? (totalWins / totalSpins) * 100 : 0;
+
+    return {
+      totalProfitUnits,
+      totalMoney,
+      totalWins,
+      totalLosses,
+      totalSpins,
+      greenBlocks,
+      redBlocks,
+      inProgressBlocks,
+      winRate,
+    };
+  }, [blocks, selectedStrategy, getStrategyBetCost]);
 
   // Active block (in progress) or latest block if all completed
   const currentBlock = useMemo(() => {
@@ -2212,8 +2254,8 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
       {/* Detailed Accordion List of Blocks */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Clock className="w-4 h-4 text-amber-400" />
             <h3 className="text-xs font-black uppercase text-slate-200 tracking-wider">
               Histórico Detalhado Bloco a Bloco ({blocks.length} Blocos)
@@ -2221,10 +2263,73 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-400 text-[10px] font-bold border border-slate-700">
               {blockSortOrder === 'desc' ? 'Mais Recente Primeiro ⬇' : 'Mais Antigo Primeiro ⬆'}
             </span>
+            {/* Somatória rápida no próprio cabeçalho */}
+            <div
+              className={`px-2.5 py-0.5 rounded-lg border text-xs font-black font-mono flex items-center gap-1.5 shadow-sm ${
+                allBlocksSummary.totalProfitUnits >= 0
+                  ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-300'
+                  : 'bg-rose-950/80 border-rose-500/60 text-rose-300'
+              }`}
+              title="Somatória acumulada de todos os blocos na estratégia selecionada"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Acumulado:</span>
+              <span>
+                {allBlocksSummary.totalProfitUnits >= 0 ? '+' : ''}
+                {allBlocksSummary.totalProfitUnits.toFixed(1)}u ({currency} {allBlocksSummary.totalMoney.toFixed(2)})
+              </span>
+            </div>
           </div>
           <span className="text-xs text-slate-400 font-mono">
             {blockSortOrder === 'desc' ? 'Ordem decrescente (#52 → #1)' : 'Ordem crescente (#1 → #52)'}
           </span>
+        </div>
+
+        {/* Banner de Destaque com a Somatória de Todos os Blocos */}
+        <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 shadow-sm flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-sm shrink-0 shadow-inner">
+              Σ
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase text-amber-300 tracking-wider">
+                  Somatória de Todos os Blocos ({blocks.length} Blocos):
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  {strategyTitles[selectedStrategy] || selectedStrategy}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-300 mt-0.5 flex-wrap">
+                <span>
+                  <strong>Placar Total:</strong> {allBlocksSummary.totalWins} Vitórias ({allBlocksSummary.winRate.toFixed(0)}%) / {allBlocksSummary.totalLosses} Derrotas
+                </span>
+                <span className="text-slate-600">•</span>
+                <span>
+                  <strong>Blocos:</strong>{' '}
+                  <span className="text-emerald-400 font-bold">{allBlocksSummary.greenBlocks} Verdes</span> /{' '}
+                  <span className="text-rose-400 font-bold">{allBlocksSummary.redBlocks} Reds</span>
+                  {allBlocksSummary.inProgressBlocks > 0 && (
+                    <span className="text-amber-400 font-bold"> ({allBlocksSummary.inProgressBlocks} em andamento)</span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Resultado Líquido Total Acumulado */}
+          <div className="text-right pl-3 border-l border-slate-800 shrink-0">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wide">
+              Resultado Líquido Total ({blocks.length} Blocos)
+            </span>
+            <span
+              className={`text-sm sm:text-base font-black font-mono leading-tight ${
+                allBlocksSummary.totalProfitUnits >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {allBlocksSummary.totalProfitUnits >= 0 ? '+' : ''}
+              {allBlocksSummary.totalProfitUnits.toFixed(1)}u ({currency} {allBlocksSummary.totalMoney.toFixed(2)})
+            </span>
+          </div>
         </div>
 
         <div className="space-y-2">
