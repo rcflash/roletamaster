@@ -21,6 +21,102 @@ export function getWheelNeighbors(targetNum: number, neighborCount: number = 2):
   return result;
 }
 
+export function getWheelOpposite(
+  targetNum: number,
+  neighborCount: number = 2
+): {
+  oppositeCenter: number;
+  oppositeNeighbors: number[];
+} {
+  const idx = EUROPEAN_WHEEL_ORDER.indexOf(targetNum);
+  if (idx === -1) {
+    return { oppositeCenter: targetNum, oppositeNeighbors: [targetNum] };
+  }
+  // Diametrical opposite on European 37-pocket roulette is ~18 pockets away
+  const oppIdx = (idx + 18) % EUROPEAN_WHEEL_ORDER.length;
+  const oppCenter = EUROPEAN_WHEEL_ORDER[oppIdx];
+  const oppositeNeighbors = getWheelNeighbors(oppCenter, neighborCount);
+  return {
+    oppositeCenter: oppCenter,
+    oppositeNeighbors,
+  };
+}
+
+export interface WheelDispersionState {
+  totalAnalyzed: number;
+  directHits: number;
+  oppositeHits: number;
+  directHitRatePct: number;
+  oppositeHitRatePct: number;
+  isDispersionHigh: boolean;
+  recommendedMode: 'direct' | 'opposite' | 'neutral';
+  averageDistanceOnWheel: number;
+}
+
+export function calculateWheelDispersionIndex(
+  spins: SpinRecord[],
+  neighborRadius: number = 2,
+  lookback: number = 20
+): WheelDispersionState {
+  if (spins.length < 5) {
+    return {
+      totalAnalyzed: 0,
+      directHits: 0,
+      oppositeHits: 0,
+      directHitRatePct: 0,
+      oppositeHitRatePct: 0,
+      isDispersionHigh: false,
+      recommendedMode: 'neutral',
+      averageDistanceOnWheel: 9,
+    };
+  }
+
+  const sample = spins.slice(-lookback);
+  let directHits = 0;
+  let oppositeHits = 0;
+  let totalDists = 0;
+  let comparisons = 0;
+
+  for (let i = 1; i < sample.length; i++) {
+    const prev = sample[i - 1].numero;
+    const curr = sample[i].numero;
+    const directSector = getWheelNeighbors(prev, neighborRadius);
+    const { oppositeNeighbors } = getWheelOpposite(prev, neighborRadius);
+
+    if (directSector.includes(curr)) directHits++;
+    if (oppositeNeighbors.includes(curr)) oppositeHits++;
+
+    const idx1 = EUROPEAN_WHEEL_ORDER.indexOf(prev);
+    const idx2 = EUROPEAN_WHEEL_ORDER.indexOf(curr);
+    if (idx1 !== -1 && idx2 !== -1) {
+      let d = Math.abs(idx1 - idx2);
+      if (d > 18) d = 37 - d;
+      totalDists += d;
+      comparisons++;
+    }
+  }
+
+  const total = sample.length - 1;
+  const directHitRatePct = total > 0 ? (directHits / total) * 100 : 0;
+  const oppositeHitRatePct = total > 0 ? (oppositeHits / total) * 100 : 0;
+  const avgDist = comparisons > 0 ? totalDists / comparisons : 9;
+
+  // Dispersion is high if direct hits are <= 30% and average wheel distance is wide (>= 9) or opposite beats direct
+  const isDispersionHigh = directHitRatePct <= 30 && (oppositeHitRatePct >= directHitRatePct || avgDist >= 9);
+  const recommendedMode = isDispersionHigh && oppositeHitRatePct >= 15 ? 'opposite' : directHitRatePct >= 35 ? 'direct' : 'neutral';
+
+  return {
+    totalAnalyzed: total,
+    directHits,
+    oppositeHits,
+    directHitRatePct: Math.round(directHitRatePct * 10) / 10,
+    oppositeHitRatePct: Math.round(oppositeHitRatePct * 10) / 10,
+    isDispersionHigh,
+    recommendedMode,
+    averageDistanceOnWheel: Math.round(avgDist * 10) / 10,
+  };
+}
+
 export interface NeighborsAlertInfo {
   hasAlert: boolean;
   targetNum: number;
@@ -29,6 +125,8 @@ export interface NeighborsAlertInfo {
   alertMessage: string;
   recommendedBetText: string;
   repeatCountInSector: number;
+  isOppositeMode?: boolean;
+  oppositeCenter?: number;
 }
 
 export function calculateNeighborsAlert(
@@ -79,6 +177,56 @@ export function calculateNeighborsAlert(
     alertMessage: `Último número foi ${lastNum}. Fora do ponto de entrada otimizado (${hitsInSector10}/${minHits10} acertos no setor nos últimos 10 giros).`,
     recommendedBetText: `Aguardando confirmação de tendência no setor do nº ${lastNum} [${neighbors.join(', ')}]`,
     repeatCountInSector: hitsInSector10,
+  };
+}
+
+export function calculateOppositeNeighborsAlert(
+  spins: SpinRecord[],
+  neighborRadius: number = 2
+): NeighborsAlertInfo | null {
+  if (spins.length < 2) return null;
+
+  const lastSpin = spins[spins.length - 1];
+  const lastNum = lastSpin.numero;
+  const { oppositeCenter, oppositeNeighbors } = getWheelOpposite(lastNum, neighborRadius);
+  const totalSector = oppositeNeighbors.length;
+
+  const recent10 = spins.slice(-10);
+  const hitsInOpposite10 = recent10.filter((s) => oppositeNeighbors.includes(s.numero)).length;
+
+  const recent3 = spins.slice(-3);
+  const hitsInOpposite3 = recent3.filter((s) => oppositeNeighbors.includes(s.numero)).length;
+
+  let minHits10 = 2;
+  if (neighborRadius >= 3) minHits10 = 3;
+  if (neighborRadius >= 5) minHits10 = 4;
+
+  const hasAlert = hitsInOpposite10 >= minHits10 && hitsInOpposite3 >= 1;
+
+  if (hasAlert) {
+    return {
+      hasAlert: true,
+      targetNum: lastNum,
+      neighborCount: neighborRadius,
+      neighborsList: oppositeNeighbors,
+      alertMessage: `⚡ SETOR OPOSTO 180° COM MOMENTUM! A oposição do nº ${lastNum} (Centro no nº ${oppositeCenter} com ±${neighborRadius} vizinhos) registrou ${hitsInOpposite10} acertos nos últimos 10 giros!`,
+      recommendedBetText: `R$ 2,50 nas ${totalSector} casas opostas: [${oppositeNeighbors.join(', ')}] (Custo Total: R$ ${(totalSector * 2.5).toFixed(2)})`,
+      repeatCountInSector: hitsInOpposite10,
+      isOppositeMode: true,
+      oppositeCenter,
+    };
+  }
+
+  return {
+    hasAlert: false,
+    targetNum: lastNum,
+    neighborCount: neighborRadius,
+    neighborsList: oppositeNeighbors,
+    alertMessage: `Oposição diametral do nº ${lastNum} (Centro no nº ${oppositeCenter} ±${neighborRadius}). (${hitsInOpposite10}/${minHits10} acertos na oposição nos últimos 10 giros).`,
+    recommendedBetText: `Aguardando sinal no setor oposto do nº ${lastNum} (Centro nº ${oppositeCenter}): [${oppositeNeighbors.join(', ')}]`,
+    repeatCountInSector: hitsInOpposite10,
+    isOppositeMode: true,
+    oppositeCenter,
   };
 }
 

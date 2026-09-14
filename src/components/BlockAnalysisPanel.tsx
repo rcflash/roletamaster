@@ -75,6 +75,19 @@ function getWheelNeighbors(num: number, countPerSide = 2): Set<number> {
   return set;
 }
 
+function getWheelOppositeSet(num: number, countPerSide = 2): Set<number> {
+  const idx = WHEEL_ORDER.indexOf(num);
+  if (idx === -1) return new Set();
+  const len = WHEEL_ORDER.length;
+  const oppIdx = (idx + 18) % len;
+  const set = new Set<number>();
+  for (let i = -countPerSide; i <= countPerSide; i++) {
+    const wrappedIdx = (oppIdx + i + len * 10) % len;
+    set.add(WHEEL_ORDER[wrappedIdx]);
+  }
+  return set;
+}
+
 export interface StrategyBlockOutcome {
   profit: number;
   peak: number;
@@ -96,6 +109,7 @@ export interface BlockData {
   romanosky: StrategyBlockOutcome;
   voisins: StrategyBlockOutcome;
   wheelNeighbors: StrategyBlockOutcome;
+  oppositeNeighbors: StrategyBlockOutcome;
   tier: StrategyBlockOutcome;
   orphelins: StrategyBlockOutcome;
   // Dominant stats
@@ -216,8 +230,10 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
       let pRom = 0, peakRom = 0, wRom = 0, lRom = 0, hitTRom = false;
       // 4. Voisins du Zero
       let pVoi = 0, peakVoi = 0, wVoi = 0, lVoi = 0, hitTVoi = false;
-      // 5. Wheel Neighbors (5 números no Cilindro em torno do número anterior)
+      // 5. Wheel Neighbors (números no Cilindro em torno do número anterior)
       let pWNei = 0, peakWNei = 0, wWNei = 0, lWNei = 0, hitTWNei = false;
+      // 5B. Opposite Sector 180 (números no Cilindro opostos a 180 graus do número anterior)
+      let pOpp = 0, peakOpp = 0, wOpp = 0, lOpp = 0, hitTOpp = false;
       // 6. Tier du Cylindre
       let pTie = 0, peakTie = 0, wTie = 0, lTie = 0, hitTTie = false;
       // 7. Orphelins
@@ -304,6 +320,23 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
         if (pWNei > peakWNei) peakWNei = pWNei;
         if (pWNei >= targetGainUnits) hitTWNei = true;
 
+        // Opposite Sector (Anti-Dispersão / Efeito Pêndulo a 180 graus com N vizinhos)
+        if (prevSpinNum !== null && prevSpinNum !== undefined) {
+          const totalNeighborNums = 2 * vizinhosCount + 1;
+          const tableMult = strategy?.tablePayoutMultiplier || 36;
+          const winPayout = Number(((tableMult - totalNeighborNums) / totalNeighborNums).toFixed(2));
+          const oppositeSet = getWheelOppositeSet(prevSpinNum, vizinhosCount);
+          if (oppositeSet.has(num)) {
+            pOpp += winPayout;
+            wOpp++;
+          } else {
+            pOpp -= 1.0;
+            lOpp++;
+          }
+        }
+        if (pOpp > peakOpp) peakOpp = pOpp;
+        if (pOpp >= targetGainUnits) hitTOpp = true;
+
         // Tier (12 números): Win +2.0u, Loss -1.0u
         if (TIER_SET.has(num)) {
           pTie += 2.0;
@@ -372,6 +405,14 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
           losses: lWNei,
           isGreen: pWNei > 0,
           hitTarget: hitTWNei,
+        },
+        oppositeNeighbors: {
+          profit: pOpp,
+          peak: peakOpp,
+          wins: wOpp,
+          losses: lOpp,
+          isGreen: pOpp > 0,
+          hitTarget: hitTOpp,
         },
         tier: {
           profit: pTie,
@@ -528,6 +569,14 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
             isWin = neighbors.has(num);
           }
         }
+      } else if (selectedStrategy === 'oppositeNeighbors') {
+        if (globalIdx > 0) {
+          const prevNum = sortedSpins[globalIdx - 1]?.numero;
+          if (prevNum !== null && prevNum !== undefined) {
+            const oppNeighbors = getWheelOppositeSet(prevNum, vizinhosCount);
+            isWin = oppNeighbors.has(num);
+          }
+        }
       } else if (selectedStrategy === 'tier') {
         isWin = TIER_SET.has(num);
       } else if (selectedStrategy === 'orphelins') {
@@ -624,6 +673,14 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
           if (prevNum !== null && prevNum !== undefined) {
             const neighbors = getWheelNeighbors(prevNum, vizinhosCount);
             isWin = neighbors.has(num);
+          }
+        }
+      } else if (selectedStrategy === 'oppositeNeighbors') {
+        if (idx > 0) {
+          const prevNum = sortedSpins[idx - 1]?.numero;
+          if (prevNum !== null && prevNum !== undefined) {
+            const oppNeighbors = getWheelOppositeSet(prevNum, vizinhosCount);
+            isWin = oppNeighbors.has(num);
           }
         }
       } else if (selectedStrategy === 'tier') {
@@ -942,6 +999,7 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
 
   const strategyTitles = {
     wheelNeighbors: `Vizinhos do Cilindro (${vizinhosCount} Vizinhos de cada lado - ${totalNeighborNums} Números / Cobertura ${coveragePct}%)`,
+    oppositeNeighbors: `Setor Oposto 180° Anti-Dispersão (${vizinhosCount} Vizinhos opostos - ${totalNeighborNums} Números / Cobertura ${coveragePct}%)`,
     voisins: 'Vizinhos do Zéro (17 Números no Cilindro - Cobertura 45.9%)',
     twoDozens: '2 Dúzias (1 ao 24 - Cobertura 64.8%)',
     twoColumns: '2 Colunas Dominantes (Colunas 1 e 2 - Cobertura 64.8%)',
@@ -955,12 +1013,20 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
       const cnt = parseInt(val.split('_')[1], 10);
       setVizinhosCount(cnt);
       setSelectedStrategy('wheelNeighbors');
+    } else if (val.startsWith('oppositeNeighbors_')) {
+      const cnt = parseInt(val.split('_')[1], 10);
+      setVizinhosCount(cnt);
+      setSelectedStrategy('oppositeNeighbors');
     } else {
       setSelectedStrategy(val as any);
     }
   };
 
-  const currentSelectValue = selectedStrategy === 'wheelNeighbors' ? `wheelNeighbors_${vizinhosCount}` : selectedStrategy;
+  const currentSelectValue = selectedStrategy === 'wheelNeighbors'
+    ? `wheelNeighbors_${vizinhosCount}`
+    : selectedStrategy === 'oppositeNeighbors'
+    ? `oppositeNeighbors_${vizinhosCount}`
+    : selectedStrategy;
 
   return (
     <div className={`space-y-2 ${isSplitScreenMode ? 'text-xs' : ''}`}>
@@ -2073,6 +2139,12 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                   <option value="tier">Tiers du Cylindre (12n - 32.4%)</option>
                   <option value="orphelins">Orphelins (8n - 21.6%)</option>
                 </optgroup>
+                <optgroup label="Estratégias Anti-Dispersão (Oposto 180°)">
+                  <option value="oppositeNeighbors_2">Setor Oposto 180° (2 Vizinhos - 5n / 13.5%)</option>
+                  <option value="oppositeNeighbors_3">Setor Oposto 180° (3 Vizinhos - 7n / 18.9%)</option>
+                  <option value="oppositeNeighbors_4">Setor Oposto 180° (4 Vizinhos - 9n / 24.3%)</option>
+                  <option value="oppositeNeighbors_5">Setor Oposto 180° (5 Vizinhos - 11n / 29.7%)</option>
+                </optgroup>
                 <optgroup label="Dúzias, Colunas & Quadrados">
                   <option value="twoDozens">2 Dúzias (24n - 64.8%)</option>
                   <option value="twoColumns">2 Colunas (24n - 64.8%)</option>
@@ -2081,8 +2153,8 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
               </select>
             </div>
 
-            {/* Quick Vizinhos buttons if Wheel Neighbors is active */}
-            {selectedStrategy === 'wheelNeighbors' && (
+            {/* Quick Vizinhos buttons if Wheel Neighbors or Opposite is active */}
+            {(selectedStrategy === 'wheelNeighbors' || selectedStrategy === 'oppositeNeighbors') && (
               <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-lg">
                 <span className="text-[10px] font-bold text-amber-400 uppercase px-1">Vizinhos:</span>
                 {[2, 3, 4, 5, 6, 7].map((cnt) => (
@@ -2092,7 +2164,9 @@ export const BlockAnalysisPanel: React.FC<BlockAnalysisPanelProps> = ({
                     onClick={() => setVizinhosCount(cnt)}
                     className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
                       vizinhosCount === cnt
-                        ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black'
+                        ? (selectedStrategy === 'oppositeNeighbors'
+                            ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20 font-black'
+                            : 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black')
                         : 'bg-slate-950 text-slate-400 hover:text-slate-200'
                     }`}
                   >

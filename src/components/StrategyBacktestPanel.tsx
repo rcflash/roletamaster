@@ -27,7 +27,7 @@ import {
   Filter
 } from 'lucide-react';
 import { SpinRecord, BankrollConfig } from '../types';
-import { calculateNeighborsAlert, EUROPEAN_WHEEL_ORDER } from '../lib/roulette';
+import { calculateNeighborsAlert, getWheelOpposite, EUROPEAN_WHEEL_ORDER } from '../lib/roulette';
 import { calculateCamouflagedAlert, evaluateCamouflagedPayout, HORSE_FAMILIES_DATA } from '../lib/camouflagedStrategy';
 import { generateStrategyPDF } from '../utils/pdfStrategyGenerator';
 
@@ -825,6 +825,112 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
           `Quando o robô disparar ALERTA DE VIZINHOS, aposte ${config.currency} ${chipVal.toFixed(2)} em cada um dos 5 números indicados no setor da pista.`,
           'Caso a bola caia no setor aquecido, o pagamento direto de 36x gera lucro líquido expressivo por acerto!',
           'Se não houver alerta ativo, permaneça em observação sem fazer entradas.'
+        ]
+      };
+    };
+
+    // --- 7B. STRATEGY: SETOR OPOSTO 180° (ANTI-DISPERSÃO / VIZINHOS INVERSOS) ---
+    // Oposto diametral no disco da roleta (180°) com ±2 vizinhos (5 números).
+    // Ideal quando a roleta espalha e não respeita vizinhos do último número.
+    const runOppositeSector = (): BacktestResult => {
+      let balance = initialBankroll;
+      let winCount = 0;
+      let lossCount = 0;
+      let currWins = 0, maxWins = 0;
+      let currLoss = 0, maxLoss = 0;
+      let peak = initialBankroll;
+      let maxDD = 0;
+      let totalWagered = 0;
+      let post100WinCount = 0;
+      let post100LossCount = 0;
+      let post100Profit = 0;
+      let post100EvaluatedSpins = 0;
+      const history = [{ spinIndex: 0, balance: initialBankroll }];
+
+      const neighborRadius = 2; // 2 vizinhos em torno do oposto = 5 números
+      const sectorSize = neighborRadius * 2 + 1; // 5
+      const chipVal = Math.max(0.5, unitBet / sectorSize);
+
+      sortedSpins.forEach((spin, idx) => {
+        const spinIndex = idx + 1;
+        if (idx < 1) {
+          history.push({ spinIndex, balance });
+          return;
+        }
+
+        const prevNum = sortedSpins[idx - 1].numero;
+        const { oppositeNeighbors } = getWheelOpposite(prevNum, neighborRadius);
+
+        const cost = sectorSize * chipVal;
+        totalWagered += cost;
+
+        const isHit = oppositeNeighbors.includes(spin.numero);
+        if (isHit) {
+          const payout = 36 * chipVal;
+          const profit = payout - cost;
+          balance += profit;
+          winCount++;
+          currWins++;
+          currLoss = 0;
+          if (currWins > maxWins) maxWins = currWins;
+          if (spinIndex > 100) {
+            post100WinCount++;
+            post100Profit += profit;
+            post100EvaluatedSpins++;
+          }
+        } else {
+          balance -= cost;
+          lossCount++;
+          currLoss++;
+          currWins = 0;
+          if (currLoss > maxLoss) maxLoss = currLoss;
+          if (spinIndex > 100) {
+            post100LossCount++;
+            post100Profit -= cost;
+            post100EvaluatedSpins++;
+          }
+        }
+
+        if (balance > peak) peak = balance;
+        const dd = peak - balance;
+        if (dd > maxDD) maxDD = dd;
+
+        history.push({ spinIndex, balance });
+      });
+
+      const netProfit = balance - initialBankroll;
+      const evaluatedSpins = winCount + lossCount;
+
+      return {
+        id: 'opposite_sector',
+        name: 'Setor Oposto 180° (Anti-Dispersão)',
+        category: 'Setor Físico (Roda)',
+        authorOrigin: 'Estratégia Diametral Inversa / Efeito Pêndulo (5 Números)',
+        description: 'Faz a antítese física de vizinhos: quando a roleta espalha e não respeita vizinhos do último número, aposta no ponto diametralmente oposto (180° no disco) com ±2 vizinhos (5 números).',
+        coveragePct: 13.5,
+        riskLevel: 'Médio',
+        initialBalance: initialBankroll,
+        finalBalance: balance,
+        netProfit,
+        roiPct: totalWagered > 0 ? (netProfit / totalWagered) * 100 : 0,
+        winCount,
+        lossCount,
+        winRatePct: evaluatedSpins > 0 ? (winCount / evaluatedSpins) * 100 : 0,
+        post100WinCount,
+        post100LossCount,
+        post100Profit,
+        post100EvaluatedSpins,
+        maxConsecutiveWins: maxWins,
+        maxConsecutiveLosses: maxLoss,
+        maxDrawdown: maxDD,
+        historyChartData: history,
+        currentSeqType: currWins > 0 ? 'GREEN' : currLoss > 0 ? 'RED' : null,
+        currentSeqCount: currWins > 0 ? currWins : currLoss > 0 ? currLoss : 0,
+        howToApply: [
+          'Identifique o último número sorteado no histórico da roleta.',
+          'Localize o número diametralmente oposto na pista europeia (18 casas de distância).',
+          `Aposte ${config.currency} ${chipVal.toFixed(2)} no centro oposto e em 2 vizinhos de cada lado (total de 5 plenos).`,
+          'Ideal para momentos em que a roleta rejeita aglomerações e alterna entre polos opostos do cilindro (efeito pêndulo).'
         ]
       };
     };
@@ -1740,6 +1846,7 @@ export const StrategyBacktestPanel: React.FC<StrategyBacktestPanelProps> = ({
       runRomanosky(),
       runTwoDozens(),
       runNeighborsAlert(),
+      runOppositeSector(),
       runColdCycle(),
       runJamesBond(),
       runVoisins(),
